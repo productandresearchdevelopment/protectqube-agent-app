@@ -236,7 +236,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ title, children }) => {
 
       <div className="border-t border-white/10 p-3 bg-black/20">
         <div className={`flex items-center ${isCollapsed ? "justify-center" : "gap-2.5"} p-1 rounded-xl`}>
-          <span className="grid size-8 shrink-0 place-items-center rounded-full bg-gradient-to-tr from-[#00c875] to-[#0073ea] text-xs font-bold text-white shadow-xs">
+          <span className="grid size-8 shrink-0 place-items-center rounded-full bg-linear-to-tr from-[#00c875] to-[#0073ea] text-xs font-bold text-white shadow-xs">
             {user?.name ? user.name.charAt(0).toUpperCase() : "A"}
           </span>
           {!isCollapsed && (

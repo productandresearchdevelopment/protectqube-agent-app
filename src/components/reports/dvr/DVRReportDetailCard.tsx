@@ -491,7 +491,7 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
             <div className="mt-4 space-y-2.5">
               {d.timeline_tracks.map((track, tIdx) => (
                 <div key={tIdx} className="flex items-center gap-3">
-                  <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 min-w-[70px] truncate">
+                  <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 min-w-17.5 truncate">
                     {track.track_name}
                   </span>
 
@@ -514,12 +514,12 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
             </div>
 
             {/* Hover Tooltip display */}
-            <div className="h-4 mt-2 pl-[82px] text-[10px] text-slate-500 dark:text-slate-400 truncate">
+            <div className="h-4 mt-2 pl-20.5 text-[10px] text-slate-500 dark:text-slate-400 truncate">
               {hoveredSegment || "Arahkan kursor ke timeline untuk melihat detail"}
             </div>
 
             {/* Date Scale Ticks Beneath Timeline */}
-            <div className="mt-1 pl-[82px] flex justify-between text-[9px] text-slate-500 dark:text-slate-400 font-mono select-none">
+            <div className="mt-1 pl-20.5 flex justify-between text-[9px] text-slate-500 dark:text-slate-400 font-mono select-none">
               {dateTicks.map((tick, idx) => (
                 <span key={idx} className="hidden sm:inline-block">
                   {tick}
@@ -597,7 +597,7 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
                       <td className="py-2 px-3 text-slate-800 dark:text-slate-200 font-medium whitespace-nowrap">
                         {event.category}
                       </td>
-                      <td className="py-2 px-3 text-slate-700 dark:text-slate-300 truncate max-w-[170px]">
+                      <td className="py-2 px-3 text-slate-700 dark:text-slate-300 truncate max-w-42.5">
                         {event.description}
                       </td>
                     </tr>

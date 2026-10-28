@@ -53,7 +53,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-white dark:bg-slate-950 flex flex-col justify-center items-center p-6 font-sans text-slate-800 dark:text-slate-100 transition-colors">
-      <div className="w-full max-w-[380px] mx-auto space-y-6">
+      <div className="w-full max-w-95 mx-auto space-y-6">
         <div className="text-center space-y-2">
           <div className="flex justify-center mb-3">
             <AIPreventiveLogo className="size-10 text-slate-800 dark:text-white" />

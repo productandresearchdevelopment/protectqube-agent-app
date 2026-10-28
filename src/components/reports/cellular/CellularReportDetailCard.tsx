@@ -408,7 +408,7 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
 
             {/* Timeline Bar Row */}
             <div className="mt-4 flex items-center gap-3">
-              <span className="text-xs font-bold text-slate-900 dark:text-white min-w-[44px]">
+              <span className="text-xs font-bold text-slate-900 dark:text-white min-w-11">
                 {d.id}
               </span>
 
@@ -487,7 +487,7 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
                       <td className="py-2 px-3 text-center font-bold text-[#f59e0b] whitespace-nowrap">
                         {event.duration}
                       </td>
-                      <td className="py-2 px-3 text-slate-800 dark:text-slate-200 truncate max-w-[200px]">
+                      <td className="py-2 px-3 text-slate-800 dark:text-slate-200 truncate max-w-50">
                         {event.cause}
                       </td>
                     </tr>

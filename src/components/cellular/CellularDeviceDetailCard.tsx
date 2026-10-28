@@ -108,7 +108,7 @@ const SparklineWave = ({
     <div className="w-full flex justify-center py-1">
       <svg
         viewBox={`0 0 ${width} ${height}`}
-        className="w-full max-w-[130px] h-6 overflow-visible"
+        className="w-full max-w-32.5 h-6 overflow-visible"
         preserveAspectRatio="none"
       >
         <defs>
@@ -570,7 +570,7 @@ export const CellularDeviceDetailCard: React.FC<CellularDeviceDetailCardProps> =
                 }
               />
 
-              <div className="text-xs space-y-1 font-mono text-slate-700 dark:text-slate-300 flex-1 min-w-0 max-w-[210px]">
+              <div className="text-xs space-y-1 font-mono text-slate-700 dark:text-slate-300 flex-1 min-w-0 max-w-52.5">
                 <div className="flex items-center justify-between">
                   <span className="text-slate-500 dark:text-slate-400 font-sans">Operator:</span>
                   <span className="text-slate-800 dark:text-slate-200 font-sans font-medium">{d.network_sim.operator}</span>

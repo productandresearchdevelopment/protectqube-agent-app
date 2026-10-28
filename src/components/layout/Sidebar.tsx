@@ -179,7 +179,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {!collapsed ? (
               <div className="flex items-center justify-between p-2 rounded-xl bg-white/5 hover:bg-white/10 transition-colors">
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#00c875] to-[#0073ea] flex items-center justify-center text-xs font-bold text-white shadow-sm shrink-0">
+                  <div className="w-8 h-8 rounded-full bg-linear-to-tr from-[#00c875] to-[#0073ea] flex items-center justify-center text-xs font-bold text-white shadow-sm shrink-0">
                     {user?.name ? user.name.charAt(0).toUpperCase() : "A"}
                   </div>
                   <div className="flex flex-col min-w-0">

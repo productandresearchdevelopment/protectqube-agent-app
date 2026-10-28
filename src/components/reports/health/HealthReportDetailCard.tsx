@@ -630,13 +630,13 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
                 {/* Uptime Green Segment */}
                 <div 
                   style={{ width: `${uptimePctNum}%` }} 
-                  className="h-full bg-gradient-to-r from-emerald-600 to-[#00c875] transition-all duration-500"
+                  className="h-full bg-linear-to-r from-emerald-600 to-[#00c875] transition-all duration-500"
                   title={`Nyala (Uptime): ${uptimeDurationText} (${uptimePctNum}%)`}
                 />
                 {/* Downtime Red Segment */}
                 <div 
                   style={{ width: `${downtimePctNum}%` }} 
-                  className="h-full bg-gradient-to-r from-rose-500 to-[#e2445c] transition-all duration-500"
+                  className="h-full bg-linear-to-r from-rose-500 to-[#e2445c] transition-all duration-500"
                   title={`Mati (Downtime): ${downtimeDurationText} (${downtimePctNum}%)`}
                 />
                 {/* SLA 99.5% Target Marker */}
@@ -810,7 +810,7 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
             <div className="mt-4 space-y-2.5">
               {d.timeline_tracks.map((track, tIdx) => (
                 <div key={tIdx} className="flex items-center gap-3">
-                  <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 min-w-[55px] truncate">
+                  <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 min-w-13.75 truncate">
                     {track.track_name}
                   </span>
 
@@ -832,12 +832,12 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
             </div>
 
             {/* Hover Tooltip display */}
-            <div className="h-4 mt-2 pl-[68px] text-[10px] text-slate-500 dark:text-slate-400 truncate">
+            <div className="h-4 mt-2 pl-17 text-[10px] text-slate-500 dark:text-slate-400 truncate">
               {hoveredSegment || "Arahkan kursor ke timeline untuk melihat detail"}
             </div>
 
             {/* Date Scale Ticks Beneath Timeline */}
-            <div className="mt-1 pl-[68px] flex justify-between text-[9px] text-slate-500 dark:text-slate-400 font-mono select-none">
+            <div className="mt-1 pl-17 flex justify-between text-[9px] text-slate-500 dark:text-slate-400 font-mono select-none">
               {dateTicks.map((tick, idx) => (
                 <span key={idx} className="hidden sm:inline-block">
                   {tick}
@@ -913,7 +913,7 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
                             {evt.category}
                           </span>
                         </td>
-                        <td className="py-2 px-2.5 text-slate-700 dark:text-slate-300 truncate max-w-[150px]">{evt.reason}</td>
+                        <td className="py-2 px-2.5 text-slate-700 dark:text-slate-300 truncate max-w-37.5">{evt.reason}</td>
                         <td className="py-2 px-2 text-center font-mono text-rose-600 dark:text-rose-400 whitespace-nowrap">{evt.sla_impact}</td>
                       </tr>
                     ))}
@@ -970,7 +970,7 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
                         <td className={`py-2 px-2 text-center font-bold whitespace-nowrap ${event.value.includes("°C") ? "text-[#e2445c]" : "text-slate-700 dark:text-slate-300"}`}>
                           {event.value}
                         </td>
-                        <td className="py-2 px-2.5 text-slate-700 dark:text-slate-300 truncate max-w-[150px]">
+                        <td className="py-2 px-2.5 text-slate-700 dark:text-slate-300 truncate max-w-37.5">
                           {event.description}
                         </td>
                       </tr>

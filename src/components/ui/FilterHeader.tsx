@@ -113,7 +113,7 @@ export const FilterHeader: React.FC<FilterHeaderProps> = ({
           {/* Bottom Bar: Search Bar & All Dynamic Filters (Neatly side-by-side on 1 row) */}
           <div className="flex flex-wrap items-center gap-2.5">
             {/* Search Input */}
-            <div className="relative min-w-[220px] max-w-sm flex-1 sm:flex-initial">
+            <div className="relative min-w-55 max-w-sm flex-1 sm:flex-initial">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-slate-400 dark:text-slate-500" />
               <input
                 type="text"
@@ -158,7 +158,7 @@ export const FilterHeader: React.FC<FilterHeaderProps> = ({
           {/* Left Side: Search Bar & Filters */}
           <div className="flex flex-wrap items-center gap-2.5 flex-1 min-w-0">
             {/* Search Input */}
-            <div className="relative min-w-[200px] sm:min-w-[260px] max-w-md flex-1">
+            <div className="relative min-w-50 sm:min-w-65 max-w-md flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400 dark:text-slate-500" />
               <input
                 type="text"

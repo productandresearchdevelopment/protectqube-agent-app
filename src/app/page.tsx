@@ -1067,8 +1067,8 @@ export default function OverviewPage() {
                   key={device.id}
                   className={`bg-white dark:bg-[#0a1224] rounded-2xl p-4 sm:p-5 border transition-all duration-200 hover:shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4 ${
                     isCrit
-                      ? "border-rose-500/30 hover:border-rose-500/70 bg-gradient-to-r from-rose-500/[0.03] to-transparent"
-                      : "border-amber-500/30 hover:border-amber-500/70 bg-gradient-to-r from-amber-500/[0.03] to-transparent"
+                      ? "border-rose-500/30 hover:border-rose-500/70 bg-linear-to-r from-rose-500/3 to-transparent"
+                      : "border-amber-500/30 hover:border-amber-500/70 bg-linear-to-r from-amber-500/3 to-transparent"
                   }`}
                 >
                   {/* Left: Device Info, Location & Alert Details */}

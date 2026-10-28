@@ -132,7 +132,7 @@ const SparklineWave = ({
     <div className="w-full flex justify-center py-1">
       <svg
         viewBox={`0 0 ${width} ${height}`}
-        className="w-full max-w-[130px] h-6 overflow-visible"
+        className="w-full max-w-32.5 h-6 overflow-visible"
         preserveAspectRatio="none"
       >
         <defs>
@@ -1061,12 +1061,12 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
               <div className="relative h-4 bg-slate-200 dark:bg-slate-900 rounded-full overflow-hidden flex border border-slate-300 dark:border-slate-800">
                 <div
                   style={{ width: `${uptimePctNum}%` }}
-                  className="h-full bg-gradient-to-r from-emerald-600 to-[#00c875] transition-all duration-500"
+                  className="h-full bg-linear-to-r from-emerald-600 to-[#00c875] transition-all duration-500"
                   title={`Nyala (Uptime): ${uptimeDurationText} (${uptimePctNum}%)`}
                 />
                 <div
                   style={{ width: `${downtimePctNum}%` }}
-                  className="h-full bg-gradient-to-r from-rose-500 to-[#e2445c] transition-all duration-500"
+                  className="h-full bg-linear-to-r from-rose-500 to-[#e2445c] transition-all duration-500"
                   title={`Mati (Downtime): ${downtimeDurationText} (${downtimePctNum}%)`}
                 />
                 <div
@@ -1196,7 +1196,7 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                             {evt.category}
                           </span>
                         </td>
-                        <td className="py-2.5 px-3 text-slate-600 dark:text-slate-300 min-w-[200px]">{evt.reason}</td>
+                        <td className="py-2.5 px-3 text-slate-600 dark:text-slate-300 min-w-50">{evt.reason}</td>
                         <td className="py-2.5 px-3 font-mono text-rose-600 dark:text-rose-400 whitespace-nowrap">
                           -{evt.sla_impact_pct}%
                         </td>
@@ -1230,7 +1230,7 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
             </div>
 
             {/* AIOps Summary Box */}
-            <div className="bg-gradient-to-r from-blue-50 via-indigo-50/50 to-slate-50 dark:from-blue-950/40 dark:via-indigo-950/30 dark:to-slate-900 border border-blue-200 dark:border-blue-500/30 rounded-xl p-4 flex flex-col sm:flex-row items-start gap-3 shadow-xs">
+            <div className="bg-linear-to-r from-blue-50 via-indigo-50/50 to-slate-50 dark:from-blue-950/40 dark:via-indigo-950/30 dark:to-slate-900 border border-blue-200 dark:border-blue-500/30 rounded-xl p-4 flex flex-col sm:flex-row items-start gap-3 shadow-xs">
               <div className="size-8 rounded-lg bg-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
                 <Info className="size-4" />
               </div>

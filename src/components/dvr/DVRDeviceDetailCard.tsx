@@ -116,7 +116,7 @@ const SparklineWave = ({
     <div className="w-full flex justify-center py-1">
       <svg
         viewBox={`0 0 ${width} ${height}`}
-        className="w-full max-w-[130px] h-6 overflow-visible"
+        className="w-full max-w-32.5 h-6 overflow-visible"
         preserveAspectRatio="none"
       >
         <defs>
@@ -202,16 +202,16 @@ const CCTVViewport = ({
   return (
     <div className="relative group bg-[#060a14] border border-slate-800 rounded-lg overflow-hidden shadow-md flex flex-col justify-between aspect-video transition-all hover:border-slate-700">
       {/* CCTV Screen Texture / Simulation Background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-[#0a1122] to-[#040812] opacity-90" />
-      <div className="absolute inset-0 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:16px_16px] opacity-25" />
+      <div className="absolute inset-0 bg-linear-to-br from-slate-900 via-[#0a1122] to-[#040812] opacity-90" />
+      <div className="absolute inset-0 bg-[radial-gradient(#1e293b_1px,transparent_1px)] bg-size-[16px_16px] opacity-25" />
 
       {/* Top Header Overlay: Camera Name & REC badge */}
-      <div className="relative z-10 p-2 flex items-center justify-between text-[10px] text-white bg-gradient-to-b from-black/80 via-black/40 to-transparent">
+      <div className="relative z-10 p-2 flex items-center justify-between text-[10px] text-white bg-linear-to-b from-black/80 via-black/40 to-transparent">
         <div className="flex items-center gap-1.5 font-bold tracking-tight">
           <span className="px-1.5 py-0.5 rounded-xs bg-slate-800/90 text-cyan-400 font-mono text-[9px] border border-slate-700">
             CH{camera.channel}
           </span>
-          <span className="truncate max-w-[140px] font-sans drop-shadow-xs">{camera.name}</span>
+          <span className="truncate max-w-35 font-sans drop-shadow-xs">{camera.name}</span>
         </div>
 
         {camera.is_recording ? (
@@ -256,7 +256,7 @@ const CCTVViewport = ({
       </div>
 
       {/* Bottom Footer Overlay: Timecode & Stream Specs */}
-      <div className="relative z-10 px-2 py-1.5 flex items-center justify-between text-[9px] font-mono text-slate-300 bg-gradient-to-t from-black/90 via-black/40 to-transparent">
+      <div className="relative z-10 px-2 py-1.5 flex items-center justify-between text-[9px] font-mono text-slate-300 bg-linear-to-t from-black/90 via-black/40 to-transparent">
         <span className="drop-shadow-xs">{camera.timestamp}</span>
         <span className="text-slate-400">{camera.resolution}</span>
       </div>
@@ -701,7 +701,7 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                 }
               />
 
-              <div className="text-xs space-y-1.5 font-mono text-slate-700 dark:text-slate-300 flex-1 min-w-0 max-w-[210px]">
+              <div className="text-xs space-y-1.5 font-mono text-slate-700 dark:text-slate-300 flex-1 min-w-0 max-w-52.5">
                 <div className="flex items-center justify-between">
                   <span className="text-slate-500 dark:text-slate-400 font-sans">Status:</span>
                   <span
@@ -897,7 +897,7 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
 
             {/* Modal Video Player Viewport */}
             <div className="relative aspect-video bg-black flex items-center justify-center overflow-hidden">
-              <div className="absolute inset-0 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:20px_20px] opacity-30" />
+              <div className="absolute inset-0 bg-[radial-gradient(#1e293b_1px,transparent_1px)] bg-size-[20px_20px] opacity-30" />
               <div className="text-center space-y-2 relative z-10">
                 <div className="size-16 rounded-full bg-[#0073ea]/20 border border-blue-500/30 text-blue-400 flex items-center justify-center mx-auto shadow-lg">
                   <Play className="size-8 ml-1" />
@@ -941,7 +941,7 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
               <div className="relative w-full h-6 bg-slate-900 rounded-md overflow-hidden border border-slate-800 flex items-center">
                 <div className="absolute inset-y-0 left-0 w-[65%] bg-emerald-600/40 border-r border-emerald-400" />
                 <div className="absolute inset-y-0 left-[60%] w-0.5 bg-rose-500 z-10 shadow-[0_0_8px_rgba(244,63,94,1)]">
-                  <div className="size-2 rounded-full bg-rose-500 -ml-[3px] -mt-0.5" />
+                  <div className="size-2 rounded-full bg-rose-500 -ml-0.75 -mt-0.5" />
                 </div>
               </div>
 
