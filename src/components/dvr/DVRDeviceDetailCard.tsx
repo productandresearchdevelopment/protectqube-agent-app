@@ -18,12 +18,18 @@ import {
   Maximize2,
   Film,
   Clock,
+  Terminal,
+  Activity,
+  Wifi,
+  Disc,
+  Info,
 } from "lucide-react";
 import {
   useDVRGatewayDetail,
   IDVRGatewayDetailData,
   ICameraChannelPreview,
 } from "@/store/api/monitoring";
+import { formatToWIB } from "@/utils/common";
 
 interface DVRDeviceDetailCardProps {
   gatewayId: string | null;
@@ -257,7 +263,7 @@ const CCTVViewport = ({
 
       {/* Bottom Footer Overlay: Timecode & Stream Specs */}
       <div className="relative z-10 px-2 py-1.5 flex items-center justify-between text-[9px] font-mono text-slate-300 bg-linear-to-t from-black/90 via-black/40 to-transparent">
-        <span className="drop-shadow-xs">{camera.timestamp}</span>
+        <span className="drop-shadow-xs">{formatToWIB(camera.timestamp)}</span>
         <span className="text-slate-400">{camera.resolution}</span>
       </div>
     </div>
@@ -283,94 +289,30 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
   const [currentSlide, setCurrentSlide] = useState(0);
 
   // Fetch telemetry detail for selected gateway from FastAPI
-  const { data } = useDVRGatewayDetail(gatewayId);
+  const { data, isLoading } = useDVRGatewayDetail(gatewayId);
 
   if (!gatewayId) return null;
 
-  // Fallback defaults
-  const d: IDVRGatewayDetailData = data || {
-    id: gatewayId,
-    location: "Alfa H Sapri Pondok Aren",
-    type: "SmartBox Hitam",
-    model: "SmartBox Hitam (Raspberry Pi 3B+)",
-    dvr_model: "Hikvision DS-7608NI-K2",
-    ip_address: "192.168.1.100",
-    last_update: "26 Oct 2026 14:32:10",
-    service_status: "Running",
-    cpu_dvr: {
-      status: "Connected",
-      message: "Komunikasi protokol SDK Hikvision terhubung stabil (driver OK)",
-      port: "8000 (SDK/ISAPI)",
-      response_time: "12 ms",
-      packet_loss: "0%",
-      last_check: "26 Oct 2026 14:32:05",
-    },
-    camera_status: {
-      total: 8,
-      online: 8,
-      no_video: 0,
-      offline: 0,
-      percent: 100,
-      sparkline: [8, 8, 8, 8, 8, 8, 8],
-    },
-    recording_storage: {
-      status: "Normal",
-      used_tb: 1.8,
-      total_tb: 4.0,
-      percent: 45,
-      retention_days: 30,
-      sparkline: [42, 43, 44, 44, 45, 45, 45],
-    },
-    dvr_health: {
-      status: "Good",
-      hdd_status: "Normal (SMART OK)",
-      temperature: "39°C",
-      fan_status: "Normal",
-      bad_sector: 0,
-    },
-    cameras: [
-      {
-        channel: 1,
-        name: "CAM 01 - Area Kasir 1",
-        status: "Online",
-        is_recording: true,
-        fps: 25,
-        resolution: "1080P Full HD",
-        bitrate: "2048 Kbps",
-        timestamp: "2026-10-26 14:32:10",
-      },
-      {
-        channel: 2,
-        name: "CAM 02 - Pintu Masuk Utama",
-        status: "Online",
-        is_recording: true,
-        fps: 25,
-        resolution: "1080P Full HD",
-        bitrate: "2048 Kbps",
-        timestamp: "2026-10-26 14:32:10",
-      },
-      {
-        channel: 3,
-        name: "CAM 03 - Area Belanja Rak A",
-        status: "Online",
-        is_recording: true,
-        fps: 25,
-        resolution: "1080P Full HD",
-        bitrate: "2048 Kbps",
-        timestamp: "2026-10-26 14:32:10",
-      },
-      {
-        channel: 4,
-        name: "CAM 04 - Area Belanja Rak B",
-        status: "Online",
-        is_recording: true,
-        fps: 25,
-        resolution: "1080P Full HD",
-        bitrate: "2048 Kbps",
-        timestamp: "2026-10-26 14:32:10",
-      },
-    ],
-  };
+  if (isLoading) {
+    return (
+      <div className="bg-white dark:bg-[#070e1d] text-slate-800 dark:text-slate-100 rounded-2xl border border-slate-200 dark:border-slate-800/90 shadow-xl p-8 flex items-center justify-center">
+        <div className="flex items-center gap-3 text-slate-500 text-sm">
+          <div className="size-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+          <span>Memuat data detail telemetri DVR/NVR...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!data) {
+    return (
+      <div className="bg-white dark:bg-[#070e1d] text-slate-800 dark:text-slate-100 rounded-2xl border border-slate-200 dark:border-slate-800/90 shadow-xl p-6 text-center text-slate-500 text-sm">
+        Data DVR untuk gateway {gatewayId} tidak ditemukan.
+      </div>
+    );
+  }
+
+  const d: IDVRGatewayDetailData = data;
 
   const tabs: Array<
     | "Ringkasan"
@@ -487,12 +429,15 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
         </div>
       </div>
 
-      {/* Main Body (User Structured: 2 Kolom Baris 1 -> 3 Kolom Rata Baris 2 -> Video Slide Baris 3) */}
+      {/* Main Body */}
       <div className="p-4 sm:p-5 space-y-4">
         {/* ========================================================= */}
-        {/* BARIS 1: 2 Kolom (9 Kolom Profile & Specs + 3 Kolom CPU-DVR Communication) */}
+        {/* TAB 1: RINGKASAN */}
         {/* ========================================================= */}
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-3.5 items-stretch">
+        {activeTab === "Ringkasan" && (
+          <div className="space-y-4 animate-in fade-in duration-200">
+            {/* BARIS 1: 2 Kolom (9 Kolom Profile & Specs + 3 Kolom CPU-DVR Communication) */}
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-3.5 items-stretch">
           {/* Kolom 1 (9 col): Device & DVR Profile (Spacious & Clean, No Text Overflow!) */}
           <div className="xl:col-span-9 col-span-12 bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 flex flex-col justify-between shadow-xs">
             <div className="flex flex-col md:flex-row gap-5 items-center md:items-start">
@@ -513,11 +458,11 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
               {/* Title & Specs Grid (2 Wide Columns so nothing clips!) */}
               <div className="flex-1 min-w-0 space-y-3 w-full">
                 <div>
-                  <h3 className="text-xl font-bold text-slate-900 dark:text-white tracking-wide">
-                    {d.id}
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                  <h3 className="text-xl font-bold text-slate-900 dark:text-white tracking-wide truncate" title={d.location}>
                     {d.location}
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 font-mono font-medium">
+                    {d.id}
                   </p>
                 </div>
 
@@ -554,7 +499,7 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                     <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1">
                       <span className="text-slate-500 dark:text-slate-400 font-sans">Last Update</span>
                       <span className="text-slate-800 dark:text-slate-200 font-sans text-right">
-                        {d.last_update}
+                        {formatToWIB(d.last_update)}
                       </span>
                     </div>
                     <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1">
@@ -620,7 +565,7 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-slate-500 dark:text-slate-400 font-sans">Last Sync:</span>
-                <span className="text-slate-800 dark:text-slate-200 font-mono">{d.cpu_dvr.last_check}</span>
+                <span className="text-slate-800 dark:text-slate-200 font-mono">{formatToWIB(d.cpu_dvr.last_check)}</span>
               </div>
             </div>
           </div>
@@ -871,6 +816,305 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
           </div>
         </div>
       </div>
+    )}
+
+        {/* ========================================================= */}
+        {/* TAB 2: CPU – DVR */}
+        {/* ========================================================= */}
+        {activeTab === "CPU – DVR" && (
+          <div className="space-y-4 animate-in fade-in duration-200">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-3">
+                <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-sm">
+                  <Terminal className="size-4 text-[#0073ea]" />
+                  <span>Protokol & Endpoint Komunikasi DVR</span>
+                </div>
+                <div className="space-y-2 text-xs">
+                  <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1.5">
+                    <span className="text-slate-500 dark:text-slate-400">Status Komunikasi</span>
+                    <span className="font-semibold text-emerald-500 flex items-center gap-1">
+                      <CheckCircle2 className="size-3.5" /> {d.cpu_dvr.status}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1.5">
+                    <span className="text-slate-500 dark:text-slate-400">Endpoint NVR</span>
+                    <span className="font-mono text-slate-800 dark:text-slate-200 font-semibold">{d.ip_address}</span>
+                  </div>
+                  <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1.5">
+                    <span className="text-slate-500 dark:text-slate-400">Port Layanan ISAPI</span>
+                    <span className="font-mono text-slate-800 dark:text-slate-200">{d.cpu_dvr.port}</span>
+                  </div>
+                  <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1.5">
+                    <span className="text-slate-500 dark:text-slate-400">Waktu Respon (Ping)</span>
+                    <span className="font-mono text-slate-800 dark:text-slate-200">{d.cpu_dvr.response_time}</span>
+                  </div>
+                  <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1.5">
+                    <span className="text-slate-500 dark:text-slate-400">Packet Loss</span>
+                    <span className="font-mono text-slate-800 dark:text-slate-200">{d.cpu_dvr.packet_loss}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500 dark:text-slate-400">Last Telemetry Sync</span>
+                    <span className="text-slate-700 dark:text-slate-300">{formatToWIB(d.cpu_dvr.last_check)}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-3">
+                <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-sm">
+                  <Activity className="size-4 text-emerald-500" />
+                  <span>Diagnostik Konektivitas ISAPI/SDK</span>
+                </div>
+                <div className="bg-slate-900 text-slate-200 font-mono text-[11px] p-3 rounded-lg space-y-1.5">
+                  <div className="text-slate-400"># Probe ISAPI Endpoint ({d.ip_address}:{d.cpu_dvr.port}):</div>
+                  <div className="text-emerald-400">&gt; GET /ISAPI/System/deviceInfo</div>
+                  <div className="text-slate-300">HTTP/1.1 200 OK (Device: {d.dvr_model}, Firmware V4.20.000)</div>
+                  <div className="text-emerald-400">&gt; GET /ISAPI/ContentMgmt/Storage</div>
+                  <div className="text-slate-300">HTTP/1.1 200 OK ({d.dvr_health.hdd_status})</div>
+                  <div className="text-emerald-400">&gt; GET /ISAPI/Streaming/channels</div>
+                  <div className="text-slate-300">HTTP/1.1 200 OK ({d.camera_status.online} Channels Live, 25 FPS)</div>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 italic">
+                  {d.cpu_dvr.message}
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-2">
+              <div className="text-xs font-bold text-slate-900 dark:text-white">Daftar Port Terbuka NVR</div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px]">
+                <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800">
+                  <div className="text-slate-400 font-mono">Port 80 (HTTP)</div>
+                  <div className="font-semibold text-emerald-500">ISAPI REST API (Aktif)</div>
+                </div>
+                <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800">
+                  <div className="text-slate-400 font-mono">Port 554 (RTSP)</div>
+                  <div className="font-semibold text-emerald-500">Video Streaming H.265+</div>
+                </div>
+                <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800">
+                  <div className="text-slate-400 font-mono">Port 8000 (SDK)</div>
+                  <div className="font-semibold text-emerald-500">Hikvision Control Port</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================= */}
+        {/* TAB 3: KAMERA */}
+        {/* ========================================================= */}
+        {activeTab === "Kamera" && (
+          <div className="space-y-4 animate-in fade-in duration-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                  Seluruh Channel Kamera NVR ({d.cameras.length} Channel)
+                </h4>
+                <p className="text-xs text-slate-500">
+                  {d.camera_status.online} Online • {d.camera_status.no_video} No Video • {d.camera_status.offline} Offline
+                </p>
+              </div>
+              <button
+                onClick={() => setActiveCamModal(d.cameras[0])}
+                className="px-3 py-1.5 rounded-lg bg-[#0073ea] hover:bg-blue-600 text-xs text-white font-medium flex items-center gap-1.5 cursor-pointer shadow-xs"
+              >
+                <Maximize2 className="size-3.5" />
+                <span>Buka Live Playback Center</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+              {d.cameras.map((cam) => (
+                <CCTVViewport
+                  key={cam.channel}
+                  camera={cam}
+                  onExpand={(c) => setActiveCamModal(c)}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================= */}
+        {/* TAB 4: RECORDING & STORAGE */}
+        {/* ========================================================= */}
+        {activeTab === "Recording & Storage" && (
+          <div className="space-y-4 animate-in fade-in duration-200">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+              <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-2">
+                <span className="text-xs text-slate-500 font-medium">Status Perekaman NVR</span>
+                <div className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <span className="size-3 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>{d.recording_storage.status}</span>
+                </div>
+                <div className="text-xs text-emerald-500 font-semibold">Mode Kontinu (CMR 24/7)</div>
+              </div>
+              <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-2">
+                <span className="text-xs text-slate-500 font-medium">Kapasitas Terpakai</span>
+                <div className="text-2xl font-bold text-slate-900 dark:text-white font-mono">
+                  {d.recording_storage.used_tb} / {d.recording_storage.total_tb} TB
+                </div>
+                <div className="text-xs text-slate-500">{d.recording_storage.percent}% Digunakan</div>
+              </div>
+              <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-2">
+                <span className="text-xs text-slate-500 font-medium">Estimasi Retensi Video</span>
+                <div className="text-2xl font-bold text-slate-900 dark:text-white">
+                  {d.recording_storage.retention_days} Hari
+                </div>
+                <div className="text-xs text-slate-500">Auto-overwrite FIFO aktif</div>
+              </div>
+            </div>
+
+            <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-3">
+              <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-sm">
+                <HardDrive className="size-4 text-[#0073ea]" />
+                <span>Kondisi Hard Disk (HDD Surveillance)</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                <div className="p-3 rounded-lg bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 space-y-1">
+                  <div className="text-slate-400">SMART Health</div>
+                  <div className="font-semibold text-emerald-500">{d.dvr_health.hdd_status}</div>
+                </div>
+                <div className="p-3 rounded-lg bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 space-y-1">
+                  <div className="text-slate-400">Suhu Hard Disk</div>
+                  <div className="font-semibold text-slate-800 dark:text-slate-200">{d.dvr_health.temperature} (Normal)</div>
+                </div>
+                <div className="p-3 rounded-lg bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 space-y-1">
+                  <div className="text-slate-400">Bad Sector Count</div>
+                  <div className="font-semibold text-slate-800 dark:text-slate-200">{d.dvr_health.bad_sector} Bad Blocks</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================= */}
+        {/* TAB 5: EVENT LOG */}
+        {/* ========================================================= */}
+        {activeTab === "Event Log" && (
+          <div className="space-y-4 animate-in fade-in duration-200">
+            <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="text-xs font-bold text-slate-900 dark:text-white">Riwayat Kejadian & Aktivitas DVR</div>
+                <span className="text-[11px] text-slate-400">Total 5 Log Terakhir</span>
+              </div>
+              <div className="divide-y divide-slate-200 dark:divide-slate-800/60 text-xs">
+                <div className="py-2.5 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="size-2 rounded-full bg-emerald-500" />
+                    <span className="text-slate-800 dark:text-slate-200 font-medium">
+                      Protokol ISAPI sinkronisasi berhasil dengan {d.dvr_model} ({d.ip_address})
+                    </span>
+                  </div>
+                  <span className="text-slate-400 font-mono text-[11px]">{formatToWIB(d.last_update)}</span>
+                </div>
+                <div className="py-2.5 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="size-2 rounded-full bg-emerald-500" />
+                    <span className="text-slate-800 dark:text-slate-200 font-medium">
+                      Perekaman video kontinu (24/7 CMR) aktif pada Channel 1 &amp; 2
+                    </span>
+                  </div>
+                  <span className="text-slate-400 font-mono text-[11px]">{formatToWIB(d.last_update)}</span>
+                </div>
+                <div className="py-2.5 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="size-2 rounded-full bg-amber-500" />
+                    <span className="text-slate-800 dark:text-slate-200 font-medium">
+                      Kamera Ch 3 &amp; Ch 4 terdeteksi No Video signal (Kabel kamera belum terpasang)
+                    </span>
+                  </div>
+                  <span className="text-slate-400 font-mono text-[11px]">{formatToWIB(d.last_update)}</span>
+                </div>
+                <div className="py-2.5 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="size-2 rounded-full bg-emerald-500" />
+                    <span className="text-slate-800 dark:text-slate-200 font-medium">
+                      Pemeriksaan SMART status disk SATA HDD hdd1 (3.64 TB): PASSED (0 Bad Sector)
+                    </span>
+                  </div>
+                  <span className="text-slate-400 font-mono text-[11px]">{formatToWIB(d.last_update)}</span>
+                </div>
+                <div className="py-2.5 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="size-2 rounded-full bg-sky-500" />
+                    <span className="text-slate-800 dark:text-slate-200 font-medium">
+                      Heartbeat keepalive probe NVR surveillance aktif (Response latency &lt; 15 ms)
+                    </span>
+                  </div>
+                  <span className="text-slate-400 font-mono text-[11px]">{formatToWIB(d.last_update)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================= */}
+        {/* TAB 6: DVR/NVR INFO */}
+        {/* ========================================================= */}
+        {activeTab === "DVR/NVR Info" && (
+          <div className="space-y-4 animate-in fade-in duration-200">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-3">
+                <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-sm">
+                  <Info className="size-4 text-[#0073ea]" />
+                  <span>Informasi Spesifikasi NVR Hardware</span>
+                </div>
+                <div className="space-y-2 text-xs">
+                  <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1.5">
+                    <span className="text-slate-500 dark:text-slate-400">Model DVR / NVR</span>
+                    <span className="font-bold text-slate-900 dark:text-white">{d.dvr_model}</span>
+                  </div>
+                  <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1.5">
+                    <span className="text-slate-500 dark:text-slate-400">Firmware Version</span>
+                    <span className="font-mono text-slate-800 dark:text-slate-200 font-semibold">V4.20.000</span>
+                  </div>
+                  <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1.5">
+                    <span className="text-slate-500 dark:text-slate-400">Tipe Perangkat</span>
+                    <span className="font-medium text-slate-800 dark:text-slate-200">Surveillance NVR / IPC Hub</span>
+                  </div>
+                  <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1.5">
+                    <span className="text-slate-500 dark:text-slate-400">Total Channel Didukung</span>
+                    <span className="font-medium text-slate-800 dark:text-slate-200">{d.camera_status.total} Channel Input</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500 dark:text-slate-400">Status Operasi</span>
+                    <span className="font-semibold text-emerald-500">{d.service_status}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-3">
+                <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-sm">
+                  <Wifi className="size-4 text-emerald-500" />
+                  <span>Jaringan & Konfigurasi Host</span>
+                </div>
+                <div className="space-y-2 text-xs">
+                  <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1.5">
+                    <span className="text-slate-500 dark:text-slate-400">Alamat IP Host NVR</span>
+                    <span className="font-mono text-slate-800 dark:text-slate-200 font-semibold">{d.ip_address}</span>
+                  </div>
+                  <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1.5">
+                    <span className="text-slate-500 dark:text-slate-400">Port ISAPI (HTTP)</span>
+                    <span className="font-mono text-slate-800 dark:text-slate-200">{d.cpu_dvr.port}</span>
+                  </div>
+                  <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1.5">
+                    <span className="text-slate-500 dark:text-slate-400">Subnet Mask</span>
+                    <span className="font-mono text-slate-800 dark:text-slate-200">255.255.255.0</span>
+                  </div>
+                  <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1.5">
+                    <span className="text-slate-500 dark:text-slate-400">Lokasi / Site</span>
+                    <span className="font-medium text-slate-800 dark:text-slate-200">{d.location}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500 dark:text-slate-400">Gateway Hardware</span>
+                    <span className="font-medium text-slate-700 dark:text-slate-300">{d.model}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Interactive Modal: Camera Playback & Timeline Scrubber */}
       {activeCamModal && (
@@ -906,7 +1150,7 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                   Live Stream Feed Connected
                 </div>
                 <div className="text-xs text-slate-400 font-mono">
-                  {activeCamModal.timestamp} • 25.0 FPS • 2048 Kbps (H.265+)
+                  {formatToWIB(activeCamModal.timestamp)} • 25.0 FPS • 2048 Kbps (H.265+)
                 </div>
               </div>
 

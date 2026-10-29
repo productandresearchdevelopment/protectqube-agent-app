@@ -40,123 +40,26 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
 
   if (!gatewayId) return null;
 
-  const isZH72 = gatewayId === "ZH72";
-  const d: IDVRReportGatewayDetail = data || {
-    id: gatewayId,
-    status: "Online",
-    location: isZH72 ? "Alfa H Sapri Pondok Aren" : "IDM Graha Morris Tambun",
-    type: isZH72 ? "SmartBox Hitam" : "SmartBox Putih",
-    dvr_model: isZH72 ? "Hikvision DS-7616NI" : "Dahua NVRS216",
-    kamera_channels: "4 Channel",
-    storage_capacity: "4 TB",
-    period: dateRange || "01 Oct 2026 - 31 Oct 2026",
-    period_hours: "(744 jam)",
-    cpu_dvr_uptime: "720h 15m",
-    cpu_dvr_uptime_pct: "96.8%",
-    cpu_dvr_offline: "23h 45m",
-    cpu_dvr_offline_pct: "3.2%",
-    success_rate: "98.8%",
-    success_rate_checks: "(5,421 / 5,486 check)",
-    avg_response_time: "180 ms",
-    rec_uptime: "708h 20m",
-    rec_uptime_pct: "95.2%",
-    rec_tidak_merekam: "12h 30m",
-    rec_tidak_merekam_pct: "1.7%",
-    rec_error: "3h 10m",
-    rec_error_pct: "0.4%",
-    storage_used_pct: 38,
-    kamera_total: 4,
-    kamera_online: 4,
-    kamera_no_video: 0,
-    kamera_offline: 0,
-    timeline_tracks: [
-      {
-        track_name: "CPU – DVR",
-        segments: [
-          { status: "online", start_pct: 0, width_pct: 23.5, label: "Online", period: "01 Oct - 08 Oct" },
-          { status: "offline", start_pct: 23.5, width_pct: 4.5, label: "DVR No Response", period: "08 Oct 02:14 - 06:32" },
-          { status: "online", start_pct: 28.0, width_pct: 23.0, label: "Online", period: "08 Oct - 16 Oct" },
-          { status: "no_data", start_pct: 51.0, width_pct: 3.0, label: "No Data", period: "16 Oct" },
-          { status: "degraded", start_pct: 54.0, width_pct: 3.5, label: "Degraded Response", period: "17 Oct" },
-          { status: "online", start_pct: 57.5, width_pct: 18.0, label: "Online", period: "18 Oct - 23 Oct" },
-          { status: "offline", start_pct: 75.5, width_pct: 3.5, label: "DVR Timeout", period: "23 Oct" },
-          { status: "online", start_pct: 79.0, width_pct: 8.0, label: "Online", period: "24 Oct - 26 Oct" },
-          { status: "offline", start_pct: 87.0, width_pct: 3.5, label: "DVR Timeout", period: "26 Oct 14:32 - 17:05" },
-          { status: "online", start_pct: 90.5, width_pct: 9.5, label: "Online", period: "26 Oct - 31 Oct" },
-        ],
-      },
-      {
-        track_name: "Recording",
-        segments: [
-          { status: "online", start_pct: 0, width_pct: 30.0, label: "Recording Normal", period: "01 Oct - 10 Oct" },
-          { status: "offline", start_pct: 30.0, width_pct: 3.5, label: "Tidak ada rekaman", period: "10 Oct - 11 Oct" },
-          { status: "online", start_pct: 33.5, width_pct: 2.5, label: "Recording Normal", period: "11 Oct - 12 Oct" },
-          { status: "offline", start_pct: 36.0, width_pct: 3.0, label: "Tidak ada rekaman", period: "12 Oct 11:20 - 13:05" },
-          { status: "online", start_pct: 39.0, width_pct: 18.0, label: "Recording Normal", period: "13 Oct - 18 Oct" },
-          { status: "degraded", start_pct: 57.0, width_pct: 3.5, label: "Bitrate Drop", period: "18 Oct" },
-          { status: "online", start_pct: 60.5, width_pct: 14.5, label: "Recording Normal", period: "19 Oct - 23 Oct" },
-          { status: "offline", start_pct: 75.0, width_pct: 3.5, label: "Recording Error", period: "23 Oct 10:15 - 12:40" },
-          { status: "online", start_pct: 78.5, width_pct: 8.5, label: "Recording Normal", period: "24 Oct - 26 Oct" },
-          { status: "offline", start_pct: 87.0, width_pct: 3.5, label: "Storage Busy / Error", period: "26 Oct" },
-          { status: "online", start_pct: 90.5, width_pct: 9.5, label: "Recording Normal", period: "27 Oct - 31 Oct" },
-        ],
-      },
-      {
-        track_name: "Kamera",
-        segments: [
-          { status: "online", start_pct: 0, width_pct: 55.0, label: "4/4 Channel Online", period: "01 Oct - 18 Oct" },
-          { status: "offline", start_pct: 55.0, width_pct: 4.5, label: "Channel 3 No Video", period: "18 Oct 22:11 - 19 Oct 02:05" },
-          { status: "online", start_pct: 59.5, width_pct: 17.5, label: "4/4 Channel Online", period: "19 Oct - 24 Oct" },
-          { status: "degraded", start_pct: 77.0, width_pct: 3.5, label: "Camera 2 Degraded", period: "24 Oct" },
-          { status: "online", start_pct: 80.5, width_pct: 6.5, label: "4/4 Channel Online", period: "25 Oct - 26 Oct" },
-          { status: "offline", start_pct: 87.0, width_pct: 3.5, label: "Camera 1 Offline", period: "26 Oct" },
-          { status: "online", start_pct: 90.5, width_pct: 9.5, label: "4/4 Channel Online", period: "27 Oct - 31 Oct" },
-        ],
-      },
-    ],
-    trouble_events: [
-      {
-        no: 1,
-        start_time: "08 Oct 2026 02:14",
-        end_time: "08 Oct 2026 06:32",
-        duration: "4h 18m",
-        category: "CPU – DVR",
-        description: "DVR No Response",
-      },
-      {
-        no: 2,
-        start_time: "12 Oct 2026 11:20",
-        end_time: "12 Oct 2026 13:05",
-        duration: "1h 45m",
-        category: "Recording",
-        description: "Tidak ada rekaman",
-      },
-      {
-        no: 3,
-        start_time: "18 Oct 2026 22:11",
-        end_time: "19 Oct 2026 02:05",
-        duration: "3h 54m",
-        category: "Kamera",
-        description: "Channel 3 No Video",
-      },
-      {
-        no: 4,
-        start_time: "23 Oct 2026 10:15",
-        end_time: "23 Oct 2026 12:40",
-        duration: "2h 25m",
-        category: "Recording",
-        description: "Recording Error",
-      },
-      {
-        no: 5,
-        start_time: "26 Oct 2026 14:32",
-        end_time: "26 Oct 2026 17:05",
-        duration: "2h 33m",
-        category: "CPU – DVR",
-        description: "DVR Timeout",
-      },
-    ],
-  };
+  if (isLoading) {
+    return (
+      <div className="bg-white dark:bg-[#070e1d] text-slate-800 dark:text-slate-100 rounded-2xl border border-slate-200 dark:border-slate-800/90 shadow-xl p-8 flex items-center justify-center">
+        <div className="flex items-center gap-3 text-slate-500 text-sm">
+          <div className="size-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+          <span>Memuat data performa DVR/NVR...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!data) {
+    return (
+      <div className="bg-white dark:bg-[#070e1d] text-slate-800 dark:text-slate-100 rounded-2xl border border-slate-200 dark:border-slate-800/90 shadow-xl p-6 text-center text-slate-500 text-sm">
+        Data performa DVR untuk gateway {gatewayId} tidak ditemukan.
+      </div>
+    );
+  }
+
+  const d = data;
 
   const isWhite = d.type.includes("Putih");
 
@@ -214,11 +117,11 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
 
           <div className="flex-1 min-w-0 space-y-2 w-full">
             <div>
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white tracking-wide leading-tight">
-                {d.id}
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium truncate">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white tracking-wide leading-tight truncate" title={d.location}>
                 {d.location}
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-mono font-medium truncate" title={d.id}>
+                {d.id}
               </p>
             </div>
 

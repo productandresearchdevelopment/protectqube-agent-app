@@ -36,74 +36,27 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
 
   if (!gatewayId) return null;
 
-  // Fallback defaults matching screenshot if data still loading or backend offline
-  const isZH72 = gatewayId === "ZH72";
-  const d: ICellularReportGatewayDetail = data || {
-    id: gatewayId,
-    status: "Online",
-    location: isZH72 ? "Alfa H Sapri Pondok Aren" : "IDM Graha Morris Tambun",
-    type: isZH72 ? "SmartBox Hitam" : "SmartBox Putih",
-    modem: isZH72 ? "Quectel EC200E" : "Quectel EC25-E",
-    provider: isZH72 ? "Telkomsel" : "Indosat",
-    sim_number: isZH72 ? "6281212345678" : "6281511122334",
-    sim_status: "Aktif",
-    ip_address: isZH72 ? "10.10.72.15" : "10.10.91.15",
-    period: dateRange || "01 Oct 2026 - 31 Oct 2026",
-    period_hours: "(744 jam)",
-    cpu_modem_uptime: "728h 15m",
-    cpu_modem_uptime_pct: "97.8%",
-    cpu_modem_offline: "15h 45m",
-    cpu_modem_offline_pct: "2.2%",
-    success_rate: "98.5%",
-    success_rate_checks: "(21,456 / 21,780 check)",
-    avg_response_time: "220 ms",
-    network_uptime: "720h 30m",
-    network_uptime_pct: "96.8%",
-    network_offline: "23h 30m",
-    network_offline_pct: "3.2%",
-    avg_rsrp: "-78 dBm",
-    avg_modem_temp: "45°C",
-    temp_range: "(Min 32°C | Max 62°C)",
-    total_gangguan: "3 event",
-    timeline_segments: [
-      { status: "online", start_pct: 0, width_pct: 23.5, label: "Online", period: "01 Oct - 08 Oct" },
-      { status: "offline", start_pct: 23.5, width_pct: 4.5, label: "Offline (No Service)", period: "08 Oct 02:14 - 06:32" },
-      { status: "online", start_pct: 28.0, width_pct: 22.0, label: "Online", period: "08 Oct - 16 Oct" },
-      { status: "no_data", start_pct: 50.0, width_pct: 3.0, label: "No Data (Provider Outage)", period: "16 Oct 11:00 - 13:00" },
-      { status: "degraded", start_pct: 53.0, width_pct: 3.5, label: "Degraded Signal (-105 dBm)", period: "17 Oct" },
-      { status: "online", start_pct: 56.5, width_pct: 2.0, label: "Online", period: "18 Oct" },
-      { status: "offline", start_pct: 58.5, width_pct: 3.5, label: "Offline (Sinyal Lemah)", period: "18 Oct 22:11 - 19 Oct 01:05" },
-      { status: "online", start_pct: 62.0, width_pct: 18.0, label: "Online", period: "19 Oct - 25 Oct" },
-      { status: "degraded", start_pct: 80.0, width_pct: 2.5, label: "Degraded Signal", period: "25 Oct" },
-      { status: "offline", start_pct: 82.5, width_pct: 3.5, label: "Offline (Modem Reboot)", period: "26 Oct 14:32 - 17:05" },
-      { status: "online", start_pct: 86.0, width_pct: 14.0, label: "Online", period: "26 Oct - 31 Oct" },
-    ],
-    trouble_events: [
-      {
-        no: 1,
-        start_time: "08 Oct 2026 02:14",
-        end_time: "08 Oct 2026 06:32",
-        duration: "4h 18m",
-        cause: "No Service (Provider)",
-      },
-      {
-        no: 2,
-        start_time: "18 Oct 2026 22:11",
-        end_time: "19 Oct 2026 01:05",
-        duration: "2h 54m",
-        cause: "Sinyal Lemah (-110 dBm)",
-      },
-      {
-        no: 3,
-        start_time: "26 Oct 2026 14:32",
-        end_time: "26 Oct 2026 17:05",
-        duration: "2h 33m",
-        cause: "Modem Reboot / No Response",
-      },
-    ],
-  };
+  if (isLoading) {
+    return (
+      <div className="bg-white dark:bg-[#070e1d] text-slate-800 dark:text-slate-100 rounded-2xl border border-slate-200 dark:border-slate-800/90 shadow-xl p-8 flex items-center justify-center">
+        <div className="flex items-center gap-3 text-slate-500 text-sm">
+          <div className="size-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+          <span>Memuat data performa gateway...</span>
+        </div>
+      </div>
+    );
+  }
 
-  const isWhite = d.type.includes("Putih");
+  if (!data) {
+    return (
+      <div className="bg-white dark:bg-[#070e1d] text-slate-800 dark:text-slate-100 rounded-2xl border border-slate-200 dark:border-slate-800/90 shadow-xl p-6 text-center text-slate-500 text-sm">
+        Data performa untuk gateway {gatewayId} tidak ditemukan.
+      </div>
+    );
+  }
+
+  const d = data;
+  const isWhite = (d.type || "").includes("Putih");
 
   // Segment background color resolver
   const getSegmentBg = (status: string) => {
@@ -160,11 +113,11 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
 
           <div className="flex-1 min-w-0 space-y-2 w-full">
             <div>
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white tracking-wide leading-tight">
-                {d.id}
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium truncate">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white tracking-wide leading-tight truncate" title={d.location}>
                 {d.location}
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-mono font-medium truncate" title={d.id}>
+                {d.id}
               </p>
             </div>
 

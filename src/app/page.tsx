@@ -181,9 +181,9 @@ export default function OverviewPage() {
   // Daftar lengkap device yang sedang mengalami gangguan / alert
   const troubleDevices: TroubleDevice[] = [
     {
-      id: "ZH72",
+      id: "gw-dccdec07",
       model: "SmartBox Hitam",
-      location: "Alfa H Sapri Pondok Aren",
+      location: "SmartBox Store 01",
       category: "cellular",
       severity: "critical",
       alertTitle: "Sinyal Drop Ekstrem & Intermittent",
@@ -194,14 +194,14 @@ export default function OverviewPage() {
       reportHref: "/reports/cellular",
     },
     {
-      id: "ZV91",
+      id: "gw-3a53d2ff",
       model: "SmartBox Putih",
-      location: "IDM Graha Morris Tambun",
+      location: "RO KALIBATA",
       category: "dvr",
       severity: "warning",
       alertTitle: "Storage HDD Mendekati Penuh",
-      alertDetail: "Kapasitas terpakai 3.84 TB / 4.0 TB (96%). Sisa estimasi retensi tinggal 2 hari.",
-      metric: "HDD: 96% (3.84 TB)",
+      alertDetail: "Kapasitas terpakai 3.41 TB / 3.72 TB (92%). Kamera 3 & 4 No Video.",
+      metric: "HDD: 92% (3.41 TB)",
       duration: "04:45:12",
       lastUpdated: "12 mnt lalu",
       reportHref: "/reports/dvr",

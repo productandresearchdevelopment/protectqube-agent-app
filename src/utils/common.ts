@@ -32,3 +32,56 @@ export const removeToken = () => {
   localStorage.removeItem("accessToken");
   localStorage.removeItem("refreshToken");
 };
+
+/**
+ * Mengonversi waktu UTC / ISO / timestamp ke Waktu Indonesia Barat (WIB / UTC+7).
+ * Contoh output: "29 Okt 2026 15:31:45 WIB"
+ */
+export const formatToWIB = (dateInput?: string | number | Date | null): string => {
+  if (!dateInput) return "-";
+  try {
+    let date: Date;
+
+    if (typeof dateInput === "number") {
+      date = new Date(dateInput);
+    } else if (typeof dateInput === "string") {
+      let str = dateInput.trim();
+
+      // Bersihkan teks ekstra dari gateway seperti ' (UTC+7 / WIB)'
+      if (str.includes("(UTC+7") || str.includes("WIB")) {
+        str = str.replace(/\s*\([^)]*\)/g, "").replace(/\s*WIB/g, "").trim();
+      }
+
+      if (str.endsWith(" UTC")) {
+        str = str.replace(" UTC", "Z");
+      } else if (/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(:\d{2})?$/.test(str)) {
+        // String format YYYY-MM-DD HH:mm(:ss) dari gateway sudah waktu lokal Indonesia (UTC+7)
+        str = str.replace(" ", "T") + "+07:00";
+      }
+      date = new Date(str);
+    } else {
+      date = dateInput;
+    }
+
+    if (isNaN(date.getTime())) {
+      return String(dateInput);
+    }
+
+    // Format dengan locale Indonesia dan timezone Asia/Jakarta (WIB)
+    const formatter = new Intl.DateTimeFormat("id-ID", {
+      timeZone: "Asia/Jakarta",
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    });
+
+    return `${formatter.format(date)} WIB`.replace(/\./g, ":").replace(/,\s*/g, " ");
+  } catch {
+    return String(dateInput);
+  }
+};
+

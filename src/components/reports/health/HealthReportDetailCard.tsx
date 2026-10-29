@@ -60,195 +60,27 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
 
   if (!gatewayId) return null;
 
-  const isZH72 = gatewayId === "ZH72";
-  const d: IHealthReportGatewayDetail = data || {
-    id: gatewayId,
-    status: "Online",
-    location: isZH72 ? "Alfa H Sapri Pondok Aren" : "IDM Graha Moris",
-    type: isZH72 ? "SmartBox Hitam" : "SmartBox Putih",
-    cpu_spec: "RK3328 (6 TOPS)",
-    ram_spec: "8 GB",
-    sd_spec: "128 GB",
-    modem_spec: "Quectel EC200E",
-    provider_spec: isZH72 ? "Telkomsel (6281212345678)" : "Indosat (6281511122334)",
-    period: dateRange || "01 Oct 2026 - 31 Oct 2026",
-    period_hours: "(744 jam)",
-    uptime_duration: "720h 15m",
-    uptime_pct: "96.8%",
-    downtime_duration: "23h 45m",
-    downtime_pct: "3.2%",
-    sla_target: 99.5,
-    sla_target_hours: "740h 17m",
-    sla_status: "Breach",
-    sla_downtime_allowed: "3h 43m",
-    cpu_avg: 32,
-    cpu_max: 78,
-    ram_avg: 43,
-    ram_max: 81,
-    sd_avg: 68,
-    sd_max: 82,
-    sd_health_status: "Good",
-    sd_life_pct: 92,
-    temp_avg: 45,
-    temp_max: 62,
-    cpu_trend: [
-      { date: "01 Oct", value: 26 },
-      { date: "03 Oct", value: 34 },
-      { date: "05 Oct", value: 29 },
-      { date: "08 Oct", value: 35 },
-      { date: "10 Oct", value: 31 },
-      { date: "12 Oct", value: 38 },
-      { date: "15 Oct", value: 32 },
-      { date: "18 Oct", value: 78 },
-      { date: "20 Oct", value: 42 },
-      { date: "22 Oct", value: 30 },
-      { date: "25 Oct", value: 28 },
-      { date: "28 Oct", value: 33 },
-      { date: "31 Oct", value: 36 },
-    ],
-    ram_trend: [
-      { date: "01 Oct", value: 40 },
-      { date: "03 Oct", value: 45 },
-      { date: "05 Oct", value: 42 },
-      { date: "08 Oct", value: 47 },
-      { date: "10 Oct", value: 43 },
-      { date: "12 Oct", value: 49 },
-      { date: "15 Oct", value: 44 },
-      { date: "18 Oct", value: 52 },
-      { date: "20 Oct", value: 38 },
-      { date: "22 Oct", value: 43 },
-      { date: "25 Oct", value: 56 },
-      { date: "28 Oct", value: 41 },
-      { date: "31 Oct", value: 47 },
-    ],
-    sd_trend: [
-      { date: "01 Oct", value: 65 },
-      { date: "03 Oct", value: 64 },
-      { date: "05 Oct", value: 67 },
-      { date: "08 Oct", value: 71 },
-      { date: "10 Oct", value: 68 },
-      { date: "12 Oct", value: 70 },
-      { date: "15 Oct", value: 69 },
-      { date: "18 Oct", value: 73 },
-      { date: "20 Oct", value: 82 },
-      { date: "22 Oct", value: 67 },
-      { date: "25 Oct", value: 72 },
-      { date: "28 Oct", value: 68 },
-      { date: "31 Oct", value: 74 },
-    ],
-    timeline_tracks: [
-      {
-        track_name: "CPU",
-        segments: [
-          { status: "normal", start_pct: 0, width_pct: 8.0, label: "Normal", period: "01 Oct - 03 Oct" },
-          { status: "cpu_high", start_pct: 8.0, width_pct: 3.5, label: "CPU High (92%)", period: "03 Oct 14:20 - 16:10" },
-          { status: "normal", start_pct: 11.5, width_pct: 71.0, label: "Normal", period: "03 Oct - 26 Oct" },
-          { status: "cpu_high", start_pct: 82.5, width_pct: 3.5, label: "CPU High (85%)", period: "26 Oct 11:10 - 12:05" },
-          { status: "normal", start_pct: 86.0, width_pct: 14.0, label: "Normal", period: "26 Oct - 31 Oct" },
-        ],
-      },
-      {
-        track_name: "RAM",
-        segments: [
-          { status: "normal", start_pct: 0, width_pct: 50.0, label: "Normal", period: "01 Oct - 16 Oct" },
-          { status: "ram_high", start_pct: 50.0, width_pct: 4.0, label: "RAM High (88%)", period: "16 Oct 22:10 - 17 Oct 00:05" },
-          { status: "normal", start_pct: 54.0, width_pct: 46.0, label: "Normal", period: "17 Oct - 31 Oct" },
-        ],
-      },
-      {
-        track_name: "SD Card",
-        segments: [
-          { status: "normal", start_pct: 0, width_pct: 28.0, label: "Normal", period: "01 Oct - 09 Oct" },
-          { status: "sd_high", start_pct: 28.0, width_pct: 4.0, label: "SD Usage High (91%)", period: "09 Oct 09:15 - 12:30" },
-          { status: "normal", start_pct: 32.0, width_pct: 60.0, label: "Normal", period: "09 Oct - 29 Oct" },
-          { status: "sd_high", start_pct: 92.0, width_pct: 3.5, label: "SD Usage High (94%)", period: "29 Oct 18:25 - 20:30" },
-          { status: "normal", start_pct: 95.5, width_pct: 4.5, label: "Normal", period: "29 Oct - 31 Oct" },
-        ],
-      },
-      {
-        track_name: "Suhu",
-        segments: [
-          { status: "normal", start_pct: 0, width_pct: 12.0, label: "Normal", period: "01 Oct - 04 Oct" },
-          { status: "suhu_high", start_pct: 12.0, width_pct: 3.5, label: "Suhu 58°C", period: "04-05 Oct" },
-          { status: "normal", start_pct: 15.5, width_pct: 57.0, label: "Normal", period: "05 Oct - 23 Oct" },
-          { status: "suhu_high", start_pct: 72.5, width_pct: 4.0, label: "Suhu High (62°C)", period: "23 Oct 05:40 - 07:20" },
-          { status: "normal", start_pct: 76.5, width_pct: 23.5, label: "Normal", period: "23 Oct - 31 Oct" },
-        ],
-      },
-      {
-        track_name: "Uptime",
-        segments: [
-          { status: "normal", start_pct: 0, width_pct: 9.7, label: "Nyala (Online)", period: "01 Oct - 04 Oct 02:15" },
-          { status: "offline", start_pct: 9.7, width_pct: 0.84, label: "Mati: PLN Outage (6h 15m)", period: "04 Oct 02:15 - 08:30" },
-          { status: "normal", start_pct: 10.54, width_pct: 26.5, label: "Nyala (Online)", period: "04 Oct - 12 Oct 11:20" },
-          { status: "offline", start_pct: 37.04, width_pct: 0.50, label: "Mati: MCB Trip (3h 45m)", period: "12 Oct 11:20 - 15:05" },
-          { status: "normal", start_pct: 37.54, width_pct: 23.8, label: "Nyala (Online)", period: "12 Oct - 19 Oct 23:40" },
-          { status: "offline", start_pct: 61.34, width_pct: 1.28, label: "Mati: Panel Gedung (9h 30m)", period: "19 Oct 23:40 - 20 Oct 09:10" },
-          { status: "normal", start_pct: 62.62, width_pct: 24.5, label: "Nyala (Online)", period: "20 Oct - 27 Oct 14:10" },
-          { status: "offline", start_pct: 87.12, width_pct: 0.57, label: "Mati: Hard Reboot (4h 15m)", period: "27 Oct 14:10 - 18:25" },
-          { status: "normal", start_pct: 87.69, width_pct: 12.31, label: "Nyala (Online)", period: "27 Oct - 31 Oct" },
-        ],
-      },
-    ],
-    events: [
-      {
-        no: 1,
-        start_time: "03 Oct 2026 14:20",
-        end_time: "03 Oct 2026 16:10",
-        duration: "1h 50m",
-        category: "CPU High",
-        value: "92%",
-        description: "Proses tinggi (vision)",
-      },
-      {
-        no: 2,
-        start_time: "09 Oct 2026 09:15",
-        end_time: "09 Oct 2026 12:30",
-        duration: "3h 15m",
-        category: "SD Usage High",
-        value: "91%",
-        description: "Storage mendekati penuh",
-      },
-      {
-        no: 3,
-        start_time: "16 Oct 2026 22:10",
-        end_time: "17 Oct 2026 00:05",
-        duration: "1h 55m",
-        category: "RAM High",
-        value: "88%",
-        description: "Memory leak",
-      },
-      {
-        no: 4,
-        start_time: "23 Oct 2026 05:40",
-        end_time: "23 Oct 2026 07:20",
-        duration: "1h 40m",
-        category: "Suhu High",
-        value: "62°C",
-        description: "Suhu di atas threshold",
-      },
-      {
-        no: 5,
-        start_time: "26 Oct 2026 11:10",
-        end_time: "26 Oct 2026 12:05",
-        duration: "55m",
-        category: "CPU High",
-        value: "85%",
-        description: "Proses tracking",
-      },
-      {
-        no: 6,
-        start_time: "29 Oct 2026 18:25",
-        end_time: "29 Oct 2026 20:30",
-        duration: "2h 05m",
-        category: "SD Usage High",
-        value: "94%",
-        description: "Pembersihan diperlukan",
-      },
-    ],
-  };
+  if (isLoading) {
+    return (
+      <div className="bg-white dark:bg-[#070e1d] text-slate-800 dark:text-slate-100 rounded-2xl border border-slate-200 dark:border-slate-800/90 shadow-xl p-8 flex items-center justify-center">
+        <div className="flex items-center gap-3 text-slate-500 text-sm">
+          <div className="size-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+          <span>Memuat data performa kesehatan sistem...</span>
+        </div>
+      </div>
+    );
+  }
 
-  const isWhite = d.type.includes("Putih");
+  if (!data) {
+    return (
+      <div className="bg-white dark:bg-[#070e1d] text-slate-800 dark:text-slate-100 rounded-2xl border border-slate-200 dark:border-slate-800/90 shadow-xl p-6 text-center text-slate-500 text-sm">
+        Data performa kesehatan untuk gateway {gatewayId} tidak ditemukan.
+      </div>
+    );
+  }
+
+  const d = data;
+  const isWhite = (d.type || "").includes("Putih");
 
   // SLA 99.5% & Monthly Accumulation calculations (1 Month = 744 hours)
   const periodHoursNum = 744;
@@ -395,11 +227,11 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
 
           <div className="flex-1 min-w-0 space-y-1.5 w-full">
             <div>
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white tracking-wide leading-tight">
-                {d.id}
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium truncate">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white tracking-wide leading-tight truncate" title={d.location}>
                 {d.location}
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-mono font-medium truncate" title={d.id}>
+                {d.id}
               </p>
             </div>
 

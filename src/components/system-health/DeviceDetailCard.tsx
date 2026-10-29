@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { formatToWIB } from "@/utils/common";
 import {
   Server,
   Cpu,
@@ -220,100 +221,30 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
   >("Ringkasan");
 
   // Fetch telemetry detail for selected gateway from FastAPI
-  const { data } = useGatewayDetail(gatewayId);
+  const { data, isLoading } = useGatewayDetail(gatewayId);
 
   if (!gatewayId) return null;
 
-  // Fallback defaults
-  const d: IGatewayDetailData = data || {
-    id: gatewayId,
-    location: "Alfa H Sapri Pondok Aren",
-    type: "SmartBox Hitam",
-    model: "SmartBox Hitam (Raspberry Pi 3B+)",
-    ip_address: "10.10.72.15",
-    uptime: "14 days 6 hours",
-    last_update: "26 Oct 2026 14:32:10",
-    service_status: "Running",
-    cpu_percent: 28,
-    cpu_min: "Min 5%",
-    cpu_max: "Max 92%",
-    cpu_sparkline: [15, 20, 25, 22, 28, 32, 28],
-    ram_percent: 46,
-    ram_min: "Min 12%",
-    ram_max: "Max 88%",
-    ram_sparkline: [38, 42, 45, 46, 44, 46, 46],
-    sd_percent: 72,
-    sd_used_gb: 29,
-    sd_total_gb: 32,
-    sd_sparkline: [70, 71, 71, 72, 72, 72, 72],
-    sd_health: {
-      status: "Good",
-      bad_sector: 0,
-      wear_level: "12%",
-      temperature: "38°C",
-      io_error: 0,
-    },
-    uptime_days: 14,
-    uptime_hours: 6,
-    uptime_status: "Running",
-    uptime_subtext: "Normal Operation",
-    month_period: "01 Oct 2026 - 31 Oct 2026",
-    month_total_hours: 744,
-    uptime_duration: "720h 15m",
-    uptime_pct: "96.8%",
-    downtime_duration: "23h 45m",
-    downtime_pct: "3.2%",
-    sla_target: 99.5,
-    sla_target_hours: "740h 17m",
-    sla_status: "Breach",
-    sla_downtime_allowed: "3h 43m",
-    downtime_events: [
-      {
-        no: 1,
-        start_time: "04 Oct 2026 02:15",
-        end_time: "04 Oct 2026 08:30",
-        duration: "6h 15m",
-        accumulated_hours: "6h 15m",
-        category: "Listrik Padam (PLN)",
-        reason: "Gangguan suplai daya PLN area Pondok Aren",
-        sla_impact_pct: 0.84,
-        status: "Resolved",
-      },
-      {
-        no: 2,
-        start_time: "12 Oct 2026 11:20",
-        end_time: "12 Oct 2026 15:05",
-        duration: "3h 45m",
-        accumulated_hours: "10h 00m",
-        category: "MCB / Power Trip",
-        reason: "MCB switch toko trip saat beban puncak",
-        sla_impact_pct: 0.50,
-        status: "Resolved",
-      },
-      {
-        no: 3,
-        start_time: "19 Oct 2026 23:40",
-        end_time: "20 Oct 2026 09:10",
-        duration: "9h 30m",
-        accumulated_hours: "19h 30m",
-        category: "Maintenance Gedung",
-        reason: "Pemeliharaan panel daya & kelistrikan toko",
-        sla_impact_pct: 1.28,
-        status: "Resolved",
-      },
-      {
-        no: 4,
-        start_time: "27 Oct 2026 14:10",
-        end_time: "27 Oct 2026 18:25",
-        duration: "4h 15m",
-        accumulated_hours: "23h 45m",
-        category: "Hard Reboot & OS Recovery",
-        reason: "Pemulihan sistem otomatis paska tegangan drop",
-        sla_impact_pct: 0.57,
-        status: "Resolved",
-      },
-    ],
-  };
+  if (isLoading) {
+    return (
+      <div className="bg-white dark:bg-[#070e1d] text-slate-800 dark:text-slate-100 rounded-2xl border border-slate-200 dark:border-slate-800/90 shadow-xl p-8 flex items-center justify-center">
+        <div className="flex items-center gap-3 text-slate-500 text-sm">
+          <div className="size-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+          <span>Memuat data detail telemetri System Health...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!data) {
+    return (
+      <div className="bg-white dark:bg-[#070e1d] text-slate-800 dark:text-slate-100 rounded-2xl border border-slate-200 dark:border-slate-800/90 shadow-xl p-6 text-center text-slate-500 text-sm">
+        Data System Health untuk gateway {gatewayId} tidak ditemukan.
+      </div>
+    );
+  }
+
+  const d: IGatewayDetailData = data;
 
   const tabs: Array<
     | "Ringkasan"
@@ -571,11 +502,11 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                     <div className="flex items-start justify-between gap-2 border-b border-slate-200 dark:border-slate-800/70 pb-2">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          <h3 className="text-xl font-bold text-slate-900 dark:text-white tracking-wide">
-                            {d.id}
+                          <h3 className="text-xl font-bold text-slate-900 dark:text-white tracking-wide truncate" title={d.location}>
+                            {d.location}
                           </h3>
                           <span
-                            className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                            className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold border shrink-0 ${
                               d.service_status === "Running"
                                 ? "bg-emerald-500/15 text-[#00a862] dark:text-emerald-400 border-emerald-500/30"
                                 : "bg-amber-500/15 text-amber-500 dark:text-amber-400 border-amber-500/30"
@@ -592,11 +523,10 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                           </span>
                         </div>
                         <p
-                          className="text-xs text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1.5 mt-0.5 truncate"
-                          title={d.location}
+                          className="text-xs text-slate-500 dark:text-slate-400 font-mono font-medium flex items-center gap-1.5 mt-0.5 truncate"
+                          title={d.id}
                         >
-                          <MapPin className="size-3 text-slate-400 dark:text-slate-500 shrink-0" />
-                          <span className="truncate">{d.location}</span>
+                          <span className="truncate">{d.id}</span>
                         </p>
                       </div>
                     </div>
@@ -628,7 +558,7 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                           Last Update
                         </span>
                         <span className="text-slate-800 dark:text-slate-200 font-mono text-[11px] whitespace-nowrap">
-                          : {d.last_update}
+                          : {formatToWIB(d.last_update)}
                         </span>
                       </div>
                       <div className="flex items-center">

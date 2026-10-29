@@ -11,11 +11,21 @@ import {
   AlertCircle,
   ChevronDown,
   X,
+  Cpu,
+  Activity,
+  Signal,
+  Terminal,
+  Clock,
+  ShieldCheck,
+  HardDrive,
+  RefreshCw,
+  Zap,
 } from "lucide-react";
 import {
   useCellularGatewayDetail,
   ICellularGatewayDetailData,
 } from "@/store/api/monitoring";
+import { formatToWIB } from "@/utils/common";
 
 interface CellularDeviceDetailCardProps {
   gatewayId: string | null;
@@ -195,58 +205,30 @@ export const CellularDeviceDetailCard: React.FC<CellularDeviceDetailCardProps> =
   >("Ringkasan");
 
   // Fetch telemetry detail for selected gateway from FastAPI
-  const { data } = useCellularGatewayDetail(gatewayId);
+  const { data, isLoading } = useCellularGatewayDetail(gatewayId);
 
   if (!gatewayId) return null;
 
-  // Fallback defaults matching screenshot
-  const d: ICellularGatewayDetailData = data || {
-    id: gatewayId,
-    location: "Alfa H Sapri Pondok Aren",
-    type: "SmartBox Hitam",
-    model: "SmartBox Hitam (Raspberry Pi 3B+)",
-    modem: "Quectel EC200E",
-    provider: "Telkomsel",
-    sim_card: "Aktif",
-    ip_address: "10.10.72.15",
-    last_update: "26 Oct 2026 14:32:10",
-    service_status: "Running",
-    cpu_modem: {
-      status: "Connected",
-      message: "CPU dapat berkomunikasi dengan modem (driver OK)",
-      port: "/dev/ttyUSB2",
-      baudrate: 115200,
-      driver: "qmi_wwan",
-      last_check: "26 Oct 2026 14:32:05",
-    },
-    signal_strength: {
-      rsrp: -78,
-      unit: "dBm",
-      max_rsrp: "Max -62 dBm",
-      min_rsrp: "Min -118 dBm",
-      avg_rsrp: "Avg -85 dBm",
-      sparkline: [-85, -82, -80, -78, -79, -77, -78],
-    },
-    network_sim: {
-      network_type: "4G",
-      network_sub: "(LTE)",
-      operator: "Telkomsel",
-      sim_status: "Aktif",
-      imsi: "510100123456789",
-      iccid: "8962101234567890 0123",
-      data_upload: "1.2 GB",
-      data_download: "3.8 GB",
-      roaming: "Tidak",
-    },
-    modem_temperature: {
-      temperature: 45,
-      unit: "°C",
-      max_temp: "Max 62°C",
-      min_temp: "Min 28°C",
-      avg_temp: "Avg 42°C",
-      sparkline: [38, 40, 42, 45, 44, 46, 45],
-    },
-  };
+  if (isLoading) {
+    return (
+      <div className="bg-white dark:bg-[#070e1d] text-slate-800 dark:text-slate-100 rounded-2xl border border-slate-200 dark:border-slate-800/90 shadow-xl p-8 flex items-center justify-center">
+        <div className="flex items-center gap-3 text-slate-500 text-sm">
+          <div className="size-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+          <span>Memuat data detail telemetri cellular...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!data) {
+    return (
+      <div className="bg-white dark:bg-[#070e1d] text-slate-800 dark:text-slate-100 rounded-2xl border border-slate-200 dark:border-slate-800/90 shadow-xl p-6 text-center text-slate-500 text-sm">
+        Data cellular untuk gateway {gatewayId} tidak ditemukan.
+      </div>
+    );
+  }
+
+  const d = data;
 
   const tabs: Array<
     | "Ringkasan"
@@ -350,12 +332,15 @@ export const CellularDeviceDetailCard: React.FC<CellularDeviceDetailCardProps> =
         </div>
       </div>
 
-      {/* Main Body (User Structured: 2 Kolom Baris 1 -> 3 Kolom Rata Baris 2) */}
+      {/* Main Body */}
       <div className="p-4 sm:p-5 space-y-4">
         {/* ========================================================= */}
-        {/* BARIS 1: 2 Kolom (9 Kolom Profile & Specs + 3 Kolom CPU-Modem Communication) */}
+        {/* TAB 1: RINGKASAN */}
         {/* ========================================================= */}
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-3.5 items-stretch">
+        {activeTab === "Ringkasan" && (
+          <div className="space-y-4 animate-in fade-in duration-200">
+            {/* BARIS 1: 2 Kolom (9 Kolom Profile & Specs + 3 Kolom CPU-Modem Communication) */}
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-3.5 items-stretch">
           {/* Kolom 1 (9 col): Device Profile & Specs (Spacious, No Text Overflow!) */}
           <div className="xl:col-span-9 col-span-12 bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 flex flex-col justify-between shadow-xs">
             <div className="flex flex-col md:flex-row gap-5 items-center md:items-start">
@@ -376,11 +361,11 @@ export const CellularDeviceDetailCard: React.FC<CellularDeviceDetailCardProps> =
               {/* Title & Specs Grid (2 Wide Columns so nothing clips!) */}
               <div className="flex-1 min-w-0 space-y-3 w-full">
                 <div>
-                  <h3 className="text-xl font-bold text-slate-900 dark:text-white tracking-wide">
-                    {d.id}
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                  <h3 className="text-xl font-bold text-slate-900 dark:text-white tracking-wide truncate" title={d.location}>
                     {d.location}
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 font-mono font-medium">
+                    {d.id}
                   </p>
                 </div>
 
@@ -423,7 +408,7 @@ export const CellularDeviceDetailCard: React.FC<CellularDeviceDetailCardProps> =
                     <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1">
                       <span className="text-slate-500 dark:text-slate-400 font-sans">Last Update</span>
                       <span className="text-slate-800 dark:text-slate-200 font-sans text-right">
-                        {d.last_update}
+                        {formatToWIB(d.last_update)}
                       </span>
                     </div>
                     <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1">
@@ -489,7 +474,7 @@ export const CellularDeviceDetailCard: React.FC<CellularDeviceDetailCardProps> =
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-slate-500 dark:text-slate-400 font-sans">Last Check:</span>
-                <span className="text-slate-800 dark:text-slate-200 font-mono">{d.cpu_modem.last_check}</span>
+                <span className="text-slate-800 dark:text-slate-200 font-mono">{formatToWIB(d.cpu_modem.last_check)}</span>
               </div>
             </div>
           </div>
@@ -654,6 +639,300 @@ export const CellularDeviceDetailCard: React.FC<CellularDeviceDetailCardProps> =
             </div>
           </div>
         </div>
+      </div>
+    )}
+
+        {/* ========================================================= */}
+        {/* TAB 2: CPU – MODEM */}
+        {/* ========================================================= */}
+        {activeTab === "CPU – Modem" && (
+          <div className="space-y-4 animate-in fade-in duration-200">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-3">
+                <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-sm">
+                  <Terminal className="size-4 text-[#0073ea]" />
+                  <span>Serial Port & Interface Bus</span>
+                </div>
+                <div className="space-y-2 text-xs">
+                  <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1.5">
+                    <span className="text-slate-500 dark:text-slate-400">Komunikasi Serial</span>
+                    <span className="font-semibold text-emerald-500 flex items-center gap-1">
+                      <CheckCircle2 className="size-3.5" /> {d.cpu_modem.status}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1.5">
+                    <span className="text-slate-500 dark:text-slate-400">Port Utama (Active)</span>
+                    <span className="font-mono text-slate-800 dark:text-slate-200 font-semibold">{d.cpu_modem.port}</span>
+                  </div>
+                  <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1.5">
+                    <span className="text-slate-500 dark:text-slate-400">Baudrate Serial</span>
+                    <span className="font-mono text-slate-800 dark:text-slate-200">{d.cpu_modem.baudrate} bps</span>
+                  </div>
+                  <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1.5">
+                    <span className="text-slate-500 dark:text-slate-400">Driver Kernel Linux</span>
+                    <span className="font-mono text-slate-800 dark:text-slate-200">{d.cpu_modem.driver}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500 dark:text-slate-400">Last Keepalive</span>
+                    <span className="text-slate-700 dark:text-slate-300">{formatToWIB(d.cpu_modem.last_check)}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-3">
+                <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-sm">
+                  <Activity className="size-4 text-emerald-500" />
+                  <span>Respon AT Command & Health</span>
+                </div>
+                <div className="bg-slate-900 text-slate-200 font-mono text-[11px] p-3 rounded-lg space-y-1.5">
+                  <div className="text-slate-400"># Live Serial Probes ({d.cpu_modem.port}):</div>
+                  <div className="text-emerald-400">&gt; AT+CSQ</div>
+                  <div className="text-slate-300">+CSQ: 28,99 (OK - Signal RSRP {d.signal_strength.rsrp} dBm)</div>
+                  <div className="text-emerald-400">&gt; AT+CPIN?</div>
+                  <div className="text-slate-300">+CPIN: READY ({d.sim_card === "Aktif" ? "SIM Inserted & Valid" : "No SIM"})</div>
+                  <div className="text-emerald-400">&gt; AT+COPS?</div>
+                  <div className="text-slate-300">+COPS: 0,0,&quot;{d.provider}&quot;,7 (LTE Connected)</div>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 italic">
+                  {d.cpu_modem.message}
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-2">
+              <div className="text-xs font-bold text-slate-900 dark:text-white">Mapping Serial Ports Quectel</div>
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 text-[11px]">
+                <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800">
+                  <div className="text-slate-400 font-mono">/dev/ttyUSB2</div>
+                  <div className="font-semibold text-slate-800 dark:text-slate-200">Diagnostic / DM Port</div>
+                </div>
+                <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800">
+                  <div className="text-slate-400 font-mono">/dev/ttyUSB3</div>
+                  <div className="font-semibold text-slate-800 dark:text-slate-200">GPS / NMEA Stream</div>
+                </div>
+                <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800">
+                  <div className="text-slate-400 font-mono">/dev/ttyUSB4</div>
+                  <div className="font-semibold text-slate-800 dark:text-slate-200">AT Command Channel</div>
+                </div>
+                <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800">
+                  <div className="text-slate-400 font-mono">/dev/ttyUSB5</div>
+                  <div className="font-semibold text-slate-800 dark:text-slate-200">Modem Data / PPP</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================= */}
+        {/* TAB 3: MODEM & SIM */}
+        {/* ========================================================= */}
+        {activeTab === "Modem & SIM" && (
+          <div className="space-y-4 animate-in fade-in duration-200">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-3">
+                <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-sm">
+                  <Radio className="size-4 text-[#0073ea]" />
+                  <span>Hardware Modem Spesifikasi</span>
+                </div>
+                <div className="space-y-2 text-xs">
+                  <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1.5">
+                    <span className="text-slate-500 dark:text-slate-400">Vendor</span>
+                    <span className="font-medium text-slate-800 dark:text-slate-200">Quectel Wireless Solutions</span>
+                  </div>
+                  <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1.5">
+                    <span className="text-slate-500 dark:text-slate-400">Model Modem</span>
+                    <span className="font-bold text-slate-900 dark:text-white">{d.modem}</span>
+                  </div>
+                  <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1.5">
+                    <span className="text-slate-500 dark:text-slate-400">Kategori LTE</span>
+                    <span className="font-medium text-slate-800 dark:text-slate-200">Cat 4 (150 Mbps DL / 50 Mbps UL)</span>
+                  </div>
+                  <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1.5">
+                    <span className="text-slate-500 dark:text-slate-400">USB Bus Speed</span>
+                    <span className="font-medium text-slate-800 dark:text-slate-200">480 Mbps (High-Speed USB 2.0)</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500 dark:text-slate-400">Status Operasi</span>
+                    <span className="font-semibold text-emerald-500">{d.service_status}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-3">
+                <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-sm">
+                  <Wifi className="size-4 text-emerald-500" />
+                  <span>SIM Card & Selular Provider</span>
+                </div>
+                <div className="space-y-2 text-xs">
+                  <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1.5">
+                    <span className="text-slate-500 dark:text-slate-400">Status Kartu SIM</span>
+                    <span className="font-semibold text-emerald-500 flex items-center gap-1">
+                      <CheckCircle2 className="size-3.5" /> {d.sim_card}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1.5">
+                    <span className="text-slate-500 dark:text-slate-400">Operator Seluler</span>
+                    <span className="font-bold text-slate-900 dark:text-white">{d.provider}</span>
+                  </div>
+                  <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1.5">
+                    <span className="text-slate-500 dark:text-slate-400">Alamat IP Selular</span>
+                    <span className="font-mono text-slate-800 dark:text-slate-200 font-semibold">{d.ip_address}</span>
+                  </div>
+                  <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1.5">
+                    <span className="text-slate-500 dark:text-slate-400">Network Mode</span>
+                    <span className="font-medium text-slate-800 dark:text-slate-200">4G (LTE)</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500 dark:text-slate-400">Roaming</span>
+                    <span className="font-medium text-slate-700 dark:text-slate-300">Disabled (Home Network)</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================= */}
+        {/* TAB 4: SIGNAL & NETWORK */}
+        {/* ========================================================= */}
+        {activeTab === "Signal & Network" && (
+          <div className="space-y-4 animate-in fade-in duration-200">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+              <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-2">
+                <span className="text-xs text-slate-500 font-medium">Kekuatan Sinyal RSRP</span>
+                <div className="text-2xl font-bold text-slate-900 dark:text-white font-mono">
+                  {d.signal_strength.rsrp} dBm
+                </div>
+                <div className="text-xs text-emerald-500 font-semibold flex items-center gap-1">
+                  <CheckCircle2 className="size-3.5" /> Sangat Baik (CSQ 28)
+                </div>
+              </div>
+              <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-2">
+                <span className="text-xs text-slate-500 font-medium">Operator & Network</span>
+                <div className="text-2xl font-bold text-slate-900 dark:text-white">
+                  {d.network_sim.network_type}
+                </div>
+                <div className="text-xs text-slate-500">{d.network_sim.operator} • {d.network_sim.network_sub}</div>
+              </div>
+              <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-2">
+                <span className="text-xs text-slate-500 font-medium">Data Traffic (Usage)</span>
+                <div className="text-base font-bold text-slate-900 dark:text-white font-mono mt-1">
+                  ↑ {d.network_sim.data_upload} • ↓ {d.network_sim.data_download}
+                </div>
+                <div className="text-xs text-emerald-500">Koneksi Aktif (Roaming: {d.network_sim.roaming})</div>
+              </div>
+            </div>
+
+            <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-3">
+              <div className="text-xs font-bold text-slate-900 dark:text-white">Grafik Fluktuasi Sinyal (24 Jam Terakhir)</div>
+              <SparklineWave data={d.signal_strength.sparkline} color="#0073ea" id="rsrp-full" />
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================= */}
+        {/* TAB 5: TEMPERATUR */}
+        {/* ========================================================= */}
+        {activeTab === "Temperatur" && (
+          <div className="space-y-4 animate-in fade-in duration-200">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3.5">
+              <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4">
+                <div className="text-xs text-slate-500">Suhu Saat Ini</div>
+                <div className="text-2xl font-bold text-sky-400 font-mono mt-1">
+                  {d.modem_temperature.temperature}°C
+                </div>
+                <div className="text-[11px] text-emerald-500 mt-1">Status Operasional Normal</div>
+              </div>
+              <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4">
+                <div className="text-xs text-slate-500">Suhu Tertinggi</div>
+                <div className="text-2xl font-bold text-rose-500 font-mono mt-1">
+                  {d.modem_temperature.max_temp}
+                </div>
+                <div className="text-[11px] text-slate-400 mt-1">Puncak Jam 14:00</div>
+              </div>
+              <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4">
+                <div className="text-xs text-slate-500">Suhu Terendah</div>
+                <div className="text-2xl font-bold text-blue-400 font-mono mt-1">
+                  {d.modem_temperature.min_temp}
+                </div>
+                <div className="text-[11px] text-slate-400 mt-1">Pagi Jam 05:00</div>
+              </div>
+              <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4">
+                <div className="text-xs text-slate-500">Rata-rata 24 Jam</div>
+                <div className="text-2xl font-bold text-slate-900 dark:text-white font-mono mt-1">
+                  {d.modem_temperature.avg_temp}
+                </div>
+                <div className="text-[11px] text-slate-400 mt-1">Ambang Batas Maks: 85°C</div>
+              </div>
+            </div>
+
+            <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-3">
+              <div className="text-xs font-bold text-slate-900 dark:text-white">Trend Termal Modem</div>
+              <SparklineWave data={d.modem_temperature.sparkline} color="#00a3ff" id="temp-full" />
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================= */}
+        {/* TAB 6: EVENT LOG */}
+        {/* ========================================================= */}
+        {activeTab === "Event Log" && (
+          <div className="space-y-4 animate-in fade-in duration-200">
+            <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="text-xs font-bold text-slate-900 dark:text-white">Riwayat Aktivitas & Event Selular</div>
+                <span className="text-[11px] text-slate-400">Total 5 Aktivitas Terakhir</span>
+              </div>
+              <div className="divide-y divide-slate-200 dark:divide-slate-800/60 text-xs">
+                <div className="py-2.5 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="size-2 rounded-full bg-emerald-500" />
+                    <span className="text-slate-800 dark:text-slate-200 font-medium">
+                      Modem registrasi ke jaringan 4G LTE ({d.provider}) berhasil
+                    </span>
+                  </div>
+                  <span className="text-slate-400 font-mono text-[11px]">{formatToWIB(d.last_update)}</span>
+                </div>
+                <div className="py-2.5 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="size-2 rounded-full bg-blue-500" />
+                    <span className="text-slate-800 dark:text-slate-200 font-medium">
+                      Pemeriksaan berkala sinyal RSRP: {d.signal_strength.rsrp} dBm (CSQ 28)
+                    </span>
+                  </div>
+                  <span className="text-slate-400 font-mono text-[11px]">{formatToWIB(d.cpu_modem.last_check)}</span>
+                </div>
+                <div className="py-2.5 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="size-2 rounded-full bg-emerald-500" />
+                    <span className="text-slate-800 dark:text-slate-200 font-medium">
+                      Alokasi alamat IP seluler: {d.ip_address} (Interface aktif)
+                    </span>
+                  </div>
+                  <span className="text-slate-400 font-mono text-[11px]">{formatToWIB(d.last_update)}</span>
+                </div>
+                <div className="py-2.5 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="size-2 rounded-full bg-sky-500" />
+                    <span className="text-slate-800 dark:text-slate-200 font-medium">
+                      Daemon pppcmd keepalive heartbeat OK pada port {d.cpu_modem.port}
+                    </span>
+                  </div>
+                  <span className="text-slate-400 font-mono text-[11px]">{formatToWIB(d.last_update)}</span>
+                </div>
+                <div className="py-2.5 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="size-2 rounded-full bg-emerald-500" />
+                    <span className="text-slate-800 dark:text-slate-200 font-medium">
+                      SIM card terdeteksi dan status Aktif
+                    </span>
+                  </div>
+                  <span className="text-slate-400 font-mono text-[11px]">{formatToWIB(d.last_update)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

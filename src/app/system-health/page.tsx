@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useSystemHealthDashboard, IGatewayItem } from "@/store/api/monitoring";
+import { formatToWIB } from "@/utils/common";
 import {
   DataTable,
   ColumnDef,
@@ -299,8 +300,8 @@ export default function SystemHealthPage() {
       align: "center",
       accessorKey: "last_update",
       cell: (item) => (
-        <span className="text-slate-400 font-mono text-[11px]">
-          {item.last_update}
+        <span className="text-slate-400 font-mono text-[11px] whitespace-nowrap">
+          {formatToWIB(item.last_update)}
         </span>
       ),
     },
