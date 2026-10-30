@@ -19,7 +19,7 @@ export default function RootLayout({
       <body suppressHydrationWarning className="min-h-screen antialiased">
         <ThemeProvider
           attribute="class"
-          defaultTheme="light"
+          defaultTheme="dark"
           enableSystem={false}
           disableTransitionOnChange
         >

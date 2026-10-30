@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useCurrentUser } from "@/store/api/auth";
-import { removeToken } from "@/utils/common";
+import { getToken, removeToken } from "@/utils/common";
 import { toast } from "sonner";
 import { AIPreventiveLogo } from "@/components/ui/AIPreventiveLogo";
 
@@ -44,7 +44,10 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ title, children }) => {
 
   useEffect(() => {
     setMounted(true);
-  }, []);
+    if (!getToken()) {
+      router.push("/auth/login");
+    }
+  }, [router, pathname]);
 
   useEffect(() => {
     if (pathname.startsWith("/reports")) {
@@ -62,12 +65,14 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ title, children }) => {
   const navContent = (isCollapsed: boolean) => (
     <div className="flex flex-col h-full justify-between select-none">
       <div>
-        <div className={`p-4 border-b border-white/10 flex items-center ${isCollapsed ? "justify-center" : "justify-between"}`}>
+        <div
+          className={`p-4 border-b border-white/10 flex items-center ${isCollapsed ? "justify-center" : "justify-between"}`}
+        >
           <div className="flex items-center gap-2.5 min-w-0">
             <AIPreventiveLogo className="size-7 text-white shrink-0" />
             {!isCollapsed && (
               <span className="text-base sm:text-[17px] font-extrabold tracking-tight text-white truncate">
-                Protect<span className="text-[#ff7a59]">Q</span>ube AI Ops
+                Protect<span className="text-[#ff7a59]">Q</span>ube AIOps
               </span>
             )}
           </div>
@@ -80,7 +85,9 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ title, children }) => {
           </button>
         </div>
 
-        <nav className={`p-3 ${isCollapsed ? "space-y-2 px-2" : "space-y-1.5"}`}>
+        <nav
+          className={`p-3 ${isCollapsed ? "space-y-2 px-2" : "space-y-1.5"}`}
+        >
           <Link
             href="/"
             title="Overview"
@@ -151,14 +158,18 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ title, children }) => {
                   : "text-slate-300 hover:text-white hover:bg-white/10"
               }`}
             >
-              <div className={`flex items-center ${isCollapsed ? "justify-center" : "gap-3"} min-w-0`}>
+              <div
+                className={`flex items-center ${isCollapsed ? "justify-center" : "gap-3"} min-w-0`}
+              >
                 <FileText className="size-5 shrink-0" />
                 {!isCollapsed && <span className="truncate">Report</span>}
               </div>
               {!isCollapsed && (
                 <ChevronDown
                   className={`size-4 shrink-0 transition-transform duration-300 ease-in-out ${
-                    reportOpen ? "rotate-180 text-white" : "rotate-0 text-slate-400"
+                    reportOpen
+                      ? "rotate-180 text-white"
+                      : "rotate-0 text-slate-400"
                   }`}
                 />
               )}
@@ -235,7 +246,9 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ title, children }) => {
       </div>
 
       <div className="border-t border-white/10 p-3 bg-black/20">
-        <div className={`flex items-center ${isCollapsed ? "justify-center" : "gap-2.5"} p-1 rounded-xl`}>
+        <div
+          className={`flex items-center ${isCollapsed ? "justify-center" : "gap-2.5"} p-1 rounded-xl`}
+        >
           <span className="grid size-8 shrink-0 place-items-center rounded-full bg-linear-to-tr from-[#00c875] to-[#0073ea] text-xs font-bold text-white shadow-xs">
             {user?.name ? user.name.charAt(0).toUpperCase() : "A"}
           </span>

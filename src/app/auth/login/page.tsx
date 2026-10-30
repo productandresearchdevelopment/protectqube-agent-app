@@ -62,7 +62,7 @@ export default function LoginPage() {
             Welcome back
           </h1>
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            Log in to <span className="font-semibold text-slate-800 dark:text-slate-200">Protect<span className="text-[#ff7a59]">Q</span>ube AI Ops</span>
+            Log in to <span className="font-semibold text-slate-800 dark:text-slate-200">Protect<span className="text-[#ff7a59]">Q</span>ube AIOps</span>
           </p>
         </div>
 
@@ -129,7 +129,7 @@ export default function LoginPage() {
         </form>
 
         <p className="text-center text-[11px] text-slate-400 font-mono pt-4">
-          Protect<span className="text-[#ff7a59] font-semibold">Q</span>ube AI Ops • SmartBox Edge Gateway
+          Protect<span className="text-[#ff7a59] font-semibold">Q</span>ube AIOps • SmartBox Edge Gateway
         </p>
       </div>
     </div>

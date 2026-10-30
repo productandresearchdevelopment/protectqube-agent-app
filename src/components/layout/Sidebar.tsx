@@ -100,7 +100,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         className={cn(
           "fixed top-0 bottom-0 left-0 z-50 flex bg-[#292f4c] text-white transition-all duration-300 shadow-xl",
           collapsed ? "w-16" : "w-64",
-          mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+          mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
         )}
       >
         <div className="flex flex-col w-full h-full justify-between">
@@ -108,11 +108,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div>
             {/* Monday Header / Brand */}
             <div className="h-16 flex items-center justify-between px-3.5 border-b border-white/10">
-              <Link href="/" className="flex items-center gap-2.5 overflow-hidden">
+              <Link
+                href="/"
+                className="flex items-center gap-2.5 overflow-hidden"
+              >
                 <AIPreventiveLogo className="w-7 h-7 text-white shrink-0" />
                 {!collapsed && (
                   <span className="font-extrabold text-base sm:text-[17px] tracking-tight text-white truncate">
-                    Protect<span className="text-[#ff7a59]">Q</span>ube AI Ops
+                    Protect<span className="text-[#ff7a59]">Q</span>ube AIOps
                   </span>
                 )}
               </Link>
@@ -121,7 +124,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 className="hidden md:flex items-center justify-center w-6 h-6 rounded-md text-slate-300 hover:text-white hover:bg-white/10 transition-colors"
                 title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
               >
-                {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+                {collapsed ? (
+                  <ChevronRight className="w-4 h-4" />
+                ) : (
+                  <ChevronLeft className="w-4 h-4" />
+                )}
               </button>
             </div>
 
@@ -148,7 +155,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       "flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-semibold transition-all group",
                       isActive
                         ? "bg-[#0073ea] text-white shadow-md shadow-blue-500/20"
-                        : "text-slate-300 hover:bg-white/10 hover:text-white"
+                        : "text-slate-300 hover:bg-white/10 hover:text-white",
                     )}
                     title={collapsed ? item.name : undefined}
                   >
@@ -160,7 +167,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           <span
                             className={cn(
                               "text-[10px] px-1.5 py-0.5 rounded-full font-bold text-white shadow-sm shrink-0",
-                              item.badgeColor
+                              item.badgeColor,
                             )}
                           >
                             {item.badge}

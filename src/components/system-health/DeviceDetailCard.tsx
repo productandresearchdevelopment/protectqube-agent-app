@@ -27,7 +27,11 @@ import {
   TrendingUp,
   MapPin,
 } from "lucide-react";
-import { useGatewayDetail, IGatewayDetailData, IDowntimeEvent } from "@/store/api/monitoring";
+import {
+  useGatewayDetail,
+  IGatewayDetailData,
+  IDowntimeEvent,
+} from "@/store/api/monitoring";
 
 interface DeviceDetailCardProps {
   gatewayId: string | null;
@@ -83,7 +87,9 @@ const CircularGauge = ({
             {percent}%
           </span>
           {label && (
-            <span className="text-[9px] text-slate-400 font-medium">{label}</span>
+            <span className="text-[9px] text-slate-400 font-medium">
+              {label}
+            </span>
           )}
         </div>
       </div>
@@ -181,27 +187,97 @@ const SmartBoxIllustration = ({ isWhite }: { isWhite?: boolean }) => {
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
     >
-      <ellipse cx="80" cy="98" rx="65" ry="10" fill="black" fillOpacity="0.35" />
-      <path d="M18 64 L78 96 L144 64 L84 34 Z" fill={rightFace} stroke={strokeCol} strokeWidth="1" />
-      <path d="M18 42 L78 74 L78 94 L18 62 Z" fill={leftFace} stroke={strokeCol} strokeWidth="1" />
-      <path d="M78 74 L144 42 L144 62 L78 94 Z" fill={rightFace} stroke={strokeCol} strokeWidth="1" />
-      <path d="M18 42 L78 12 L144 42 L84 74 Z" fill={topColor} stroke={strokeCol} strokeWidth="1" />
+      <ellipse
+        cx="80"
+        cy="98"
+        rx="65"
+        ry="10"
+        fill="black"
+        fillOpacity="0.35"
+      />
+      <path
+        d="M18 64 L78 96 L144 64 L84 34 Z"
+        fill={rightFace}
+        stroke={strokeCol}
+        strokeWidth="1"
+      />
+      <path
+        d="M18 42 L78 74 L78 94 L18 62 Z"
+        fill={leftFace}
+        stroke={strokeCol}
+        strokeWidth="1"
+      />
+      <path
+        d="M78 74 L144 42 L144 62 L78 94 Z"
+        fill={rightFace}
+        stroke={strokeCol}
+        strokeWidth="1"
+      />
+      <path
+        d="M18 42 L78 12 L144 42 L84 74 Z"
+        fill={topColor}
+        stroke={strokeCol}
+        strokeWidth="1"
+      />
       <path d="M20 42 L78 14 L142 42 L84 72 Z" fill={bevelColor} />
 
       {/* Ports */}
-      <path d="M25 54 L32 58 L32 65 L25 61 Z" fill="#090d16" stroke="#475569" strokeWidth="0.8" />
+      <path
+        d="M25 54 L32 58 L32 65 L25 61 Z"
+        fill="#090d16"
+        stroke="#475569"
+        strokeWidth="0.8"
+      />
       <circle cx="28" cy="53" r="1" fill="#f59e0b" />
-      <path d="M38 61 L45 65 L45 72 L38 68 Z" fill="#090d16" stroke="#475569" strokeWidth="0.8" />
+      <path
+        d="M38 61 L45 65 L45 72 L38 68 Z"
+        fill="#090d16"
+        stroke="#475569"
+        strokeWidth="0.8"
+      />
       <circle cx="41" cy="60" r="1" fill="#10b981" />
-      <path d="M51 68 L58 72 L58 79 L51 75 Z" fill="#090d16" stroke="#475569" strokeWidth="0.8" />
+      <path
+        d="M51 68 L58 72 L58 79 L51 75 Z"
+        fill="#090d16"
+        stroke="#475569"
+        strokeWidth="0.8"
+      />
       <circle cx="54" cy="67" r="1" fill="#10b981" />
-      <path d="M64 75 L71 79 L71 86 L64 82 Z" fill="#090d16" stroke="#475569" strokeWidth="0.8" />
+      <path
+        d="M64 75 L71 79 L71 86 L64 82 Z"
+        fill="#090d16"
+        stroke="#475569"
+        strokeWidth="0.8"
+      />
       <circle cx="67" cy="74" r="1" fill="#10b981" />
 
-      <path d="M88 80 L96 76 L96 70 L88 74 Z" fill="#090d16" stroke="#eab308" strokeWidth="0.8" />
-      <path d="M104 72 L112 68 L112 62 L104 66 Z" fill="#090d16" stroke="#eab308" strokeWidth="0.8" />
-      <path d="M120 64 L128 60 L128 54 L120 58 Z" fill="#090d16" stroke="#eab308" strokeWidth="0.8" />
-      <rect x="74" y="38" width="10" height="3" transform="rotate(-26 74 38)" fill="#38bdf8" fillOpacity="0.4" />
+      <path
+        d="M88 80 L96 76 L96 70 L88 74 Z"
+        fill="#090d16"
+        stroke="#eab308"
+        strokeWidth="0.8"
+      />
+      <path
+        d="M104 72 L112 68 L112 62 L104 66 Z"
+        fill="#090d16"
+        stroke="#eab308"
+        strokeWidth="0.8"
+      />
+      <path
+        d="M120 64 L128 60 L128 54 L120 58 Z"
+        fill="#090d16"
+        stroke="#eab308"
+        strokeWidth="0.8"
+      />
+      <rect
+        x="74"
+        y="38"
+        width="10"
+        height="3"
+        transform="rotate(-26 74 38)"
+        fill="#38bdf8"
+        fillOpacity="0.4"
+      />
     </svg>
   );
 };
@@ -271,21 +347,23 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
 
   // Helper for SD Health icon & color
   const isHealthGood = d.sd_health.status === "Good";
-  const isHealthCaution = d.sd_health.status === "Caution" || d.sd_health.status === "Wear";
+  const isHealthCaution =
+    d.sd_health.status === "Caution" || d.sd_health.status === "Wear";
   const healthColor = isHealthGood
     ? "text-emerald-400"
     : isHealthCaution
-    ? "text-amber-400"
-    : "text-rose-500";
+      ? "text-amber-400"
+      : "text-rose-500";
   const HealthIcon = isHealthGood
     ? CheckCircle2
     : isHealthCaution
-    ? AlertTriangle
-    : AlertCircle;
+      ? AlertTriangle
+      : AlertCircle;
 
   // Monthly SLA 99.5% & Accumulation metrics (744 hours in October: 31 days x 24h)
   const totalMonthHours = d.month_total_hours || 744;
-  const uptimePctNum = parseFloat((d.uptime_pct || "96.8%").replace("%", "")) || 96.8;
+  const uptimePctNum =
+    parseFloat((d.uptime_pct || "96.8%").replace("%", "")) || 96.8;
   const downtimePctNum = parseFloat((100 - uptimePctNum).toFixed(1));
   const slaTargetPct = d.sla_target || 99.5;
   const isSLAMet = uptimePctNum >= slaTargetPct;
@@ -302,15 +380,20 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
   const slaMinUptimeHours = totalMonthHours * (slaTargetPct / 100); // 740.28h = 740h 17m
   const slaMaxDowntimeHours = totalMonthHours * ((100 - slaTargetPct) / 100); // 3.72h = 3h 43m
 
-  const uptimeDurationText = d.uptime_duration || formatHoursMinutes(uptimeHoursCalculated);
-  const downtimeDurationText = d.downtime_duration || formatHoursMinutes(downtimeHoursCalculated);
-  const slaTargetHoursText = d.sla_target_hours || formatHoursMinutes(slaMinUptimeHours);
-  const slaDowntimeAllowedText = d.sla_downtime_allowed || formatHoursMinutes(slaMaxDowntimeHours);
+  const uptimeDurationText =
+    d.uptime_duration || formatHoursMinutes(uptimeHoursCalculated);
+  const downtimeDurationText =
+    d.downtime_duration || formatHoursMinutes(downtimeHoursCalculated);
+  const slaTargetHoursText =
+    d.sla_target_hours || formatHoursMinutes(slaMinUptimeHours);
+  const slaDowntimeAllowedText =
+    d.sla_downtime_allowed || formatHoursMinutes(slaMaxDowntimeHours);
 
   const downtimeDiffHours = downtimeHoursCalculated - slaMaxDowntimeHours;
-  const downtimeDiffText = downtimeDiffHours > 0
-    ? `Mati melebihi batas toleransi ${formatHoursMinutes(downtimeDiffHours)}`
-    : `Downtime dalam batas toleransi (${formatHoursMinutes(Math.abs(downtimeDiffHours))} sisa)`;
+  const downtimeDiffText =
+    downtimeDiffHours > 0
+      ? `Mati melebihi batas toleransi ${formatHoursMinutes(downtimeDiffHours)}`
+      : `Downtime dalam batas toleransi (${formatHoursMinutes(Math.abs(downtimeDiffHours))} sisa)`;
 
   const downtimeEvents: IDowntimeEvent[] =
     d.downtime_events && d.downtime_events.length > 0
@@ -335,7 +418,7 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
             accumulated_hours: "10h 00m",
             category: "MCB / Power Trip",
             reason: "MCB switch toko trip saat beban puncak",
-            sla_impact_pct: 0.50,
+            sla_impact_pct: 0.5,
             status: "Resolved",
           },
           {
@@ -486,9 +569,12 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                   <div className="flex flex-col items-center justify-center shrink-0 w-28 sm:w-32">
                     <SmartBoxIllustration isWhite={isWhiteDevice} />
                     <div className="mt-1.5 text-center">
-                      <div className="text-[10px] text-slate-500 font-mono">v1.0.0</div>
+                      <div className="text-[10px] text-slate-500 font-mono">
+                        v1.0.0
+                      </div>
                       <div className="text-[11px] font-bold text-[#0073ea] dark:text-[#00d2ff] leading-tight">
-                        Protect<span className="text-[#ff7a59]">Q</span>ube AI Ops
+                        Protect<span className="text-[#ff7a59]">Q</span>ube
+                        AIOps
                       </div>
                       <div className="text-[9px] text-slate-500 dark:text-slate-400 leading-tight">
                         SmartBox Fleet
@@ -502,7 +588,10 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                     <div className="flex items-start justify-between gap-2 border-b border-slate-200 dark:border-slate-800/70 pb-2">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          <h3 className="text-xl font-bold text-slate-900 dark:text-white tracking-wide truncate" title={d.location}>
+                          <h3
+                            className="text-xl font-bold text-slate-900 dark:text-white tracking-wide truncate"
+                            title={d.location}
+                          >
                             {d.location}
                           </h3>
                           <span
@@ -534,24 +623,42 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                     {/* Specs List: 1 Kolom ke Bawah dengan Kolon Sejajar */}
                     <div className="space-y-1 text-xs pt-0.5">
                       <div className="flex items-center">
-                        <span className="text-slate-500 dark:text-slate-400 w-24 shrink-0 font-medium">Tipe</span>
-                        <span className="text-slate-800 dark:text-slate-200 font-medium truncate" title={d.type}>
+                        <span className="text-slate-500 dark:text-slate-400 w-24 shrink-0 font-medium">
+                          Tipe
+                        </span>
+                        <span
+                          className="text-slate-800 dark:text-slate-200 font-medium truncate"
+                          title={d.type}
+                        >
                           : {d.type}
                         </span>
                       </div>
                       <div className="flex items-center">
-                        <span className="text-slate-500 dark:text-slate-400 w-24 shrink-0 font-medium">Hardware</span>
-                        <span className="text-slate-800 dark:text-slate-200 font-medium truncate" title={hardwareModel}>
+                        <span className="text-slate-500 dark:text-slate-400 w-24 shrink-0 font-medium">
+                          Hardware
+                        </span>
+                        <span
+                          className="text-slate-800 dark:text-slate-200 font-medium truncate"
+                          title={hardwareModel}
+                        >
                           : {hardwareModel}
                         </span>
                       </div>
                       <div className="flex items-center">
-                        <span className="text-slate-500 dark:text-slate-400 w-24 shrink-0 font-medium">IP Address</span>
-                        <span className="text-slate-800 dark:text-slate-200 font-mono">: {d.ip_address}</span>
+                        <span className="text-slate-500 dark:text-slate-400 w-24 shrink-0 font-medium">
+                          IP Address
+                        </span>
+                        <span className="text-slate-800 dark:text-slate-200 font-mono">
+                          : {d.ip_address}
+                        </span>
                       </div>
                       <div className="flex items-center">
-                        <span className="text-slate-500 dark:text-slate-400 w-24 shrink-0 font-medium">Uptime</span>
-                        <span className="text-slate-800 dark:text-slate-200 font-mono text-[11px]">: {d.uptime}</span>
+                        <span className="text-slate-500 dark:text-slate-400 w-24 shrink-0 font-medium">
+                          Uptime
+                        </span>
+                        <span className="text-slate-800 dark:text-slate-200 font-mono text-[11px]">
+                          : {d.uptime}
+                        </span>
                       </div>
                       <div className="flex items-center">
                         <span className="text-slate-500 dark:text-slate-400 w-24 shrink-0 font-medium whitespace-nowrap">
@@ -562,7 +669,9 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                         </span>
                       </div>
                       <div className="flex items-center">
-                        <span className="text-slate-500 dark:text-slate-400 w-24 shrink-0 font-medium">Service</span>
+                        <span className="text-slate-500 dark:text-slate-400 w-24 shrink-0 font-medium">
+                          Service
+                        </span>
                         <span className="text-emerald-500 dark:text-emerald-400 font-semibold flex items-center gap-1.5">
                           : Normal Operation
                         </span>
@@ -579,15 +688,17 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300 font-medium text-xs">
                       <ShieldCheck className="size-3.5 text-emerald-500 dark:text-emerald-400" />
-                      <span className="font-semibold text-slate-800 dark:text-slate-200">SD Card Health</span>
+                      <span className="font-semibold text-slate-800 dark:text-slate-200">
+                        SD Card Health
+                      </span>
                     </div>
                     <span
                       className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
                         isHealthGood
                           ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
                           : isHealthCaution
-                          ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30"
-                          : "bg-rose-500/15 text-rose-600 dark:text-rose-500 border-rose-500/30"
+                            ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30"
+                            : "bg-rose-500/15 text-rose-600 dark:text-rose-500 border-rose-500/30"
                       }`}
                     >
                       {d.sd_health.status}
@@ -601,18 +712,21 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                         isHealthGood
                           ? "bg-emerald-500/20 text-emerald-500 dark:text-emerald-400"
                           : isHealthCaution
-                          ? "bg-amber-500/20 text-amber-500 dark:text-amber-400"
-                          : "bg-rose-500/20 text-rose-500"
+                            ? "bg-amber-500/20 text-amber-500 dark:text-amber-400"
+                            : "bg-rose-500/20 text-rose-500"
                       }`}
                     >
                       <HealthIcon className={`size-4 ${healthColor}`} />
                     </div>
                     <div className="min-w-0">
-                      <div className={`text-sm font-bold tracking-tight leading-none ${healthColor}`}>
+                      <div
+                        className={`text-sm font-bold tracking-tight leading-none ${healthColor}`}
+                      >
                         Kondisi {d.sd_health.status}
                       </div>
                       <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 font-medium truncate">
-                        Suhu {d.sd_health.temperature} &bull; Wear {d.sd_health.wear_level}
+                        Suhu {d.sd_health.temperature} &bull; Wear{" "}
+                        {d.sd_health.wear_level}
                       </div>
                     </div>
                   </div>
@@ -622,31 +736,47 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                 <div className="text-[11px] space-y-1 text-slate-700 dark:text-slate-300 font-medium border-t border-slate-200 dark:border-slate-800/60 pt-2">
                   <div className="flex items-center justify-between">
                     <span className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
-                      <span className={`size-1.5 rounded-full ${isHealthGood ? "bg-emerald-400" : "bg-amber-400"}`} />
+                      <span
+                        className={`size-1.5 rounded-full ${isHealthGood ? "bg-emerald-400" : "bg-amber-400"}`}
+                      />
                       Bad Sector
                     </span>
-                    <span className="font-mono text-slate-800 dark:text-slate-200">: {d.sd_health.bad_sector}</span>
+                    <span className="font-mono text-slate-800 dark:text-slate-200">
+                      : {d.sd_health.bad_sector}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
-                      <span className={`size-1.5 rounded-full ${isHealthGood ? "bg-emerald-400" : "bg-amber-400"}`} />
+                      <span
+                        className={`size-1.5 rounded-full ${isHealthGood ? "bg-emerald-400" : "bg-amber-400"}`}
+                      />
                       Wear Level
                     </span>
-                    <span className="font-mono text-slate-800 dark:text-slate-200">: {d.sd_health.wear_level}</span>
+                    <span className="font-mono text-slate-800 dark:text-slate-200">
+                      : {d.sd_health.wear_level}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
-                      <span className={`size-1.5 rounded-full ${isHealthGood ? "bg-emerald-400" : "bg-amber-400"}`} />
+                      <span
+                        className={`size-1.5 rounded-full ${isHealthGood ? "bg-emerald-400" : "bg-amber-400"}`}
+                      />
                       Temperature
                     </span>
-                    <span className="font-mono text-slate-800 dark:text-slate-200">: {d.sd_health.temperature}</span>
+                    <span className="font-mono text-slate-800 dark:text-slate-200">
+                      : {d.sd_health.temperature}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
-                      <span className={`size-1.5 rounded-full ${isHealthGood ? "bg-emerald-400" : "bg-amber-400"}`} />
+                      <span
+                        className={`size-1.5 rounded-full ${isHealthGood ? "bg-emerald-400" : "bg-amber-400"}`}
+                      />
                       I/O Error
                     </span>
-                    <span className="font-mono text-slate-800 dark:text-slate-200">: {d.sd_health.io_error}</span>
+                    <span className="font-mono text-slate-800 dark:text-slate-200">
+                      : {d.sd_health.io_error}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -658,7 +788,9 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                   <div className="flex items-center justify-between gap-1.5">
                     <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300 font-medium text-xs">
                       <Clock className="size-3.5 text-blue-500 dark:text-blue-400 shrink-0" />
-                      <span className="font-semibold text-slate-800 dark:text-slate-200">Uptime & SLA</span>
+                      <span className="font-semibold text-slate-800 dark:text-slate-200">
+                        Uptime & SLA
+                      </span>
                     </div>
                     <span
                       className={`text-[10px] font-bold px-2 py-0.5 rounded-full border whitespace-nowrap ${
@@ -667,14 +799,20 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                           : "bg-rose-500/15 text-rose-500 dark:text-rose-400 border-rose-500/30"
                       }`}
                     >
-                      {isSLAMet ? `SLA OK (+${slaDiffPct}%)` : `Breach (${slaDiffPct}%)`}
+                      {isSLAMet
+                        ? `SLA OK (+${slaDiffPct}%)`
+                        : `Breach (${slaDiffPct}%)`}
                     </span>
                   </div>
 
                   {/* Monthly Period & SLA Target */}
                   <div className="flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-400 mt-2 mb-1">
-                    <span className="font-medium">Okt 2026 ({totalMonthHours} Jam)</span>
-                    <span className="font-mono text-slate-700 dark:text-slate-300">Target 99.5%</span>
+                    <span className="font-medium">
+                      Okt 2026 ({totalMonthHours} Jam)
+                    </span>
+                    <span className="font-mono text-slate-700 dark:text-slate-300">
+                      Target 99.5%
+                    </span>
                   </div>
 
                   {/* Dual Proportional Bar */}
@@ -705,7 +843,9 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                       </div>
                       <div className="text-[11px] font-bold text-[#00a862] dark:text-[#00c875] font-mono mt-0.5">
                         {uptimeDurationText}{" "}
-                        <span className="text-[9px] font-normal text-slate-500 dark:text-slate-400">({uptimePctNum}%)</span>
+                        <span className="text-[9px] font-normal text-slate-500 dark:text-slate-400">
+                          ({uptimePctNum}%)
+                        </span>
                       </div>
                     </div>
 
@@ -716,7 +856,9 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                       </div>
                       <div className="text-[11px] font-bold text-[#e2445c] font-mono mt-0.5">
                         {downtimeDurationText}{" "}
-                        <span className="text-[9px] font-normal text-slate-500 dark:text-slate-400">({downtimePctNum}%)</span>
+                        <span className="text-[9px] font-normal text-slate-500 dark:text-slate-400">
+                          ({downtimePctNum}%)
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -725,17 +867,23 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                   <div className="text-[10px] space-y-1 text-slate-500 dark:text-slate-400 border-t border-slate-200 dark:border-slate-800/60 pt-1.5 mt-2">
                     <div className="flex items-center justify-between">
                       <span>Target Nyala (99.5%):</span>
-                      <span className="text-slate-800 dark:text-slate-200 font-mono font-medium">Min. {slaTargetHoursText}</span>
+                      <span className="text-slate-800 dark:text-slate-200 font-mono font-medium">
+                        Min. {slaTargetHoursText}
+                      </span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span>Toleransi Mati:</span>
-                      <span className="text-slate-700 dark:text-slate-300 font-mono">Maks. {slaDowntimeAllowedText}</span>
+                      <span className="text-slate-700 dark:text-slate-300 font-mono">
+                        Maks. {slaDowntimeAllowedText}
+                      </span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span>Status Bulan Ini:</span>
                       <span
                         className={`font-semibold font-mono ${
-                          isSLAMet ? "text-[#00a862] dark:text-[#00c875]" : "text-[#e2445c]"
+                          isSLAMet
+                            ? "text-[#00a862] dark:text-[#00c875]"
+                            : "text-[#e2445c]"
                         }`}
                       >
                         {isSLAMet
@@ -767,10 +915,7 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                   <span className="font-semibold">CPU Usage</span>
                 </div>
 
-                <CircularGauge
-                  percent={d.cpu_percent}
-                  strokeColor="#00c875"
-                />
+                <CircularGauge percent={d.cpu_percent} strokeColor="#00c875" />
 
                 <div>
                   <SparklineWave
@@ -791,10 +936,7 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                   <span className="font-semibold">RAM Usage</span>
                 </div>
 
-                <CircularGauge
-                  percent={d.ram_percent}
-                  strokeColor="#0073ea"
-                />
+                <CircularGauge percent={d.ram_percent} strokeColor="#0073ea" />
 
                 <div>
                   <SparklineWave
@@ -858,12 +1000,24 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                         : "bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30"
                     }`}
                   >
-                    <span className={`size-1.5 rounded-full ${isSLAMet ? "bg-[#00c875]" : "bg-rose-500 animate-pulse"}`} />
-                    {isSLAMet ? `SLA 99.5% Tercapai (+${slaDiffPct}%)` : `SLA 99.5% Breach (${slaDiffPct}%)`}
+                    <span
+                      className={`size-1.5 rounded-full ${isSLAMet ? "bg-[#00c875]" : "bg-rose-500 animate-pulse"}`}
+                    />
+                    {isSLAMet
+                      ? `SLA 99.5% Tercapai (+${slaDiffPct}%)`
+                      : `SLA 99.5% Breach (${slaDiffPct}%)`}
                   </span>
                 </div>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Periode: <strong className="text-slate-800 dark:text-slate-200">{d.month_period || "01 Oct 2026 - 31 Oct 2026"}</strong> &bull; Total Periode: <strong className="text-slate-800 dark:text-slate-200">{totalMonthHours} Jam</strong> (31 Hari &times; 24 Jam)
+                  Periode:{" "}
+                  <strong className="text-slate-800 dark:text-slate-200">
+                    {d.month_period || "01 Oct 2026 - 31 Oct 2026"}
+                  </strong>{" "}
+                  &bull; Total Periode:{" "}
+                  <strong className="text-slate-800 dark:text-slate-200">
+                    {totalMonthHours} Jam
+                  </strong>{" "}
+                  (31 Hari &times; 24 Jam)
                 </p>
               </div>
 
@@ -881,21 +1035,29 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
               {/* Card 1: Target SLA 99.5% */}
               <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 flex flex-col justify-between space-y-2 shadow-xs">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Target SLA Kontrak</span>
+                  <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                    Target SLA Kontrak
+                  </span>
                   <div className="size-6 rounded-md bg-yellow-500/15 text-amber-600 dark:text-yellow-400 flex items-center justify-center">
                     <CheckCheck className="size-3.5" />
                   </div>
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">99.5%</div>
+                  <div className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+                    99.5%
+                  </div>
                   <div className="text-xs text-slate-500 dark:text-slate-400 mt-1 space-y-0.5">
                     <div className="flex justify-between">
                       <span>Minimal Nyala:</span>
-                      <strong className="text-slate-800 dark:text-slate-200 font-mono">{slaTargetHoursText}</strong>
+                      <strong className="text-slate-800 dark:text-slate-200 font-mono">
+                        {slaTargetHoursText}
+                      </strong>
                     </div>
                     <div className="flex justify-between">
                       <span>Toleransi Mati:</span>
-                      <strong className="text-slate-800 dark:text-slate-200 font-mono">{slaDowntimeAllowedText}</strong>
+                      <strong className="text-slate-800 dark:text-slate-200 font-mono">
+                        {slaDowntimeAllowedText}
+                      </strong>
                     </div>
                   </div>
                 </div>
@@ -907,7 +1069,9 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
               {/* Card 2: Akumulasi Jam Nyala (Uptime) */}
               <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 flex flex-col justify-between space-y-2 shadow-xs">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Akumulasi Jam Nyala</span>
+                  <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                    Akumulasi Jam Nyala
+                  </span>
                   <div className="size-6 rounded-md bg-emerald-500/15 text-[#00a862] dark:text-[#00c875] flex items-center justify-center">
                     <CheckCircle2 className="size-3.5" />
                   </div>
@@ -922,14 +1086,18 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                 </div>
                 <div className="text-[10px] text-slate-500 dark:text-slate-400 border-t border-slate-200 dark:border-slate-800/50 pt-1.5 flex items-center justify-between">
                   <span>Sesi berjalan:</span>
-                  <span className="text-slate-800 dark:text-slate-200 font-mono">{d.uptime_days}d {d.uptime_hours}h</span>
+                  <span className="text-slate-800 dark:text-slate-200 font-mono">
+                    {d.uptime_days}d {d.uptime_hours}h
+                  </span>
                 </div>
               </div>
 
               {/* Card 3: Akumulasi Jam Mati (Downtime) */}
               <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 flex flex-col justify-between space-y-2 shadow-xs">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Akumulasi Jam Mati</span>
+                  <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                    Akumulasi Jam Mati
+                  </span>
                   <div className="size-6 rounded-md bg-rose-500/15 text-[#e2445c] flex items-center justify-center">
                     <Power className="size-3.5" />
                   </div>
@@ -944,33 +1112,58 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                 </div>
                 <div className="text-[10px] text-slate-500 dark:text-slate-400 border-t border-slate-200 dark:border-slate-800/50 pt-1.5 flex items-center justify-between">
                   <span>Total kejadian:</span>
-                  <span className="text-slate-800 dark:text-slate-200 font-mono font-semibold">{downtimeEvents.length} kali mati</span>
+                  <span className="text-slate-800 dark:text-slate-200 font-mono font-semibold">
+                    {downtimeEvents.length} kali mati
+                  </span>
                 </div>
               </div>
 
               {/* Card 4: Status Realisasi & Deviasi */}
-              <div className={`bg-slate-50/70 dark:bg-[#0a1226] border rounded-xl p-4 flex flex-col justify-between space-y-2 shadow-xs ${
-                isSLAMet ? "border-emerald-500/40" : "border-rose-500/40"
-              }`}>
+              <div
+                className={`bg-slate-50/70 dark:bg-[#0a1226] border rounded-xl p-4 flex flex-col justify-between space-y-2 shadow-xs ${
+                  isSLAMet ? "border-emerald-500/40" : "border-rose-500/40"
+                }`}
+              >
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Status SLA 99.5%</span>
-                  <div className={`size-6 rounded-md flex items-center justify-center ${
-                    isSLAMet ? "bg-emerald-500/15 text-[#00a862] dark:text-[#00c875]" : "bg-rose-500/15 text-[#e2445c]"
-                  }`}>
-                    {isSLAMet ? <CheckCircle2 className="size-3.5" /> : <AlertTriangle className="size-3.5" />}
+                  <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                    Status SLA 99.5%
+                  </span>
+                  <div
+                    className={`size-6 rounded-md flex items-center justify-center ${
+                      isSLAMet
+                        ? "bg-emerald-500/15 text-[#00a862] dark:text-[#00c875]"
+                        : "bg-rose-500/15 text-[#e2445c]"
+                    }`}
+                  >
+                    {isSLAMet ? (
+                      <CheckCircle2 className="size-3.5" />
+                    ) : (
+                      <AlertTriangle className="size-3.5" />
+                    )}
                   </div>
                 </div>
                 <div>
-                  <div className={`text-2xl font-bold tracking-tight font-mono ${
-                    isSLAMet ? "text-[#00a862] dark:text-[#00c875]" : "text-[#e2445c]"
-                  }`}>
+                  <div
+                    className={`text-2xl font-bold tracking-tight font-mono ${
+                      isSLAMet
+                        ? "text-[#00a862] dark:text-[#00c875]"
+                        : "text-[#e2445c]"
+                    }`}
+                  >
                     {isSLAMet ? `+${slaDiffPct}%` : `${slaDiffPct}%`}
                   </div>
-                  <div className={`text-xs font-semibold mt-1 ${isSLAMet ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
-                    {isSLAMet ? "Target SLA Tercapai" : "SLA Breach (Tidak Tercapai)"}
+                  <div
+                    className={`text-xs font-semibold mt-1 ${isSLAMet ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}
+                  >
+                    {isSLAMet
+                      ? "Target SLA Tercapai"
+                      : "SLA Breach (Tidak Tercapai)"}
                   </div>
                 </div>
-                <div className="text-[10px] text-slate-500 dark:text-slate-400 border-t border-slate-200 dark:border-slate-800/50 pt-1.5 truncate" title={downtimeDiffText}>
+                <div
+                  className="text-[10px] text-slate-500 dark:text-slate-400 border-t border-slate-200 dark:border-slate-800/50 pt-1.5 truncate"
+                  title={downtimeDiffText}
+                >
                   {downtimeDiffText}
                 </div>
               </div>
@@ -1010,15 +1203,27 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                 <div className="flex items-center gap-4">
                   <span className="flex items-center gap-1.5">
                     <span className="size-2.5 rounded-full bg-[#00c875]" />
-                    Total Nyala: <strong className="text-slate-900 dark:text-white font-mono">{uptimeDurationText}</strong> ({uptimePctNum}%)
+                    Total Nyala:{" "}
+                    <strong className="text-slate-900 dark:text-white font-mono">
+                      {uptimeDurationText}
+                    </strong>{" "}
+                    ({uptimePctNum}%)
                   </span>
                   <span className="flex items-center gap-1.5">
                     <span className="size-2.5 rounded-full bg-[#e2445c]" />
-                    Total Mati: <strong className="text-slate-900 dark:text-white font-mono">{downtimeDurationText}</strong> ({downtimePctNum}%)
+                    Total Mati:{" "}
+                    <strong className="text-slate-900 dark:text-white font-mono">
+                      {downtimeDurationText}
+                    </strong>{" "}
+                    ({downtimePctNum}%)
                   </span>
                 </div>
                 <div className="text-slate-500 dark:text-slate-400 text-[11px]">
-                  Toleransi Mati Maks: <strong className="text-amber-600 dark:text-yellow-400 font-mono">{slaDowntimeAllowedText}</strong> (0.5%)
+                  Toleransi Mati Maks:{" "}
+                  <strong className="text-amber-600 dark:text-yellow-400 font-mono">
+                    {slaDowntimeAllowedText}
+                  </strong>{" "}
+                  (0.5%)
                 </div>
               </div>
             </div>
@@ -1032,7 +1237,8 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                     Kalender Uptime Harian (01 Oct – 31 Oct 2026)
                   </h4>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                    Status operasional per hari dalam bulan ini (31 Hari). Kotak merah menandai hari saat terjadi pemadaman / insiden mati.
+                    Status operasional per hari dalam bulan ini (31 Hari). Kotak
+                    merah menandai hari saat terjadi pemadaman / insiden mati.
                   </p>
                 </div>
 
@@ -1059,15 +1265,21 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                     }`}
                     title={`${dItem.dateLabel}: ${dItem.isDown ? `${dItem.downDuration} (${dItem.incident})` : "24 Jam Penuh Nyala Normal (100% OK)"}`}
                   >
-                    <span className="text-[10px] text-slate-600 dark:text-slate-400 font-mono">{dItem.day.toString().padStart(2, "0")}</span>
+                    <span className="text-[10px] text-slate-600 dark:text-slate-400 font-mono">
+                      {dItem.day.toString().padStart(2, "0")}
+                    </span>
                     <span
                       className={`size-2 rounded-full my-1 ${
-                        dItem.isDown ? "bg-[#e2445c] animate-pulse" : "bg-[#00c875]"
+                        dItem.isDown
+                          ? "bg-[#e2445c] animate-pulse"
+                          : "bg-[#00c875]"
                       }`}
                     />
                     <span
                       className={`text-[9px] font-bold font-mono leading-tight ${
-                        dItem.isDown ? "text-rose-600 dark:text-rose-300" : "text-emerald-600 dark:text-emerald-400"
+                        dItem.isDown
+                          ? "text-rose-600 dark:text-rose-300"
+                          : "text-emerald-600 dark:text-emerald-400"
                       }`}
                     >
                       {dItem.isDown ? "DOWN" : "OK"}
@@ -1086,7 +1298,8 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                     Rincian Log Insiden Mati & Akumulasi Waktu Downtime
                   </h4>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                    Rekam jejak setiap kali gateway mati/padam, waktu pulih kembali, akumulasi jam mati, dan dampak ke SLA 99.5%
+                    Rekam jejak setiap kali gateway mati/padam, waktu pulih
+                    kembali, akumulasi jam mati, dan dampak ke SLA 99.5%
                   </p>
                 </div>
                 <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/60 font-mono shadow-2xs">
@@ -1111,10 +1324,19 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                   </thead>
                   <tbody className="divide-y divide-slate-200 dark:divide-slate-800/60 font-sans">
                     {downtimeEvents.map((evt) => (
-                      <tr key={evt.no} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                        <td className="py-2.5 px-3 font-mono text-slate-500 dark:text-slate-400">{evt.no}</td>
-                        <td className="py-2.5 px-3 font-mono text-slate-800 dark:text-slate-200 whitespace-nowrap">{evt.start_time}</td>
-                        <td className="py-2.5 px-3 font-mono text-slate-800 dark:text-slate-200 whitespace-nowrap">{evt.end_time}</td>
+                      <tr
+                        key={evt.no}
+                        className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors"
+                      >
+                        <td className="py-2.5 px-3 font-mono text-slate-500 dark:text-slate-400">
+                          {evt.no}
+                        </td>
+                        <td className="py-2.5 px-3 font-mono text-slate-800 dark:text-slate-200 whitespace-nowrap">
+                          {evt.start_time}
+                        </td>
+                        <td className="py-2.5 px-3 font-mono text-slate-800 dark:text-slate-200 whitespace-nowrap">
+                          {evt.end_time}
+                        </td>
                         <td className="py-2.5 px-3 font-mono font-bold text-[#e2445c] whitespace-nowrap">
                           {evt.duration}
                         </td>
@@ -1126,7 +1348,9 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                             {evt.category}
                           </span>
                         </td>
-                        <td className="py-2.5 px-3 text-slate-600 dark:text-slate-300 min-w-50">{evt.reason}</td>
+                        <td className="py-2.5 px-3 text-slate-600 dark:text-slate-300 min-w-50">
+                          {evt.reason}
+                        </td>
                         <td className="py-2.5 px-3 font-mono text-rose-600 dark:text-rose-400 whitespace-nowrap">
                           -{evt.sla_impact_pct}%
                         </td>
@@ -1141,7 +1365,10 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                   </tbody>
                   <tfoot className="bg-slate-100 dark:bg-[#081022] font-semibold text-slate-800 dark:text-slate-200 border-t-2 border-slate-300 dark:border-slate-700/80">
                     <tr>
-                      <td colSpan={3} className="py-2.5 px-3 text-right text-xs uppercase text-slate-500 dark:text-slate-400 tracking-wider">
+                      <td
+                        colSpan={3}
+                        className="py-2.5 px-3 text-right text-xs uppercase text-slate-500 dark:text-slate-400 tracking-wider"
+                      >
                         Total Akumulasi Sebulan ({totalMonthHours} Jam):
                       </td>
                       <td className="py-2.5 px-3 font-mono text-sm font-bold text-[#e2445c]">
@@ -1150,8 +1377,14 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                       <td className="py-2.5 px-3 font-mono text-xs text-rose-600 dark:text-rose-400">
                         {downtimePctNum}%
                       </td>
-                      <td colSpan={4} className="py-2.5 px-3 text-xs text-slate-600 dark:text-slate-300">
-                        Total Waktu Nyala: <strong className="text-[#00a862] dark:text-[#00c875] font-mono">{uptimeDurationText} ({uptimePctNum}%)</strong>
+                      <td
+                        colSpan={4}
+                        className="py-2.5 px-3 text-xs text-slate-600 dark:text-slate-300"
+                      >
+                        Total Waktu Nyala:{" "}
+                        <strong className="text-[#00a862] dark:text-[#00c875] font-mono">
+                          {uptimeDurationText} ({uptimePctNum}%)
+                        </strong>
                       </td>
                     </tr>
                   </tfoot>
@@ -1169,10 +1402,24 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                   Kesimpulan & Analisis Realisasi SLA 99.5%
                 </div>
                 <p className="text-slate-700 dark:text-slate-300 leading-relaxed">
-                  Berdasarkan standar SLA <strong>99.5%</strong>, gateway wajib aktif minimal <strong>{slaTargetHoursText}</strong> dengan batas toleransi mati maksimal <strong>{slaDowntimeAllowedText}</strong> dari total <strong>{totalMonthHours} Jam</strong> sebulan. Gateway <strong>{d.id}</strong> mencatat waktu mati terakumulasi <strong>{downtimeDurationText}</strong> (melebihi batas toleransi maksimal sebesar <strong>{formatHoursMinutes(downtimeDiffHours)}</strong>), sehingga realisasi akhir adalah <strong>{uptimePctNum}% (Status: SLA Breach)</strong>.
+                  Berdasarkan standar SLA <strong>99.5%</strong>, gateway wajib
+                  aktif minimal <strong>{slaTargetHoursText}</strong> dengan
+                  batas toleransi mati maksimal{" "}
+                  <strong>{slaDowntimeAllowedText}</strong> dari total{" "}
+                  <strong>{totalMonthHours} Jam</strong> sebulan. Gateway{" "}
+                  <strong>{d.id}</strong> mencatat waktu mati terakumulasi{" "}
+                  <strong>{downtimeDurationText}</strong> (melebihi batas
+                  toleransi maksimal sebesar{" "}
+                  <strong>{formatHoursMinutes(downtimeDiffHours)}</strong>),
+                  sehingga realisasi akhir adalah{" "}
+                  <strong>{uptimePctNum}% (Status: SLA Breach)</strong>.
                 </p>
                 <p className="text-slate-500 dark:text-slate-400 text-[11px] leading-relaxed">
-                  &bull; Kontribusi downtime terbesar berasal dari pemadaman listrik PLN (6h 15m) dan pemeliharaan panel gedung toko (9h 30m) yang menyumbang 66.3% dari total downtime. Gateway SmartBox berhasil melakukan auto-recovery secara mandiri segera setelah suplai daya kembali normal.
+                  &bull; Kontribusi downtime terbesar berasal dari pemadaman
+                  listrik PLN (6h 15m) dan pemeliharaan panel gedung toko (9h
+                  30m) yang menyumbang 66.3% dari total downtime. Gateway
+                  SmartBox berhasil melakukan auto-recovery secara mandiri
+                  segera setelah suplai daya kembali normal.
                 </p>
               </div>
             </div>
@@ -1200,29 +1447,75 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-3 shadow-xs">
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-slate-800 dark:text-white text-xs">CPU Utilization</span>
-                  <span className="text-[#00a862] dark:text-emerald-400 font-mono font-bold text-sm">{d.cpu_percent}%</span>
+                  <span className="font-bold text-slate-800 dark:text-white text-xs">
+                    CPU Utilization
+                  </span>
+                  <span className="text-[#00a862] dark:text-emerald-400 font-mono font-bold text-sm">
+                    {d.cpu_percent}%
+                  </span>
                 </div>
                 <CircularGauge percent={d.cpu_percent} strokeColor="#00c875" />
-                <SparklineWave data={d.cpu_sparkline} color="#00c875" id="cpu-detail" />
+                <SparklineWave
+                  data={d.cpu_sparkline}
+                  color="#00c875"
+                  id="cpu-detail"
+                />
                 <div className="text-xs text-slate-500 dark:text-slate-400 space-y-1 border-t border-slate-200 dark:border-slate-800/60 pt-2">
-                  <div className="flex justify-between"><span>Arsitektur:</span><strong className="text-slate-800 dark:text-slate-200">ARMv8 Cortex-A53 4-Core</strong></div>
-                  <div className="flex justify-between"><span>Peak Max:</span><strong className="text-slate-800 dark:text-slate-200">{d.cpu_max}</strong></div>
-                  <div className="flex justify-between"><span>Idle Min:</span><strong className="text-slate-800 dark:text-slate-200">{d.cpu_min}</strong></div>
+                  <div className="flex justify-between">
+                    <span>Arsitektur:</span>
+                    <strong className="text-slate-800 dark:text-slate-200">
+                      ARMv8 Cortex-A53 4-Core
+                    </strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Peak Max:</span>
+                    <strong className="text-slate-800 dark:text-slate-200">
+                      {d.cpu_max}
+                    </strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Idle Min:</span>
+                    <strong className="text-slate-800 dark:text-slate-200">
+                      {d.cpu_min}
+                    </strong>
+                  </div>
                 </div>
               </div>
 
               <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-3 shadow-xs">
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-slate-800 dark:text-white text-xs">RAM Memory Usage</span>
-                  <span className="text-blue-600 dark:text-blue-400 font-mono font-bold text-sm">{d.ram_percent}%</span>
+                  <span className="font-bold text-slate-800 dark:text-white text-xs">
+                    RAM Memory Usage
+                  </span>
+                  <span className="text-blue-600 dark:text-blue-400 font-mono font-bold text-sm">
+                    {d.ram_percent}%
+                  </span>
                 </div>
                 <CircularGauge percent={d.ram_percent} strokeColor="#0073ea" />
-                <SparklineWave data={d.ram_sparkline} color="#0073ea" id="ram-detail" />
+                <SparklineWave
+                  data={d.ram_sparkline}
+                  color="#0073ea"
+                  id="ram-detail"
+                />
                 <div className="text-xs text-slate-500 dark:text-slate-400 space-y-1 border-t border-slate-200 dark:border-slate-800/60 pt-2">
-                  <div className="flex justify-between"><span>Total Kapasitas:</span><strong className="text-slate-800 dark:text-slate-200">8 GB LPDDR4</strong></div>
-                  <div className="flex justify-between"><span>Terpakai:</span><strong className="text-slate-800 dark:text-slate-200">{(8 * (d.ram_percent / 100)).toFixed(1)} GB</strong></div>
-                  <div className="flex justify-between"><span>Tersedia:</span><strong className="text-slate-800 dark:text-slate-200">{(8 * (1 - d.ram_percent / 100)).toFixed(1)} GB</strong></div>
+                  <div className="flex justify-between">
+                    <span>Total Kapasitas:</span>
+                    <strong className="text-slate-800 dark:text-slate-200">
+                      8 GB LPDDR4
+                    </strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Terpakai:</span>
+                    <strong className="text-slate-800 dark:text-slate-200">
+                      {(8 * (d.ram_percent / 100)).toFixed(1)} GB
+                    </strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Tersedia:</span>
+                    <strong className="text-slate-800 dark:text-slate-200">
+                      {(8 * (1 - d.ram_percent / 100)).toFixed(1)} GB
+                    </strong>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1249,37 +1542,80 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-3 shadow-xs">
-                <span className="font-bold text-slate-900 dark:text-white text-xs">Storage Capacity</span>
-                <CircularGauge percent={d.sd_percent} strokeColor="#a855f7" sublabel={`${d.sd_used_gb} GB / ${d.sd_total_gb} GB`} />
+                <span className="font-bold text-slate-900 dark:text-white text-xs">
+                  Storage Capacity
+                </span>
+                <CircularGauge
+                  percent={d.sd_percent}
+                  strokeColor="#a855f7"
+                  sublabel={`${d.sd_used_gb} GB / ${d.sd_total_gb} GB`}
+                />
                 <div className="text-xs text-slate-500 dark:text-slate-400 space-y-1 border-t border-slate-200 dark:border-slate-800/60 pt-2">
-                  <div className="flex justify-between"><span>Total Storage:</span><strong className="text-slate-800 dark:text-slate-200">{d.sd_total_gb} GB Class 10 U3</strong></div>
-                  <div className="flex justify-between"><span>Terpakai:</span><strong className="text-slate-800 dark:text-slate-200">{d.sd_used_gb} GB ({d.sd_percent}%)</strong></div>
-                  <div className="flex justify-between"><span>Sisa Ruang:</span><strong className="text-[#00a862] dark:text-emerald-400">{d.sd_total_gb - d.sd_used_gb} GB Bebas</strong></div>
+                  <div className="flex justify-between">
+                    <span>Total Storage:</span>
+                    <strong className="text-slate-800 dark:text-slate-200">
+                      {d.sd_total_gb} GB Class 10 U3
+                    </strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Terpakai:</span>
+                    <strong className="text-slate-800 dark:text-slate-200">
+                      {d.sd_used_gb} GB ({d.sd_percent}%)
+                    </strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Sisa Ruang:</span>
+                    <strong className="text-[#00a862] dark:text-emerald-400">
+                      {d.sd_total_gb - d.sd_used_gb} GB Bebas
+                    </strong>
+                  </div>
                 </div>
               </div>
 
               <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-3 shadow-xs">
-                <span className="font-bold text-slate-900 dark:text-white text-xs">Health Diagnostic Details</span>
+                <span className="font-bold text-slate-900 dark:text-white text-xs">
+                  Health Diagnostic Details
+                </span>
                 <div className="space-y-2 text-xs pt-1">
                   <div className="flex items-center justify-between p-2 rounded bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xs">
-                    <span className="text-slate-600 dark:text-slate-400">Overall Health:</span>
-                    <span className="text-[#00a862] dark:text-emerald-400 font-bold">{d.sd_health.status}</span>
+                    <span className="text-slate-600 dark:text-slate-400">
+                      Overall Health:
+                    </span>
+                    <span className="text-[#00a862] dark:text-emerald-400 font-bold">
+                      {d.sd_health.status}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between p-2 rounded bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xs">
-                    <span className="text-slate-600 dark:text-slate-400">Bad Sectors:</span>
-                    <span className="text-slate-800 dark:text-slate-200 font-mono">{d.sd_health.bad_sector}</span>
+                    <span className="text-slate-600 dark:text-slate-400">
+                      Bad Sectors:
+                    </span>
+                    <span className="text-slate-800 dark:text-slate-200 font-mono">
+                      {d.sd_health.bad_sector}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between p-2 rounded bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xs">
-                    <span className="text-slate-600 dark:text-slate-400">Wear Leveling:</span>
-                    <span className="text-slate-800 dark:text-slate-200 font-mono">{d.sd_health.wear_level}</span>
+                    <span className="text-slate-600 dark:text-slate-400">
+                      Wear Leveling:
+                    </span>
+                    <span className="text-slate-800 dark:text-slate-200 font-mono">
+                      {d.sd_health.wear_level}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between p-2 rounded bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xs">
-                    <span className="text-slate-600 dark:text-slate-400">Operating Temperature:</span>
-                    <span className="text-slate-800 dark:text-slate-200 font-mono">{d.sd_health.temperature}</span>
+                    <span className="text-slate-600 dark:text-slate-400">
+                      Operating Temperature:
+                    </span>
+                    <span className="text-slate-800 dark:text-slate-200 font-mono">
+                      {d.sd_health.temperature}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between p-2 rounded bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xs">
-                    <span className="text-slate-600 dark:text-slate-400">I/O Error Count:</span>
-                    <span className="text-slate-800 dark:text-slate-200 font-mono">{d.sd_health.io_error}</span>
+                    <span className="text-slate-600 dark:text-slate-400">
+                      I/O Error Count:
+                    </span>
+                    <span className="text-slate-800 dark:text-slate-200 font-mono">
+                      {d.sd_health.io_error}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -1307,19 +1643,37 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
               <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 text-center space-y-1 shadow-xs">
-                <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Suhu Sensor Sekarang</span>
-                <div className="text-3xl font-bold text-[#00a862] dark:text-emerald-400 font-mono">{d.sd_health.temperature}</div>
-                <span className="text-[11px] text-slate-500 dark:text-slate-400">Status Termal Normal</span>
+                <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                  Suhu Sensor Sekarang
+                </span>
+                <div className="text-3xl font-bold text-[#00a862] dark:text-emerald-400 font-mono">
+                  {d.sd_health.temperature}
+                </div>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Status Termal Normal
+                </span>
               </div>
               <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 text-center space-y-1 shadow-xs">
-                <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Batas Threshold Peringatan</span>
-                <div className="text-3xl font-bold text-amber-600 dark:text-yellow-400 font-mono">70°C</div>
-                <span className="text-[11px] text-slate-500 dark:text-slate-400">Peringatan High Temp</span>
+                <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                  Batas Threshold Peringatan
+                </span>
+                <div className="text-3xl font-bold text-amber-600 dark:text-yellow-400 font-mono">
+                  70°C
+                </div>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Peringatan High Temp
+                </span>
               </div>
               <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 text-center space-y-1 shadow-xs">
-                <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Thermal Throttling Target</span>
-                <div className="text-3xl font-bold text-[#e2445c] font-mono">85°C</div>
-                <span className="text-[11px] text-slate-500 dark:text-slate-400">Auto Frequency Throttling</span>
+                <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                  Thermal Throttling Target
+                </span>
+                <div className="text-3xl font-bold text-[#e2445c] font-mono">
+                  85°C
+                </div>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Auto Frequency Throttling
+                </span>
               </div>
             </div>
           </div>
@@ -1356,32 +1710,80 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                 </thead>
                 <tbody className="divide-y divide-slate-200 dark:divide-slate-800/60 font-mono">
                   <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                    <td className="py-2.5 px-3 text-slate-500 dark:text-slate-400">1024</td>
-                    <td className="py-2.5 px-3 text-slate-900 dark:text-white font-sans font-medium">pq-aiops-agent.service</td>
-                    <td className="py-2.5 px-3 text-[#00a862] dark:text-emerald-400">4.2%</td>
-                    <td className="py-2.5 px-3 text-slate-700 dark:text-slate-300">128 MB</td>
-                    <td className="py-2.5 px-3 font-sans"><span className="text-[#00a862] dark:text-[#00c875] text-[11px] font-semibold">Active (Running)</span></td>
+                    <td className="py-2.5 px-3 text-slate-500 dark:text-slate-400">
+                      1024
+                    </td>
+                    <td className="py-2.5 px-3 text-slate-900 dark:text-white font-sans font-medium">
+                      pq-aiops-agent.service
+                    </td>
+                    <td className="py-2.5 px-3 text-[#00a862] dark:text-emerald-400">
+                      4.2%
+                    </td>
+                    <td className="py-2.5 px-3 text-slate-700 dark:text-slate-300">
+                      128 MB
+                    </td>
+                    <td className="py-2.5 px-3 font-sans">
+                      <span className="text-[#00a862] dark:text-[#00c875] text-[11px] font-semibold">
+                        Active (Running)
+                      </span>
+                    </td>
                   </tr>
                   <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                    <td className="py-2.5 px-3 text-slate-500 dark:text-slate-400">1102</td>
-                    <td className="py-2.5 px-3 text-slate-900 dark:text-white font-sans font-medium">quectel-cm.service (Cellular)</td>
-                    <td className="py-2.5 px-3 text-[#00a862] dark:text-emerald-400">0.8%</td>
-                    <td className="py-2.5 px-3 text-slate-700 dark:text-slate-300">34 MB</td>
-                    <td className="py-2.5 px-3 font-sans"><span className="text-[#00a862] dark:text-[#00c875] text-[11px] font-semibold">Active (Connected)</span></td>
+                    <td className="py-2.5 px-3 text-slate-500 dark:text-slate-400">
+                      1102
+                    </td>
+                    <td className="py-2.5 px-3 text-slate-900 dark:text-white font-sans font-medium">
+                      quectel-cm.service (Cellular)
+                    </td>
+                    <td className="py-2.5 px-3 text-[#00a862] dark:text-emerald-400">
+                      0.8%
+                    </td>
+                    <td className="py-2.5 px-3 text-slate-700 dark:text-slate-300">
+                      34 MB
+                    </td>
+                    <td className="py-2.5 px-3 font-sans">
+                      <span className="text-[#00a862] dark:text-[#00c875] text-[11px] font-semibold">
+                        Active (Connected)
+                      </span>
+                    </td>
                   </tr>
                   <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                    <td className="py-2.5 px-3 text-slate-500 dark:text-slate-400">1240</td>
-                    <td className="py-2.5 px-3 text-slate-900 dark:text-white font-sans font-medium">rtsp-dvr-streamer.service</td>
-                    <td className="py-2.5 px-3 text-amber-600 dark:text-amber-400">14.5%</td>
-                    <td className="py-2.5 px-3 text-slate-700 dark:text-slate-300">256 MB</td>
-                    <td className="py-2.5 px-3 font-sans"><span className="text-[#00a862] dark:text-[#00c875] text-[11px] font-semibold">Active (Streaming)</span></td>
+                    <td className="py-2.5 px-3 text-slate-500 dark:text-slate-400">
+                      1240
+                    </td>
+                    <td className="py-2.5 px-3 text-slate-900 dark:text-white font-sans font-medium">
+                      rtsp-dvr-streamer.service
+                    </td>
+                    <td className="py-2.5 px-3 text-amber-600 dark:text-amber-400">
+                      14.5%
+                    </td>
+                    <td className="py-2.5 px-3 text-slate-700 dark:text-slate-300">
+                      256 MB
+                    </td>
+                    <td className="py-2.5 px-3 font-sans">
+                      <span className="text-[#00a862] dark:text-[#00c875] text-[11px] font-semibold">
+                        Active (Streaming)
+                      </span>
+                    </td>
                   </tr>
                   <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                    <td className="py-2.5 px-3 text-slate-500 dark:text-slate-400">980</td>
-                    <td className="py-2.5 px-3 text-slate-900 dark:text-white font-sans font-medium">mosquitto-client.service</td>
-                    <td className="py-2.5 px-3 text-[#00a862] dark:text-emerald-400">0.2%</td>
-                    <td className="py-2.5 px-3 text-slate-700 dark:text-slate-300">18 MB</td>
-                    <td className="py-2.5 px-3 font-sans"><span className="text-[#00a862] dark:text-[#00c875] text-[11px] font-semibold">Active (Idle)</span></td>
+                    <td className="py-2.5 px-3 text-slate-500 dark:text-slate-400">
+                      980
+                    </td>
+                    <td className="py-2.5 px-3 text-slate-900 dark:text-white font-sans font-medium">
+                      mosquitto-client.service
+                    </td>
+                    <td className="py-2.5 px-3 text-[#00a862] dark:text-emerald-400">
+                      0.2%
+                    </td>
+                    <td className="py-2.5 px-3 text-slate-700 dark:text-slate-300">
+                      18 MB
+                    </td>
+                    <td className="py-2.5 px-3 font-sans">
+                      <span className="text-[#00a862] dark:text-[#00c875] text-[11px] font-semibold">
+                        Active (Idle)
+                      </span>
+                    </td>
                   </tr>
                 </tbody>
               </table>
@@ -1410,24 +1812,44 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
             <div className="bg-white dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-3.5 space-y-2.5 text-xs shadow-xs">
               <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-start justify-between shadow-2xs">
                 <div>
-                  <span className="font-semibold text-slate-900 dark:text-white">System Auto-Recovery Complete</span>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Perangkat pulih otomatis setelah pemadaman daya eksternal toko.</p>
+                  <span className="font-semibold text-slate-900 dark:text-white">
+                    System Auto-Recovery Complete
+                  </span>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Perangkat pulih otomatis setelah pemadaman daya eksternal
+                    toko.
+                  </p>
                 </div>
-                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">27 Oct 18:25</span>
+                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+                  27 Oct 18:25
+                </span>
               </div>
               <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-start justify-between shadow-2xs">
                 <div>
-                  <span className="font-semibold text-slate-900 dark:text-white">SD Card Health Check Passed</span>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Integritas filesystem ext4 OK, 0 bad sector, wear level 12%.</p>
+                  <span className="font-semibold text-slate-900 dark:text-white">
+                    SD Card Health Check Passed
+                  </span>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Integritas filesystem ext4 OK, 0 bad sector, wear level 12%.
+                  </p>
                 </div>
-                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">26 Oct 00:00</span>
+                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+                  26 Oct 00:00
+                </span>
               </div>
               <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-start justify-between shadow-2xs">
                 <div>
-                  <span className="font-semibold text-slate-900 dark:text-white">Memory Pool Reclaimed</span>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Buffer cache dibersihkan oleh kernel, 1.2 GB memori dibebaskan.</p>
+                  <span className="font-semibold text-slate-900 dark:text-white">
+                    Memory Pool Reclaimed
+                  </span>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Buffer cache dibersihkan oleh kernel, 1.2 GB memori
+                    dibebaskan.
+                  </p>
                 </div>
-                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">22 Oct 10:15</span>
+                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+                  22 Oct 10:15
+                </span>
               </div>
             </div>
           </div>
