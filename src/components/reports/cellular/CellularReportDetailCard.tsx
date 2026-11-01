@@ -128,7 +128,7 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
 
   if (!data) {
     return (
-      <div className="bg-white dark:bg-[#070e1d] text-slate-800 dark:text-slate-100 rounded-2xl border border-slate-200 dark:border-slate-800/90 shadow-xl p-6 text-center text-slate-500 text-sm">
+      <div className="bg-white dark:bg-[#070e1d] rounded-2xl border border-slate-200 dark:border-slate-800/90 shadow-xl p-6 text-center text-slate-500 dark:text-slate-400 text-sm">
         Data performa untuk gateway {gatewayId} tidak ditemukan.
       </div>
     );
@@ -437,7 +437,7 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
             {/* Daily Bar Chart Card with Date Labels on TOP and Bars on BOTTOM */}
             <div className="mt-3.5 p-3.5 rounded-xl bg-white dark:bg-[#070e1d] border border-slate-200/90 dark:border-slate-800/80 shadow-xs">
               {/* 31 Columns Grid: Each day has Date Label on TOP and Bar on BOTTOM */}
-              <div className="grid grid-cols-[repeat(31,minmax(0,1fr))] gap-1 sm:gap-1.5 items-end pt-1">
+              <div className="grid grid-cols-31 gap-1 sm:gap-1.5 items-end pt-1">
                 {dailyStatusList.map((item) => {
                   const isSelected = selectedEventDate === item.dateKey;
                   const barColor =
@@ -498,7 +498,7 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
               </div>
 
               {/* Hover / Selected Day Real-Time Info Bar */}
-              <div className="mt-3 pt-2.5 border-t border-slate-200/70 dark:border-slate-800/70 flex items-center justify-between text-xs min-h-[30px]">
+              <div className="mt-3 pt-2.5 border-t border-slate-200/70 dark:border-slate-800/70 flex items-center justify-between text-xs min-h-7.5">
                 {hoveredDay ? (
                   <div className="flex items-center gap-2">
                     <span className="font-semibold text-slate-800 dark:text-slate-200">
@@ -577,7 +577,7 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
             </div>
 
             {/* Scrollable Compact Table (max 10 rows visible) */}
-            <div className="overflow-x-auto mt-2 max-h-[350px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700">
+            <div className="overflow-x-auto mt-2 max-h-87.5 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700">
               <table className="w-full text-left text-xs border-collapse">
                 <thead className="sticky top-0 z-10 bg-slate-100 dark:bg-[#0a1224] shadow-xs">
                   <tr className="text-[11px] text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800/60 font-semibold">

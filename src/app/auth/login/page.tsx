@@ -59,7 +59,7 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen w-full grid grid-cols-1 lg:grid-cols-12 bg-white dark:bg-[#0a0d14] text-slate-900 dark:text-slate-100 font-sans selection:bg-[#ff7a59]/20">
       {/* LEFT SECTION: 4 COLUMNS - Simple Image & AI Agent Description */}
-      <div className="lg:col-span-4 relative min-h-[420px] lg:min-h-screen flex flex-col justify-between p-8 sm:p-10 lg:p-12 overflow-hidden bg-slate-950">
+      <div className="lg:col-span-4 relative min-h-105 lg:min-h-screen flex flex-col justify-between p-8 sm:p-10 lg:p-12 overflow-hidden bg-slate-950">
         {/* Simple Background Image */}
         <img
           src="/images/smartbox-minimal.jpg"
@@ -68,7 +68,7 @@ export default function LoginPage() {
         />
 
         {/* Ambient Dark Overlay for clean readability */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/60 pointer-events-none" />
+        <div className="absolute inset-0 bg-linear-to-t from-black/90 via-black/40 to-black/60 pointer-events-none" />
 
         {/* Top Logo & Branding: Pure Text + Icon (NO card) */}
         <div className="relative z-10 flex items-center gap-3">
@@ -93,10 +93,10 @@ export default function LoginPage() {
       </div>
 
       {/* RIGHT SECTION: 8 COLUMNS - Pure Clean Form (No card, pure Apple minimalism) */}
-      <div className="lg:col-span-8 flex flex-col justify-between p-6 sm:p-12 lg:p-16 min-h-[500px] lg:min-h-screen">
+      <div className="lg:col-span-8 flex flex-col justify-between p-6 sm:p-12 lg:p-16 min-h-125 lg:min-h-screen">
         <div className="hidden lg:block" />
 
-        <div className="w-full max-w-[420px] mx-auto my-auto py-8">
+        <div className="w-full max-w-105 mx-auto my-auto py-8">
           {/* Header: Just ProtectQube AIOPS and simple login prompt */}
           <div className="space-y-2 mb-8">
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">

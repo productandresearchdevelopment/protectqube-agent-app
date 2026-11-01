@@ -528,7 +528,7 @@ export default function ReportDVRPage() {
           onPageSizeChange={handlePageSizeChange}
           customHeaderRow={customHeaderRow}
           isLoading={isLoading}
-          className={selectedGatewayId ? "min-h-[500px]" : "h-[calc(100vh-84px)] flex-1"}
+          className={selectedGatewayId ? "min-h-125" : "h-[calc(100vh-84px)] flex-1"}
         />
 
         {/* 3. Detail Performa Gateway - Muncul di bawah saat baris diklik */}

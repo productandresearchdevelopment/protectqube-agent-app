@@ -189,7 +189,7 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
 
   if (!data) {
     return (
-      <div className="bg-white dark:bg-[#070e1d] text-slate-800 dark:text-slate-100 rounded-2xl border border-slate-200 dark:border-slate-800/90 shadow-xl p-6 text-center text-slate-500 text-sm">
+      <div className="bg-white dark:bg-[#070e1d] rounded-2xl border border-slate-200 dark:border-slate-800/90 shadow-xl p-6 text-center text-slate-500 dark:text-slate-400 text-sm">
         Data performa kesehatan untuk gateway {gatewayId} tidak ditemukan.
       </div>
     );
@@ -680,7 +680,7 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
                 <div className="w-16 shrink-0 text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
                   Track
                 </div>
-                <div className="flex-1 grid grid-cols-[repeat(31,minmax(0,1fr))] gap-0.5 sm:gap-1">
+                <div className="flex-1 grid grid-cols-31 gap-0.5 sm:gap-1">
                   {dailyMultiTrack.map((item) => (
                     <div
                       key={item.day}
@@ -717,7 +717,7 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
                 <div className="w-16 shrink-0 text-[11px] font-semibold text-slate-700 dark:text-slate-300 truncate">
                   Gateway
                 </div>
-                <div className="flex-1 grid grid-cols-[repeat(31,minmax(0,1fr))] gap-0.5 sm:gap-1">
+                <div className="flex-1 grid grid-cols-31 gap-0.5 sm:gap-1">
                   {dailyMultiTrack.map((item) => (
                     <div
                       key={item.day}
@@ -754,7 +754,7 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
                 <div className="w-16 shrink-0 text-[11px] font-semibold text-slate-700 dark:text-slate-300 truncate">
                   Cellular
                 </div>
-                <div className="flex-1 grid grid-cols-[repeat(31,minmax(0,1fr))] gap-0.5 sm:gap-1">
+                <div className="flex-1 grid grid-cols-31 gap-0.5 sm:gap-1">
                   {dailyMultiTrack.map((item) => (
                     <div
                       key={item.day}
@@ -791,7 +791,7 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
                 <div className="w-16 shrink-0 text-[11px] font-semibold text-slate-700 dark:text-slate-300 truncate">
                   DVR
                 </div>
-                <div className="flex-1 grid grid-cols-[repeat(31,minmax(0,1fr))] gap-0.5 sm:gap-1">
+                <div className="flex-1 grid grid-cols-31 gap-0.5 sm:gap-1">
                   {dailyMultiTrack.map((item) => (
                     <div
                       key={item.day}
@@ -824,7 +824,7 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
               </div>
 
               {/* Hover / Selected Day Real-Time Info Bar */}
-              <div className="mt-3 pt-2.5 border-t border-slate-200/70 dark:border-slate-800/70 flex items-center justify-between text-xs min-h-[28px]">
+              <div className="mt-3 pt-2.5 border-t border-slate-200/70 dark:border-slate-800/70 flex items-center justify-between text-xs min-h-7">
                 {hoveredDay ? (
                   <div className="flex items-center gap-2">
                     <span className="font-semibold text-slate-800 dark:text-slate-200">
@@ -921,7 +921,7 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
             </div>
 
             {/* Scrollable Compact Table (max 10 rows visible) */}
-            <div className="overflow-x-auto mt-2 max-h-[350px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700">
+            <div className="overflow-x-auto mt-2 max-h-87.5 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700">
               <table className="w-full text-left text-xs border-collapse">
                 <thead className="sticky top-0 z-10 bg-slate-100 dark:bg-[#0a1224] shadow-xs">
                   <tr className="text-[11px] text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800/60 font-semibold">
