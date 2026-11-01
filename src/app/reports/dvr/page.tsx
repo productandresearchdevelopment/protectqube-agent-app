@@ -25,7 +25,7 @@ export default function ReportDVRPage() {
     location: "Semua Lokasi",
     date_range: "01 Oct 2026 - 31 Oct 2026",
     page: 1,
-    pageSize: 10,
+    pageSize: 50,
   });
 
   const [selectedGateways, setSelectedGateways] = useState<string[]>([]);
@@ -137,12 +137,6 @@ export default function ReportDVRPage() {
   const columns = useMemo<ColumnDef<IDVRReportItem>[]>(
     () => [
       {
-        id: "no",
-        header: "No.",
-        align: "center",
-        cell: (gw) => <span className="text-slate-500 dark:text-slate-400">{gw.no}</span>,
-      },
-      {
         id: "id",
         header: "Gateway ID",
         cell: (gw) => (
@@ -190,16 +184,19 @@ export default function ReportDVRPage() {
       {
         id: "dvr_model",
         header: "DVR/NVR",
+        className: "border-r-2 border-slate-300 dark:border-slate-700/80",
         cell: (gw) => (
           <span className="font-semibold text-slate-800 dark:text-slate-200 whitespace-nowrap">
             {gw.dvr_model}
           </span>
         ),
       },
+      // Group 1: Komunikasi CPU – DVR (Apple Blue Group)
       {
         id: "cpu_dvr_uptime",
         header: "Uptime",
         align: "center",
+        className: "bg-blue-500/[0.025] dark:bg-blue-500/[0.04]",
         cell: (gw) => (
           <span className="font-bold text-[#00c875] whitespace-nowrap">
             {gw.cpu_dvr_uptime}
@@ -210,6 +207,7 @@ export default function ReportDVRPage() {
         id: "cpu_dvr_offline",
         header: "Offline",
         align: "center",
+        className: "bg-blue-500/[0.025] dark:bg-blue-500/[0.04]",
         cell: (gw) => (
           <span className="font-bold text-[#e2445c] whitespace-nowrap">
             {gw.cpu_dvr_offline}
@@ -220,26 +218,19 @@ export default function ReportDVRPage() {
         id: "cpu_dvr_success_rate",
         header: "Success Rate",
         align: "center",
+        className: "bg-blue-500/[0.025] dark:bg-blue-500/[0.04] border-r-2 border-r-blue-300 dark:border-r-blue-700/80",
         cell: (gw) => (
           <span className="text-slate-800 dark:text-slate-200 whitespace-nowrap font-medium">
             {gw.cpu_dvr_success_rate}%
           </span>
         ),
       },
-      {
-        id: "cpu_dvr_avg_resp_ms",
-        header: "Avg Resp (ms)",
-        align: "center",
-        cell: (gw) => (
-          <span className="text-slate-700 dark:text-slate-300 whitespace-nowrap">
-            {gw.cpu_dvr_avg_resp_ms}
-          </span>
-        ),
-      },
+      // Group 2: Status Kamera (Apple Cyan Group)
       {
         id: "kamera_total",
         header: "Total",
         align: "center",
+        className: "bg-cyan-500/[0.025] dark:bg-cyan-500/[0.04]",
         cell: (gw) => (
           <span className="font-bold text-slate-800 dark:text-slate-200 whitespace-nowrap">
             {gw.kamera_total}
@@ -250,6 +241,7 @@ export default function ReportDVRPage() {
         id: "kamera_online",
         header: "Online",
         align: "center",
+        className: "bg-cyan-500/[0.025] dark:bg-cyan-500/[0.04]",
         cell: (gw) => (
           <span className="font-bold text-[#00c875] whitespace-nowrap">
             {gw.kamera_online}
@@ -260,6 +252,7 @@ export default function ReportDVRPage() {
         id: "kamera_offline",
         header: "Loss",
         align: "center",
+        className: "bg-cyan-500/[0.025] dark:bg-cyan-500/[0.04]",
         cell: (gw) => (
           <span
             className={`font-bold whitespace-nowrap ${
@@ -274,6 +267,7 @@ export default function ReportDVRPage() {
         id: "kamera_loss_pct",
         header: "Loss (%)",
         align: "center",
+        className: "bg-cyan-500/[0.025] dark:bg-cyan-500/[0.04] border-r-2 border-r-cyan-300 dark:border-r-cyan-700/80",
         cell: (gw) => {
           const lossCount = (gw.kamera_offline || 0) + (gw.kamera_no_video || 0);
           const lossPct = Math.round((lossCount / (gw.kamera_total || 1)) * 100);
@@ -288,10 +282,12 @@ export default function ReportDVRPage() {
           );
         },
       },
+      // Group 3: Status Recording (Apple Amber Group)
       {
         id: "rec_uptime",
         header: "Normal",
         align: "center",
+        className: "bg-amber-500/[0.025] dark:bg-amber-500/[0.04]",
         cell: (gw) => (
           <span className="font-bold text-[#00c875] whitespace-nowrap">
             {gw.rec_uptime}
@@ -302,6 +298,7 @@ export default function ReportDVRPage() {
         id: "rec_tidak_merekam",
         header: "Corrupt",
         align: "center",
+        className: "bg-amber-500/[0.025] dark:bg-amber-500/[0.04]",
         cell: (gw) => (
           <span
             className={`font-bold whitespace-nowrap ${
@@ -316,6 +313,7 @@ export default function ReportDVRPage() {
         id: "rec_error",
         header: "Loss",
         align: "center",
+        className: "bg-amber-500/[0.025] dark:bg-amber-500/[0.04] border-r-2 border-r-amber-300 dark:border-r-amber-700/80",
         cell: (gw) => (
           <span
             className={`font-bold whitespace-nowrap ${
@@ -326,10 +324,12 @@ export default function ReportDVRPage() {
           </span>
         ),
       },
+      // Group 4: Storage DVR (Apple Teal Group)
       {
         id: "storage_kapasitas",
         header: "Kapasitas",
         align: "center",
+        className: "bg-teal-500/[0.025] dark:bg-teal-500/[0.04]",
         cell: (gw) => (
           <span className="text-slate-700 dark:text-slate-300 font-mono whitespace-nowrap text-[11px]">
             {gw.storage_kapasitas}
@@ -339,6 +339,7 @@ export default function ReportDVRPage() {
       {
         id: "storage_terpakai_pct",
         header: "Terpakai",
+        className: "bg-teal-500/[0.025] dark:bg-teal-500/[0.04]",
         cell: (gw) => (
           <div className="flex items-center gap-1.5 whitespace-nowrap">
             <div className="w-10 h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden shrink-0">
@@ -357,16 +358,19 @@ export default function ReportDVRPage() {
         id: "storage_rata_rata",
         header: "Retensi",
         align: "center",
+        className: "bg-teal-500/[0.025] dark:bg-teal-500/[0.04] border-r-2 border-r-teal-300 dark:border-r-teal-700/80",
         cell: (gw) => (
           <span className="font-bold text-slate-800 dark:text-slate-200 whitespace-nowrap">
             {gw.storage_rata_rata}
           </span>
         ),
       },
+      // Trailing Group: Periode Gangguan (Apple Purple Group)
       {
         id: "jumlah_event",
         header: "Jumlah Event",
         align: "center",
+        className: "bg-purple-500/[0.025] dark:bg-purple-500/[0.04]",
         cell: (gw) => (
           <span
             className={`font-bold whitespace-nowrap ${
@@ -380,23 +384,11 @@ export default function ReportDVRPage() {
       {
         id: "terakhir_offline",
         header: "Terakhir Offline",
+        className: "bg-purple-500/[0.025] dark:bg-purple-500/[0.04] border-r-2 border-r-purple-300 dark:border-r-purple-700/80",
         cell: (gw) => (
           <span className="text-slate-500 dark:text-slate-400 whitespace-nowrap font-mono text-[11px]">
             {gw.terakhir_offline}
           </span>
-        ),
-      },
-      {
-        id: "action",
-        header: "Action",
-        align: "center",
-        cell: () => (
-          <button
-            onClick={(e) => e.stopPropagation()}
-            className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
-          >
-            <MoreHorizontal className="size-4" />
-          </button>
         ),
       },
     ],
@@ -406,8 +398,8 @@ export default function ReportDVRPage() {
   // Grouped Multi-level 2-Tier Header for DataTable
   const customHeaderRow = (
     <>
-      <tr className="border-b border-slate-200/80 dark:border-slate-800/80 bg-slate-50/70 dark:bg-[#0e1628]/80 text-slate-500 dark:text-slate-400 font-semibold">
-        <th rowSpan={2} className="py-2.5 px-3 w-10 text-center border-r border-slate-200/60 dark:border-slate-800/60">
+      <tr className="border-b border-slate-200/80 dark:border-slate-800/80 bg-slate-100 dark:bg-[#0e1628] text-slate-700 dark:text-slate-200 font-semibold text-xs">
+        <th rowSpan={2} className="py-2.5 px-3 w-10 text-center border-r border-slate-200/80 dark:border-slate-800/60 bg-slate-100 dark:bg-[#0e1628]">
           <input
             type="checkbox"
             checked={isAllSelected}
@@ -415,95 +407,86 @@ export default function ReportDVRPage() {
             className="rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-[#0073ea] focus:ring-[#0073ea] size-3.5 cursor-pointer"
           />
         </th>
-        <th rowSpan={2} className="py-2.5 px-2.5 w-10 text-center border-r border-slate-200/60 dark:border-slate-800/60">
-          No.
-        </th>
-        <th rowSpan={2} className="py-2.5 px-3 whitespace-nowrap border-r border-slate-200/60 dark:border-slate-800/60">
+        <th rowSpan={2} className="py-2.5 px-3 whitespace-nowrap border-r border-slate-200/80 dark:border-slate-800/60 bg-slate-100 dark:bg-[#0e1628]">
           Gateway ID
         </th>
-        <th rowSpan={2} className="py-2.5 px-4 whitespace-nowrap border-r border-slate-200/60 dark:border-slate-800/60">
+        <th rowSpan={2} className="py-2.5 px-4 whitespace-nowrap border-r border-slate-200/80 dark:border-slate-800/60 bg-slate-100 dark:bg-[#0e1628]">
           Lokasi
         </th>
-        <th rowSpan={2} className="py-2.5 px-3 whitespace-nowrap border-r border-slate-200/60 dark:border-slate-800/60">
+        <th rowSpan={2} className="py-2.5 px-3 whitespace-nowrap border-r border-slate-200/80 dark:border-slate-800/60 bg-slate-100 dark:bg-[#0e1628]">
           Tipe
         </th>
-        <th rowSpan={2} className="py-2.5 px-3.5 whitespace-nowrap border-r border-slate-200/60 dark:border-slate-800/60">
+        <th rowSpan={2} className="py-2.5 px-3.5 whitespace-nowrap border-r-2 border-r-slate-300 dark:border-r-slate-700/80 bg-slate-100 dark:bg-[#0e1628]">
           DVR/NVR
         </th>
 
-        {/* Group 1: Komunikasi CPU – DVR */}
+        {/* Group 1: Komunikasi CPU – DVR (Apple Blue) */}
         <th
-          colSpan={4}
-          className="py-2 px-3 text-center border-r border-slate-200/60 dark:border-slate-800/60 font-bold text-slate-800 dark:text-slate-200 bg-slate-100/40 dark:bg-slate-800/30"
+          colSpan={3}
+          className="py-2 px-3 text-center border-r-2 border-r-blue-300 dark:border-r-blue-700 font-bold text-blue-900 dark:text-blue-200 bg-[#edf4ff] dark:bg-[#0c1e3d] border-b border-b-blue-200 dark:border-b-blue-800/60"
         >
           Komunikasi CPU &ndash; DVR
         </th>
 
-        {/* Group 2: Status Kamera */}
+        {/* Group 2: Status Kamera (Apple Cyan) */}
         <th
           colSpan={4}
-          className="py-2 px-3 text-center border-r border-slate-200/60 dark:border-slate-800/60 font-bold text-slate-800 dark:text-slate-200 bg-slate-100/40 dark:bg-slate-800/30"
+          className="py-2 px-3 text-center border-r-2 border-r-cyan-300 dark:border-r-cyan-700 font-bold text-cyan-900 dark:text-cyan-200 bg-[#e6fbf5] dark:bg-[#062422] border-b border-b-cyan-200 dark:border-b-cyan-800/60"
         >
           Status Kamera
         </th>
 
-        {/* Group 3: Status Recording */}
+        {/* Group 3: Status Recording (Apple Amber) */}
         <th
           colSpan={3}
-          className="py-2 px-3 text-center border-r border-slate-200/60 dark:border-slate-800/60 font-bold text-slate-800 dark:text-slate-200 bg-slate-100/40 dark:bg-slate-800/30"
+          className="py-2 px-3 text-center border-r-2 border-r-amber-300 dark:border-r-amber-700 font-bold text-amber-900 dark:text-amber-200 bg-[#fffbeb] dark:bg-[#261705] border-b border-b-amber-200 dark:border-b-amber-800/60"
         >
           Status Recording
         </th>
 
-        {/* Group 4: Storage DVR */}
+        {/* Group 4: Storage DVR (Apple Teal) */}
         <th
           colSpan={3}
-          className="py-2 px-3 text-center border-r border-slate-200/60 dark:border-slate-800/60 font-bold text-slate-800 dark:text-slate-200 bg-slate-100/40 dark:bg-slate-800/30"
+          className="py-2 px-3 text-center border-r-2 border-r-teal-300 dark:border-r-teal-700 font-bold text-teal-900 dark:text-teal-200 bg-[#f0fdf4] dark:bg-[#05210f] border-b border-b-teal-200 dark:border-b-teal-800/60"
         >
           Storage DVR
         </th>
 
-        {/* Individual Trailing Columns */}
-        <th rowSpan={2} className="py-2.5 px-3 text-center whitespace-nowrap border-r border-slate-200/60 dark:border-slate-800/60 font-bold">
+        {/* Individual Trailing Columns (Apple Purple) */}
+        <th rowSpan={2} className="py-2.5 px-3 text-center whitespace-nowrap border-r border-purple-200/60 dark:border-purple-900/50 font-bold bg-[#f5f0ff] dark:bg-[#1a0f30] text-purple-900 dark:text-purple-200">
           Jumlah Event
         </th>
-        <th rowSpan={2} className="py-2.5 px-3.5 whitespace-nowrap border-r border-slate-200/60 dark:border-slate-800/60">
+        <th rowSpan={2} className="py-2.5 px-3.5 whitespace-nowrap border-r-2 border-r-purple-300 dark:border-r-purple-700 bg-[#f5f0ff] dark:bg-[#1a0f30] text-purple-900 dark:text-purple-200">
           Terakhir Offline
-        </th>
-        <th rowSpan={2} className="py-2.5 px-2 text-center whitespace-nowrap">
-          Action
         </th>
       </tr>
 
       {/* Level 2 Sub-headers */}
-      <tr className="border-b border-slate-200/80 dark:border-slate-800/80 bg-slate-50/50 dark:bg-[#0e1628]/60 text-[11px] text-slate-500 dark:text-slate-400 font-semibold">
-        {/* Under CPU - DVR */}
-        <th className="py-2 px-2.5 text-center text-[#00c875]">Uptime</th>
-        <th className="py-2 px-2.5 text-center text-[#e2445c]">Offline</th>
-        <th className="py-2 px-2.5 text-center whitespace-nowrap">Success Rate</th>
-        <th className="py-2 px-2.5 text-center whitespace-nowrap border-r border-slate-200/60 dark:border-slate-800/60">
-          Avg Resp (ms)
-        </th>
+      <tr className="border-b border-slate-200/80 dark:border-slate-800/80 text-[11px] font-semibold">
+        {/* Under CPU - DVR (Blue Sub-headers) */}
+        <th className="py-2 px-2.5 text-center text-[#00c875] bg-[#f4f8ff] dark:bg-[#08152b] border-r border-blue-200/60 dark:border-blue-900/50">Uptime</th>
+        <th className="py-2 px-2.5 text-center text-[#e2445c] bg-[#f4f8ff] dark:bg-[#08152b] border-r border-blue-200/60 dark:border-blue-900/50">Offline</th>
+        <th className="py-2 px-2.5 text-center whitespace-nowrap text-blue-900 dark:text-blue-200 bg-[#f4f8ff] dark:bg-[#08152b] border-r-2 border-r-blue-300 dark:border-r-blue-700">Success Rate</th>
 
-        {/* Under Status Kamera */}
-        <th className="py-2 px-2 text-center text-[#00d2d3]">Total</th>
-        <th className="py-2 px-2 text-center text-[#00c875]">Online</th>
-        <th className="py-2 px-2 text-center text-[#e2445c]">Loss</th>
-        <th className="py-2 px-2 text-center border-r border-slate-200/60 dark:border-slate-800/60">
+        {/* Under Status Kamera (Cyan Sub-headers) */}
+        <th className="py-2 px-2 text-center text-[#00d2d3] bg-[#effcf8] dark:bg-[#041a18] border-r border-cyan-200/60 dark:border-cyan-900/50">Total</th>
+        <th className="py-2 px-2 text-center text-[#00c875] bg-[#effcf8] dark:bg-[#041a18] border-r border-cyan-200/60 dark:border-cyan-900/50">Online</th>
+        <th className="py-2 px-2 text-center text-[#e2445c] bg-[#effcf8] dark:bg-[#041a18] border-r border-cyan-200/60 dark:border-cyan-900/50">Loss</th>
+        <th className="py-2 px-2 text-center text-cyan-900 dark:text-cyan-200 bg-[#effcf8] dark:bg-[#041a18] border-r-2 border-r-cyan-300 dark:border-r-cyan-700">
           Loss Pct (%)
         </th>
 
-        {/* Under Status Recording */}
-        <th className="py-2 px-2.5 text-center text-[#00c875]">Normal</th>
-        <th className="py-2 px-2.5 text-center text-[#fdab3d]">Corrupt</th>
-        <th className="py-2 px-2.5 text-center text-[#e2445c] border-r border-slate-200/60 dark:border-slate-800/60">
+        {/* Under Status Recording (Amber Sub-headers) */}
+        <th className="py-2 px-2.5 text-center text-[#00c875] bg-[#fffdf5] dark:bg-[#1a0f02] border-r border-amber-200/60 dark:border-amber-900/50">Normal</th>
+        <th className="py-2 px-2.5 text-center text-[#fdab3d] bg-[#fffdf5] dark:bg-[#1a0f02] border-r border-amber-200/60 dark:border-amber-900/50">Corrupt</th>
+        <th className="py-2 px-2.5 text-center text-[#e2445c] bg-[#fffdf5] dark:bg-[#1a0f02] border-r-2 border-r-amber-300 dark:border-r-amber-700">
           Loss
         </th>
 
-        {/* Under Storage DVR */}
-        <th className="py-2 px-2.5 text-center whitespace-nowrap">Kapasitas</th>
-        <th className="py-2 px-2.5 text-center whitespace-nowrap">Terpakai</th>
-        <th className="py-2 px-2.5 text-center whitespace-nowrap border-r border-slate-200/60 dark:border-slate-800/60">
+        {/* Under Storage DVR (Teal Sub-headers) */}
+        <th className="py-2 px-2.5 text-center whitespace-nowrap text-teal-900 dark:text-teal-200 bg-[#f7fef9] dark:bg-[#03170a] border-r border-teal-200/60 dark:border-teal-900/50">Kapasitas</th>
+        <th className="py-2 px-2.5 text-center whitespace-nowrap text-teal-900 dark:text-teal-200 bg-[#f7fef9] dark:bg-[#03170a] border-r border-teal-200/60 dark:border-teal-900/50">Terpakai</th>
+        <th className="py-2 px-2.5 text-center whitespace-nowrap text-teal-900 dark:text-teal-200 bg-[#f7fef9] dark:bg-[#03170a] border-r-2 border-r-teal-300 dark:border-r-teal-700">
           Retensi
         </th>
       </tr>
@@ -511,13 +494,11 @@ export default function ReportDVRPage() {
   );
 
   return (
-    <AppLayout title="Report DVR & Recording">
-      <div className="space-y-4 max-w-[1600px] mx-auto pb-12 font-sans transition-colors">
-        {/* 1. Global Filter Header with Multi-Filters & CSV Export */}
+    <AppLayout
+      title="Report DVR & Recording"
+      headerRight={
         <FilterHeader
-          title="Daftar Semua Gateway"
-          titleIcon={Video}
-          totalCount={pagination?.total_items ?? 2000}
+          inline
           search={filters.search || ""}
           onSearchChange={(val) => handleFilterChange("search", val)}
           searchPlaceholder="Cari Gateway ID / Lokasi..."
@@ -526,7 +507,9 @@ export default function ReportDVRPage() {
           onTimeframeClick={() => {}}
           onExportClick={handleExport}
         />
-
+      }
+    >
+      <div className="w-full flex-1 flex flex-col min-h-0 font-sans transition-colors pb-2">
         {/* 2. Global DataTable with Grouped Multi-Level Telemetry Header */}
         <DataTable
           data={gateways}
@@ -540,11 +523,12 @@ export default function ReportDVRPage() {
           onRowClick={handleSelectGateway}
           pagination={pagination}
           currentPage={filters.page || 1}
-          pageSize={filters.pageSize || 10}
+          pageSize={filters.pageSize || 50}
           onPageChange={handlePageChange}
           onPageSizeChange={handlePageSizeChange}
           customHeaderRow={customHeaderRow}
           isLoading={isLoading}
+          className={selectedGatewayId ? "min-h-[500px]" : "h-[calc(100vh-84px)] flex-1"}
         />
 
         {/* 3. Detail Performa Gateway - Muncul di bawah saat baris diklik */}

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   FileSpreadsheet,
   Calendar,
@@ -55,8 +55,124 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
   onClose,
 }) => {
   const { data, isLoading } = useHealthReportGatewayDetail(gatewayId, dateRange);
-  const [hoveredSegment, setHoveredSegment] = useState<string | null>(null);
-  const [activeEventTab, setActiveEventTab] = useState<"downtime" | "telemetry">("downtime");
+  const [hoveredDay, setHoveredDay] = useState<{
+    day: number;
+    dayNumStr: string;
+    dateKey: string;
+    fullDate: string;
+    gwStatus: "online" | "offline";
+    cellStatus: "online" | "offline";
+    dvrStatus: "online" | "offline";
+    eventsCount: number;
+    isToday: boolean;
+  } | null>(null);
+  const [activeEventTab, setActiveEventTab] = useState<"all" | "downtime">("all");
+  const [selectedEventDate, setSelectedEventDate] = useState<string>("ALL");
+
+  const rawEvents = data?.events || [];
+
+  // Generate 31 daily status points for Gateway, Cellular, and DVR (like DVR report)
+  const dailyMultiTrack = useMemo(() => {
+    const daysInMonth = 31;
+    const monthStr = "Oct";
+    const yearStr = "2026";
+    const todayDay = 31;
+
+    const events = rawEvents;
+
+    const list = [];
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dayNumStr = day < 10 ? `0${day}` : `${day}`;
+      const dateKey = `${dayNumStr} ${monthStr}`;
+      const fullDate = `${dayNumStr} ${monthStr} ${yearStr}`;
+
+      const dayEvents = events.filter((ev: any) => {
+        const trimmed = (ev.start_time || "").trim();
+        return trimmed.startsWith(dateKey) || trimmed.startsWith(`${day} ${monthStr}`);
+      });
+
+      // Status per track
+      let gwStatus: "online" | "offline" = "online";
+      let cellStatus: "online" | "offline" = "online";
+      let dvrStatus: "online" | "offline" = "online";
+
+      for (const ev of dayEvents) {
+        const cat = (ev.category || "").toLowerCase();
+        const desc = (ev.description || "").toLowerCase();
+        if (cat.includes("gateway") || desc.includes("gateway") || desc.includes("power") || desc.includes("loss")) {
+          gwStatus = "offline";
+        }
+        if (cat.includes("cellular") || desc.includes("sim") || desc.includes("modem")) {
+          cellStatus = "offline";
+        }
+        if (cat.includes("dvr") || cat.includes("camera") || desc.includes("recording") || desc.includes("nvr")) {
+          dvrStatus = "offline";
+        }
+      }
+
+      // If gateway is down, all downstream are impacted
+      if (gwStatus === "offline") {
+        cellStatus = "offline";
+        dvrStatus = "offline";
+      }
+
+      list.push({
+        day,
+        dayNumStr,
+        dateKey,
+        fullDate,
+        gwStatus,
+        cellStatus,
+        dvrStatus,
+        eventsCount: dayEvents.length,
+        isToday: day === todayDay,
+      });
+    }
+
+    return list;
+  }, [rawEvents]);
+
+  // Extract unique dates for dropdown (top-level hook)
+  const uniqueDates = useMemo(() => {
+    const dates = new Set<string>();
+    rawEvents.forEach((ev: any) => {
+      if (ev.start_time) {
+        const parts = ev.start_time.split(" ");
+        if (parts.length >= 2) {
+          dates.add(`${parts[0]} ${parts[1]}`);
+        }
+      }
+    });
+    return Array.from(dates);
+  }, [rawEvents]);
+
+  // Filter events by tab and selected date (top-level hook)
+  const filteredEvents = useMemo(() => {
+    let list = rawEvents;
+    if (activeEventTab === "downtime") {
+      list = list.filter(
+        (e: any) =>
+          e.category?.toLowerCase().includes("offline") ||
+          e.category?.toLowerCase().includes("mati") ||
+          e.description?.toLowerCase().includes("loss") ||
+          e.description?.toLowerCase().includes("terputus")
+      );
+    }
+    if (selectedEventDate !== "ALL") {
+      list = list.filter((e: any) => e.start_time?.startsWith(selectedEventDate));
+    }
+    return list;
+  }, [rawEvents, activeEventTab, selectedEventDate]);
+
+  const downtimeCount = useMemo(() => {
+    return rawEvents.filter(
+      (e: any) =>
+        e.category?.toLowerCase().includes("offline") ||
+        e.category?.toLowerCase().includes("mati") ||
+        e.description?.toLowerCase().includes("loss") ||
+        e.description?.toLowerCase().includes("terputus")
+    ).length;
+  }, [rawEvents]);
 
   if (!gatewayId) return null;
 
@@ -111,25 +227,6 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
     ? `Mati melebihi batas toleransi ${formatHoursMinutes(downtimeDiffHours)}`
     : `Downtime dalam batas toleransi (${formatHoursMinutes(Math.abs(downtimeDiffHours))} sisa)`;
 
-  const getSegmentBg = (status: string) => {
-    switch (status) {
-      case "normal":
-        return "bg-[#00c875]";
-      case "cpu_high":
-        return "bg-[#f59e0b]";
-      case "ram_high":
-        return "bg-[#f97316]";
-      case "sd_high":
-      case "suhu_high":
-      case "offline":
-        return "bg-[#e2445c]";
-      case "no_data":
-        return "bg-[#6366f1]";
-      default:
-        return "bg-[#00c875]";
-    }
-  };
-
   const getCategoryColor = (cat: string) => {
     if (cat.includes("CPU")) return "text-[#f59e0b]";
     if (cat.includes("SD")) return "text-[#e2445c]";
@@ -137,58 +234,6 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
     if (cat.includes("Suhu")) return "text-[#eab308]";
     return "text-slate-300";
   };
-
-  const dateTicks = [
-    "01 Oct", "03 Oct", "05 Oct", "07 Oct", "09 Oct", "11 Oct", "13 Oct", "15 Oct",
-    "17 Oct", "19 Oct", "21 Oct", "23 Oct", "25 Oct", "27 Oct", "29 Oct", "31 Oct",
-  ];
-
-  const downtimeEvents = [
-    {
-      no: 1,
-      start_time: "04 Oct 2026 02:15",
-      end_time: "04 Oct 2026 08:30",
-      duration: "6h 15m",
-      accumulated: "6h 15m",
-      category: "Listrik Padam (PLN)",
-      reason: "Gangguan suplai daya PLN area Pondok Aren",
-      sla_impact: "-0.84%",
-      status: "Resolved",
-    },
-    {
-      no: 2,
-      start_time: "12 Oct 2026 11:20",
-      end_time: "12 Oct 2026 15:05",
-      duration: "3h 45m",
-      accumulated: "10h 00m",
-      category: "MCB / Power Trip",
-      reason: "MCB switch toko trip saat beban puncak",
-      sla_impact: "-0.50%",
-      status: "Resolved",
-    },
-    {
-      no: 3,
-      start_time: "19 Oct 2026 23:40",
-      end_time: "20 Oct 2026 09:10",
-      duration: "9h 30m",
-      accumulated: "19h 30m",
-      category: "Maintenance Gedung",
-      reason: "Pemeliharaan panel daya & kelistrikan toko",
-      sla_impact: "-1.28%",
-      status: "Resolved",
-    },
-    {
-      no: 4,
-      start_time: "27 Oct 2026 14:10",
-      end_time: "27 Oct 2026 18:25",
-      duration: "4h 15m",
-      accumulated: "23h 45m",
-      category: "Hard Reboot & OS Recovery",
-      reason: "Pemulihan sistem otomatis paska tegangan drop",
-      sla_impact: "-0.57%",
-      status: "Resolved",
-    },
-  ];
 
   return (
     <div className="bg-white dark:bg-[#070e1d] text-slate-800 dark:text-slate-100 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl p-4 sm:p-5 space-y-4 font-sans transition-all duration-300">
@@ -199,7 +244,7 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
             <FileSpreadsheet className="size-4" />
           </div>
           <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white tracking-tight">
-            Detail Performa Gateway &ndash; {d.id}
+            Detail Performa Gateway &ndash; {d.location || d.id}
           </h2>
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#00c875]/20 text-[#00a862] dark:text-[#00c875] border border-[#00c875]/30">
             {d.status}
@@ -327,9 +372,7 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
             </div>
 
             {/* Card 4: Target SLA 99.5% */}
-            <div className={`bg-slate-50/70 dark:bg-[#0a1224] border rounded-xl p-2.5 flex flex-col justify-between shadow-xs ${
-              isSLAMet ? "border-emerald-500/40" : "border-rose-500/40"
-            }`}>
+            <div className="bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-2.5 flex flex-col justify-between shadow-xs">
               <div className="flex items-center gap-1.5">
                 <div className={`size-5 rounded flex items-center justify-center ${
                   isSLAMet ? "bg-emerald-500/15 text-[#00a862] dark:text-[#00c875]" : "bg-rose-500/15 text-[#e2445c]"
@@ -601,94 +644,248 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
 
       {/* 3. Bottom Section: Multi-Track Timeline Status & Riwayat Event */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
-        {/* Left Column (lg:col-span-6): Timeline Status (CPU, RAM, SD, Suhu) */}
-        <div className="lg:col-span-6 bg-white dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 flex flex-col justify-between shadow-xs">
+        {/* Left Column (lg:col-span-6): 31-Day Multi-Track Timeline Matrix Status */}
+        <div className="lg:col-span-6 bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 flex flex-col justify-between shadow-xs">
           <div>
             {/* Header with Title & Legend */}
             <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200 dark:border-slate-800/60">
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-2">
                 <h4 className="text-xs font-bold text-slate-900 dark:text-white">
-                  Timeline Status Selama Periode
+                  Timeline Status ({d.period})
                 </h4>
-                <Info className="size-3 text-slate-400 cursor-pointer" />
+                <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 bg-slate-200/60 dark:bg-slate-800 px-2 py-0.5 rounded-full">
+                  31 Hari
+                </span>
               </div>
-
-              {/* Legend Pills */}
-              <div className="flex flex-wrap items-center gap-3 text-[10px] text-slate-600 dark:text-slate-300">
-                <span className="flex items-center gap-1">
+              <div className="flex items-center gap-3 text-[11px] text-slate-600 dark:text-slate-300">
+                <span className="flex items-center gap-1.5">
                   <span className="size-2 rounded-full bg-[#00c875]" />
-                  Normal
+                  Online
                 </span>
-                <span className="flex items-center gap-1">
-                  <span className="size-2 rounded-full bg-[#f59e0b]" />
-                  CPU High
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="size-2 rounded-full bg-[#f97316]" />
-                  RAM High
-                </span>
-                <span className="flex items-center gap-1">
+                <span className="flex items-center gap-1.5">
                   <span className="size-2 rounded-full bg-[#e2445c]" />
-                  SD High
+                  Offline
                 </span>
-                <span className="flex items-center gap-1">
-                  <span className="size-2 rounded-full bg-[#6366f1]" />
-                  No Data
+                <span className="flex items-center gap-1.5">
+                  <span className="size-2 rounded-full bg-blue-500" />
+                  Hari Ini
                 </span>
               </div>
             </div>
 
-            {/* 4 Tracks of Timeline (CPU, RAM, SD Card, Suhu) */}
-            <div className="mt-4 space-y-2.5">
-              {d.timeline_tracks.map((track, tIdx) => (
-                <div key={tIdx} className="flex items-center gap-3">
-                  <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 min-w-13.75 truncate">
-                    {track.track_name}
-                  </span>
-
-                  <div className="flex-1 h-3 rounded-full overflow-hidden flex bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 relative">
-                    {track.segments.map((seg, sIdx) => (
-                      <div
-                        key={sIdx}
-                        style={{ width: `${seg.width_pct}%` }}
-                        className={`h-full ${getSegmentBg(seg.status)} transition-opacity hover:opacity-85 cursor-pointer relative group`}
-                        onMouseEnter={() =>
-                          setHoveredSegment(`${track.track_name}: ${seg.period} | ${seg.label}`)
-                        }
-                        onMouseLeave={() => setHoveredSegment(null)}
-                      />
-                    ))}
-                  </div>
+            {/* 31-Day Multi-Track Timeline Matrix Card */}
+            <div className="mt-3.5 p-3.5 rounded-xl bg-white dark:bg-[#070e1d] border border-slate-200/90 dark:border-slate-800/80 shadow-xs space-y-2">
+              {/* RULER / HEADER TANGGAL DI ATAS */}
+              <div className="flex items-center gap-2">
+                <div className="w-16 shrink-0 text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                  Track
                 </div>
-              ))}
-            </div>
+                <div className="flex-1 grid grid-cols-[repeat(31,minmax(0,1fr))] gap-0.5 sm:gap-1">
+                  {dailyMultiTrack.map((item) => (
+                    <div
+                      key={item.day}
+                      onClick={() => {
+                        if (selectedEventDate === item.dateKey) {
+                          setSelectedEventDate("ALL");
+                        } else {
+                          setSelectedEventDate(item.dateKey);
+                        }
+                      }}
+                      onMouseEnter={() => setHoveredDay(item)}
+                      onMouseLeave={() => setHoveredDay(null)}
+                      className="text-center cursor-pointer select-none"
+                      title={item.fullDate}
+                    >
+                      <span
+                        className={`text-[9px] font-mono block leading-none transition-all ${
+                          item.isToday
+                            ? "font-extrabold text-blue-600 dark:text-blue-400 bg-blue-500/20 px-0.5 py-0.5 rounded ring-1 ring-blue-500/50 scale-110 shadow-xs"
+                            : selectedEventDate === item.dateKey
+                            ? "font-bold text-amber-500 dark:text-amber-400"
+                            : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
+                        }`}
+                      >
+                        {item.dayNumStr}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
 
-            {/* Hover Tooltip display */}
-            <div className="h-4 mt-2 pl-17 text-[10px] text-slate-500 dark:text-slate-400 truncate">
-              {hoveredSegment || "Arahkan kursor ke timeline untuk melihat detail"}
-            </div>
+              {/* TRACK 1: GATEWAY */}
+              <div className="flex items-center gap-2 pt-1.5 border-t border-slate-200/60 dark:border-slate-800/60">
+                <div className="w-16 shrink-0 text-[11px] font-semibold text-slate-700 dark:text-slate-300 truncate">
+                  Gateway
+                </div>
+                <div className="flex-1 grid grid-cols-[repeat(31,minmax(0,1fr))] gap-0.5 sm:gap-1">
+                  {dailyMultiTrack.map((item) => (
+                    <div
+                      key={item.day}
+                      onClick={() => {
+                        if (selectedEventDate === item.dateKey) {
+                          setSelectedEventDate("ALL");
+                        } else {
+                          setSelectedEventDate(item.dateKey);
+                        }
+                      }}
+                      onMouseEnter={() => setHoveredDay(item)}
+                      onMouseLeave={() => setHoveredDay(null)}
+                      className={`h-5.5 rounded-xs cursor-pointer transition-all ${
+                        item.gwStatus === "offline"
+                          ? "bg-[#e2445c] hover:bg-[#ff4d6d]"
+                          : "bg-[#00c875] hover:bg-[#05e287]"
+                      } ${
+                        item.isToday
+                          ? "ring-1.5 ring-blue-500 shadow-xs"
+                          : ""
+                      } ${
+                        selectedEventDate === item.dateKey
+                          ? "ring-2 ring-amber-400 scale-105"
+                          : "hover:scale-105"
+                      }`}
+                      title={`Gateway ${item.dayNumStr} Oct: ${item.gwStatus === "offline" ? "Offline" : "Online"}`}
+                    />
+                  ))}
+                </div>
+              </div>
 
-            {/* Date Scale Ticks Beneath Timeline */}
-            <div className="mt-1 pl-17 flex justify-between text-[9px] text-slate-500 dark:text-slate-400 font-mono select-none">
-              {dateTicks.map((tick, idx) => (
-                <span key={idx} className="hidden sm:inline-block">
-                  {tick}
-                </span>
-              ))}
-              <span className="sm:hidden">01 Oct</span>
-              <span className="sm:hidden">08 Oct</span>
-              <span className="sm:hidden">16 Oct</span>
-              <span className="sm:hidden">24 Oct</span>
-              <span className="sm:hidden">31 Oct</span>
+              {/* TRACK 2: CELLULAR */}
+              <div className="flex items-center gap-2">
+                <div className="w-16 shrink-0 text-[11px] font-semibold text-slate-700 dark:text-slate-300 truncate">
+                  Cellular
+                </div>
+                <div className="flex-1 grid grid-cols-[repeat(31,minmax(0,1fr))] gap-0.5 sm:gap-1">
+                  {dailyMultiTrack.map((item) => (
+                    <div
+                      key={item.day}
+                      onClick={() => {
+                        if (selectedEventDate === item.dateKey) {
+                          setSelectedEventDate("ALL");
+                        } else {
+                          setSelectedEventDate(item.dateKey);
+                        }
+                      }}
+                      onMouseEnter={() => setHoveredDay(item)}
+                      onMouseLeave={() => setHoveredDay(null)}
+                      className={`h-5.5 rounded-xs cursor-pointer transition-all ${
+                        item.cellStatus === "offline"
+                          ? "bg-[#e2445c] hover:bg-[#ff4d6d]"
+                          : "bg-[#00c875] hover:bg-[#05e287]"
+                      } ${
+                        item.isToday
+                          ? "ring-1.5 ring-blue-500 shadow-xs"
+                          : ""
+                      } ${
+                        selectedEventDate === item.dateKey
+                          ? "ring-2 ring-amber-400 scale-105"
+                          : "hover:scale-105"
+                      }`}
+                      title={`Cellular ${item.dayNumStr} Oct: ${item.cellStatus === "offline" ? "Offline" : "Online"}`}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* TRACK 3: DVR */}
+              <div className="flex items-center gap-2">
+                <div className="w-16 shrink-0 text-[11px] font-semibold text-slate-700 dark:text-slate-300 truncate">
+                  DVR
+                </div>
+                <div className="flex-1 grid grid-cols-[repeat(31,minmax(0,1fr))] gap-0.5 sm:gap-1">
+                  {dailyMultiTrack.map((item) => (
+                    <div
+                      key={item.day}
+                      onClick={() => {
+                        if (selectedEventDate === item.dateKey) {
+                          setSelectedEventDate("ALL");
+                        } else {
+                          setSelectedEventDate(item.dateKey);
+                        }
+                      }}
+                      onMouseEnter={() => setHoveredDay(item)}
+                      onMouseLeave={() => setHoveredDay(null)}
+                      className={`h-5.5 rounded-xs cursor-pointer transition-all ${
+                        item.dvrStatus === "offline"
+                          ? "bg-[#e2445c] hover:bg-[#ff4d6d]"
+                          : "bg-[#00c875] hover:bg-[#05e287]"
+                      } ${
+                        item.isToday
+                          ? "ring-1.5 ring-blue-500 shadow-xs"
+                          : ""
+                      } ${
+                        selectedEventDate === item.dateKey
+                          ? "ring-2 ring-amber-400 scale-105"
+                          : "hover:scale-105"
+                      }`}
+                      title={`DVR ${item.dayNumStr} Oct: ${item.dvrStatus === "offline" ? "Offline" : "Online"}`}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Hover / Selected Day Real-Time Info Bar */}
+              <div className="mt-3 pt-2.5 border-t border-slate-200/70 dark:border-slate-800/70 flex items-center justify-between text-xs min-h-[28px]">
+                {hoveredDay ? (
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-slate-800 dark:text-slate-200">
+                      {hoveredDay.fullDate}
+                      {hoveredDay.isToday && (
+                        <span className="ml-1.5 px-1.5 py-0.2 rounded text-[10px] font-bold bg-blue-500/20 text-blue-500">
+                          Hari Ini
+                        </span>
+                      )}
+                      :
+                    </span>
+                    <span className="text-[11px] text-slate-600 dark:text-slate-300">
+                      Gateway:{" "}
+                      <strong className={hoveredDay.gwStatus === "offline" ? "text-[#e2445c]" : "text-[#00c875]"}>
+                        {hoveredDay.gwStatus === "offline" ? "Offline" : "Online"}
+                      </strong>
+                      {" | "}
+                      Cellular:{" "}
+                      <strong className={hoveredDay.cellStatus === "offline" ? "text-[#e2445c]" : "text-[#00c875]"}>
+                        {hoveredDay.cellStatus === "offline" ? "Offline" : "Online"}
+                      </strong>
+                      {" | "}
+                      DVR:{" "}
+                      <strong className={hoveredDay.dvrStatus === "offline" ? "text-[#e2445c]" : "text-[#00c875]"}>
+                        {hoveredDay.dvrStatus === "offline" ? "Offline" : "Online"}
+                      </strong>
+                      {hoveredDay.eventsCount > 0 && ` (${hoveredDay.eventsCount} event gangguan)`}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between w-full">
+                    <span>Arahkan kursor atau klik tanggal (01 - 31) untuk memfilter detail gangguan.</span>
+                    {selectedEventDate !== "ALL" && (
+                      <button
+                        onClick={() => setSelectedEventDate("ALL")}
+                        className="text-blue-500 hover:underline text-[11px] font-medium cursor-pointer"
+                      >
+                        Reset Filter
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-
-        {/* Right Column (lg:col-span-6): Riwayat Event Table with Toggle */}
-        <div className="lg:col-span-6 bg-white dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 flex flex-col justify-between shadow-xs">
+        </div>        {/* Right Column (lg:col-span-6): Riwayat Gangguan Table with Date Selector & Scrollable 10 Rows */}
+        <div className="lg:col-span-6 bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 flex flex-col justify-between shadow-xs">
           <div>
-            <div className="pb-3 border-b border-slate-200 dark:border-slate-800/60 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200 dark:border-slate-800/60">
               <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-[#070e1c] p-1 rounded-lg border border-slate-200 dark:border-slate-800/80">
+                <button
+                  type="button"
+                  onClick={() => setActiveEventTab("all")}
+                  className={`px-2.5 py-1 rounded text-xs font-semibold transition-all cursor-pointer ${
+                    activeEventTab === "all"
+                      ? "bg-[#0073ea] text-white shadow-xs"
+                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                  }`}
+                >
+                  Semua Gangguan ({rawEvents.length})
+                </button>
                 <button
                   type="button"
                   onClick={() => setActiveEventTab("downtime")}
@@ -698,58 +895,91 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
                       : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
                   }`}
                 >
-                  Insiden Mati (Downtime 4)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveEventTab("telemetry")}
-                  className={`px-2.5 py-1 rounded text-xs font-semibold transition-all cursor-pointer ${
-                    activeEventTab === "telemetry"
-                      ? "bg-[#0073ea] text-white shadow-xs"
-                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-                  }`}
-                >
-                  Event Telemetri ({d.events.length})
+                  Insiden Offline ({downtimeCount})
                 </button>
               </div>
 
-              <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
-                {activeEventTab === "downtime" ? `Akumulasi: ${downtimeDurationText}` : "Alert Hardware"}
-              </span>
+              {/* Date Selector Dropdown for Daily Filtering */}
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Filter Tanggal:</span>
+                <select
+                  value={selectedEventDate}
+                  onChange={(e) => setSelectedEventDate(e.target.value)}
+                  className="text-xs font-medium bg-white dark:bg-[#070e1d] border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer shadow-xs"
+                >
+                  <option value="ALL">Semua Tanggal ({rawEvents.length})</option>
+                  {uniqueDates.map((dateStr) => {
+                    const count = rawEvents.filter((e: any) => e.start_time?.startsWith(dateStr)).length;
+                    return (
+                      <option key={dateStr} value={dateStr}>
+                        {dateStr} ({count} event)
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
             </div>
 
-            {/* If activeEventTab === "downtime" */}
-            {activeEventTab === "downtime" && (
-              <div className="overflow-x-auto mt-2">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="text-[11px] text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800/60 font-semibold">
-                      <th className="py-2 px-2 text-center w-8">No.</th>
-                      <th className="py-2 px-2.5">Waktu Mati</th>
-                      <th className="py-2 px-2.5">Waktu Nyala</th>
-                      <th className="py-2 px-2 text-center">Durasi Mati</th>
-                      <th className="py-2 px-2.5">Kategori</th>
-                      <th className="py-2 px-2.5">Akar Masalah</th>
-                      <th className="py-2 px-2 text-center">Dampak SLA</th>
+            {/* Scrollable Compact Table (max 10 rows visible) */}
+            <div className="overflow-x-auto mt-2 max-h-[350px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="sticky top-0 z-10 bg-slate-100 dark:bg-[#0a1224] shadow-xs">
+                  <tr className="text-[11px] text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800/60 font-semibold">
+                    <th className="py-2 px-2 text-center w-8">No.</th>
+                    <th className="py-2 px-2.5">Mulai</th>
+                    <th className="py-2 px-2.5">Selesai</th>
+                    <th className="py-2 px-2 text-center">Durasi</th>
+                    <th className="py-2 px-2.5">Kategori</th>
+                    <th className="py-2 px-2 text-center">Status / Nilai</th>
+                    <th className="py-2 px-2.5">Keterangan</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 dark:divide-slate-800/40 text-[11px]">
+                  {filteredEvents.map((event: any, idx: number) => (
+                    <tr
+                      key={event.no || idx}
+                      className="hover:bg-slate-100/80 dark:hover:bg-slate-800/30 transition-colors"
+                    >
+                      <td className="py-2 px-2 text-center text-slate-500 dark:text-slate-400 font-mono">
+                        {idx + 1}
+                      </td>
+                      <td className="py-2 px-2.5 text-slate-700 dark:text-slate-300 font-mono whitespace-nowrap">
+                        {event.start_time}
+                      </td>
+                      <td className="py-2 px-2.5 text-slate-700 dark:text-slate-300 font-mono whitespace-nowrap">
+                        {event.end_time}
+                      </td>
+                      <td className="py-2 px-2 text-center font-bold text-[#f59e0b] whitespace-nowrap font-mono">
+                        {event.duration}
+                      </td>
+                      <td className="py-2 px-2.5 whitespace-nowrap">
+                        <span className={`font-semibold ${getCategoryColor(event.category || "")}`}>
+                          {event.category}
+                        </span>
+                      </td>
+                      <td className={`py-2 px-2 text-center font-bold whitespace-nowrap ${
+                        (event.value || "").includes("Loss") || (event.value || "").includes("Offline")
+                          ? "text-[#e2445c]"
+                          : (event.value || "").includes("°C")
+                          ? "text-[#e2445c]"
+                          : "text-slate-700 dark:text-slate-300"
+                      }`}>
+                        {event.value || "-"}
+                      </td>
+                      <td className="py-2 px-2.5 text-slate-700 dark:text-slate-300 truncate max-w-42.5" title={event.description}>
+                        {event.description}
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200 dark:divide-slate-800/40 text-[11px]">
-                    {downtimeEvents.map((evt) => (
-                      <tr key={evt.no} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                        <td className="py-2 px-2 text-center text-slate-500 dark:text-slate-400 font-mono">{evt.no}</td>
-                        <td className="py-2 px-2.5 text-slate-800 dark:text-slate-300 font-mono whitespace-nowrap">{evt.start_time}</td>
-                        <td className="py-2 px-2.5 text-slate-800 dark:text-slate-300 font-mono whitespace-nowrap">{evt.end_time}</td>
-                        <td className="py-2 px-2 text-center font-bold text-[#e2445c] whitespace-nowrap font-mono">{evt.duration}</td>
-                        <td className="py-2 px-2.5 whitespace-nowrap">
-                          <span className="px-1.5 py-0.5 rounded text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700/60">
-                            {evt.category}
-                          </span>
-                        </td>
-                        <td className="py-2 px-2.5 text-slate-700 dark:text-slate-300 truncate max-w-37.5">{evt.reason}</td>
-                        <td className="py-2 px-2 text-center font-mono text-rose-600 dark:text-rose-400 whitespace-nowrap">{evt.sla_impact}</td>
-                      </tr>
-                    ))}
-                  </tbody>
+                  ))}
+                  {filteredEvents.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="py-6 text-center text-slate-500 dark:text-slate-400 text-xs">
+                        Tidak ada riwayat gangguan pada filter yang dipilih.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+                {activeEventTab === "downtime" && filteredEvents.length > 0 && (
                   <tfoot className="border-t-2 border-slate-300 dark:border-slate-700/80 bg-slate-100 dark:bg-[#081022] font-semibold text-xs text-slate-800 dark:text-slate-200">
                     <tr>
                       <td colSpan={3} className="py-2 px-2 text-right text-slate-500 dark:text-slate-400">Total Akumulasi Mati:</td>
@@ -759,65 +989,9 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
                       </td>
                     </tr>
                   </tfoot>
-                </table>
-              </div>
-            )}
-
-            {/* If activeEventTab === "telemetry" */}
-            {activeEventTab === "telemetry" && (
-              <div className="overflow-x-auto mt-2">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="text-[11px] text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800/60 font-semibold">
-                      <th className="py-2 px-2 text-center w-8">No.</th>
-                      <th className="py-2 px-2.5">Mulai</th>
-                      <th className="py-2 px-2.5">Selesai</th>
-                      <th className="py-2 px-2 text-center">Durasi</th>
-                      <th className="py-2 px-2.5">Kategori</th>
-                      <th className="py-2 px-2 text-center">Nilai</th>
-                      <th className="py-2 px-2.5">Keterangan</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200 dark:divide-slate-800/40 text-[11px]">
-                    {d.events.map((event) => (
-                      <tr
-                        key={event.no}
-                        className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors"
-                      >
-                        <td className="py-2 px-2 text-center text-slate-500 dark:text-slate-400 font-mono">
-                          {event.no}
-                        </td>
-                        <td className="py-2 px-2.5 text-slate-800 dark:text-slate-300 font-mono whitespace-nowrap">
-                          {event.start_time}
-                        </td>
-                        <td className="py-2 px-2.5 text-slate-800 dark:text-slate-300 font-mono whitespace-nowrap">
-                          {event.end_time}
-                        </td>
-                        <td className="py-2 px-2 text-center font-bold text-[#f59e0b] whitespace-nowrap font-mono">
-                          {event.duration}
-                        </td>
-                        <td className={`py-2 px-2.5 font-bold whitespace-nowrap ${getCategoryColor(event.category)}`}>
-                          {event.category}
-                        </td>
-                        <td className={`py-2 px-2 text-center font-bold whitespace-nowrap ${event.value.includes("°C") ? "text-[#e2445c]" : "text-slate-700 dark:text-slate-300"}`}>
-                          {event.value}
-                        </td>
-                        <td className="py-2 px-2.5 text-slate-700 dark:text-slate-300 truncate max-w-37.5">
-                          {event.description}
-                        </td>
-                      </tr>
-                    ))}
-                    {d.events.length === 0 && (
-                      <tr>
-                        <td colSpan={7} className="py-4 text-center text-slate-500 dark:text-slate-400 text-xs">
-                          Tidak ada riwayat event pada periode ini.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                )}
+              </table>
+            </div>
           </div>
         </div>
       </div>

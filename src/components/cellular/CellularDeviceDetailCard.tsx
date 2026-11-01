@@ -765,21 +765,21 @@ export const CellularDeviceDetailCard: React.FC<
 
                   <div className="text-xs space-y-1.5 font-medium text-slate-700 dark:text-slate-300">
                     <div className="flex items-center gap-2">
-                      <span className="size-2 rounded-full bg-blue-500" />
+                      <span className="size-2 rounded-full bg-rose-500 shrink-0" />
                       <span className="text-slate-800 dark:text-slate-200">
-                        {d.modem_temperature.max_temp}
+                        Maks: {d.modem_temperature.max_temp}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="size-2 rounded-full bg-rose-500" />
+                      <span className="size-2 rounded-full bg-blue-500 shrink-0" />
                       <span className="text-slate-700 dark:text-slate-300">
-                        {d.modem_temperature.min_temp}
+                        Min: {d.modem_temperature.min_temp}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="size-2 rounded-full bg-cyan-500 dark:bg-cyan-400" />
+                      <span className="size-2 rounded-full bg-cyan-500 dark:bg-cyan-400 shrink-0" />
                       <span className="text-slate-700 dark:text-slate-300">
-                        {d.modem_temperature.avg_temp}
+                        Rata2: {d.modem_temperature.avg_temp}
                       </span>
                     </div>
                   </div>
@@ -1001,6 +1001,26 @@ export const CellularDeviceDetailCard: React.FC<
                       {d.ip_address}
                     </span>
                   </div>
+                  {d.network_sim.phone_number && (
+                    <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1.5">
+                      <span className="text-slate-500 dark:text-slate-400">
+                        MSISDN / No. SIM
+                      </span>
+                      <span className="font-mono text-slate-800 dark:text-slate-200 font-semibold">
+                        {d.network_sim.phone_number}
+                      </span>
+                    </div>
+                  )}
+                  {d.network_sim.quota_info && (
+                    <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1.5">
+                      <span className="text-slate-500 dark:text-slate-400">
+                        Informasi Kuota
+                      </span>
+                      <span className="font-medium text-emerald-600 dark:text-emerald-400">
+                        {d.network_sim.quota_info}
+                      </span>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1.5">
                     <span className="text-slate-500 dark:text-slate-400">
                       Network Mode
@@ -1037,7 +1057,15 @@ export const CellularDeviceDetailCard: React.FC<
                   {d.signal_strength.rsrp} dBm
                 </div>
                 <div className="text-xs text-emerald-500 font-semibold flex items-center gap-1">
-                  <CheckCircle2 className="size-3.5" /> Sangat Baik (CSQ 28)
+                  <CheckCircle2 className="size-3.5" />{" "}
+                  {d.signal_strength.rsrp >= -85
+                    ? "Sangat Baik"
+                    : d.signal_strength.rsrp >= -95
+                    ? "Baik"
+                    : d.signal_strength.rsrp >= -105
+                    ? "Cukup"
+                    : "Lemah"}{" "}
+                  {d.signal_strength.csq ? `(CSQ ${d.signal_strength.csq})` : ""}
                 </div>
               </div>
               <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-2">
@@ -1099,7 +1127,7 @@ export const CellularDeviceDetailCard: React.FC<
                   {d.modem_temperature.max_temp}
                 </div>
                 <div className="text-[11px] text-slate-400 mt-1">
-                  Puncak Jam 14:00
+                  {d.modem_temperature.max_time || "Puncak Periode"}
                 </div>
               </div>
               <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4">
@@ -1108,16 +1136,16 @@ export const CellularDeviceDetailCard: React.FC<
                   {d.modem_temperature.min_temp}
                 </div>
                 <div className="text-[11px] text-slate-400 mt-1">
-                  Pagi Jam 05:00
+                  {d.modem_temperature.min_time || "Terendah Periode"}
                 </div>
               </div>
               <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4">
-                <div className="text-xs text-slate-500">Rata-rata 24 Jam</div>
+                <div className="text-xs text-slate-500">Rata-rata Periode</div>
                 <div className="text-2xl font-bold text-slate-900 dark:text-white font-mono mt-1">
                   {d.modem_temperature.avg_temp}
                 </div>
                 <div className="text-[11px] text-slate-400 mt-1">
-                  Ambang Batas Maks: 85°C
+                  Ambang Batas Maks: 85°C (Aman)
                 </div>
               </div>
             </div>
@@ -1146,69 +1174,42 @@ export const CellularDeviceDetailCard: React.FC<
                   Riwayat Aktivitas & Event Selular
                 </div>
                 <span className="text-[11px] text-slate-400">
-                  Total 5 Aktivitas Terakhir
+                  Total {(d.events && d.events.length) || 0} Aktivitas Terakhir
                 </span>
               </div>
               <div className="divide-y divide-slate-200 dark:divide-slate-800/60 text-xs">
-                <div className="py-2.5 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="size-2 rounded-full bg-emerald-500" />
-                    <span className="text-slate-800 dark:text-slate-200 font-medium">
-                      Modem registrasi ke jaringan 4G LTE ({d.provider})
-                      berhasil
-                    </span>
+                {d.events && d.events.length > 0 ? (
+                  d.events.map((evt, idx) => (
+                    <div
+                      key={evt.id || idx}
+                      className="py-2.5 flex items-center justify-between gap-4"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span
+                          className={`size-2 rounded-full shrink-0 ${
+                            evt.status === "error"
+                              ? "bg-rose-500"
+                              : evt.status === "warning"
+                              ? "bg-amber-500"
+                              : evt.status === "info"
+                              ? "bg-sky-500"
+                              : "bg-emerald-500"
+                          }`}
+                        />
+                        <span className="text-slate-800 dark:text-slate-200 font-medium truncate">
+                          {evt.title}
+                        </span>
+                      </div>
+                      <span className="text-slate-400 font-mono text-[11px] whitespace-nowrap shrink-0">
+                        {evt.time}
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <div className="py-4 text-center text-slate-400 text-xs">
+                    Belum ada riwayat aktivitas telemetri untuk gateway ini.
                   </div>
-                  <span className="text-slate-400 font-mono text-[11px]">
-                    {formatToWIB(d.last_update)}
-                  </span>
-                </div>
-                <div className="py-2.5 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="size-2 rounded-full bg-blue-500" />
-                    <span className="text-slate-800 dark:text-slate-200 font-medium">
-                      Pemeriksaan berkala sinyal RSRP: {d.signal_strength.rsrp}{" "}
-                      dBm (CSQ 28)
-                    </span>
-                  </div>
-                  <span className="text-slate-400 font-mono text-[11px]">
-                    {formatToWIB(d.cpu_modem.last_check)}
-                  </span>
-                </div>
-                <div className="py-2.5 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="size-2 rounded-full bg-emerald-500" />
-                    <span className="text-slate-800 dark:text-slate-200 font-medium">
-                      Alokasi alamat IP seluler: {d.ip_address} (Interface
-                      aktif)
-                    </span>
-                  </div>
-                  <span className="text-slate-400 font-mono text-[11px]">
-                    {formatToWIB(d.last_update)}
-                  </span>
-                </div>
-                <div className="py-2.5 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="size-2 rounded-full bg-sky-500" />
-                    <span className="text-slate-800 dark:text-slate-200 font-medium">
-                      Daemon pppcmd keepalive heartbeat OK pada port{" "}
-                      {d.cpu_modem.port}
-                    </span>
-                  </div>
-                  <span className="text-slate-400 font-mono text-[11px]">
-                    {formatToWIB(d.last_update)}
-                  </span>
-                </div>
-                <div className="py-2.5 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="size-2 rounded-full bg-emerald-500" />
-                    <span className="text-slate-800 dark:text-slate-200 font-medium">
-                      SIM card terdeteksi dan status Aktif
-                    </span>
-                  </div>
-                  <span className="text-slate-400 font-mono text-[11px]">
-                    {formatToWIB(d.last_update)}
-                  </span>
-                </div>
+                )}
               </div>
             </div>
           </div>

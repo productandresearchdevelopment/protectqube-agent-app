@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { AppLayout } from "@/components/layout/AppLayout";
 import {
@@ -8,6 +8,7 @@ import {
   useCellularDashboard,
   useDVRDashboard,
 } from "@/store/api/monitoring";
+import { ChartCard } from "@/components/ui";
 import {
   Server,
   Radio,
@@ -35,6 +36,10 @@ import {
   Zap,
   ShieldAlert,
   Camera,
+  Globe,
+  Thermometer,
+  Disc,
+  Box,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -42,6 +47,9 @@ import {
   Area,
   LineChart,
   Line,
+  PieChart,
+  Pie,
+  Cell,
   XAxis,
   YAxis,
   Tooltip,
@@ -72,6 +80,77 @@ const CustomOverviewTooltip = ({ active, payload, label, unit, color }: any) => 
   return null;
 };
 
+// Custom Tooltips untuk Chart Donut Telemetri
+const CustomDonutTooltip = ({ active, payload }: any) => {
+  if (active && payload && payload.length) {
+    const data = payload[0];
+    return (
+      <div className="bg-slate-900/95 dark:bg-slate-900/95 text-white text-[11px] px-2.5 py-1.5 rounded-lg shadow-xl border border-slate-700/80 backdrop-blur-xs font-sans z-50">
+        <div className="flex items-center gap-1.5 font-bold">
+          <span
+            className="size-2 rounded-full"
+            style={{ backgroundColor: data.payload.color || data.payload.fill }}
+          />
+          <span>{data.name}</span>
+        </div>
+        <div className="mt-0.5 text-slate-300 flex justify-between gap-3">
+          <span>Total:</span>
+          <span className="font-semibold text-white">{data.value.toLocaleString()}</span>
+        </div>
+        <div className="text-slate-300 flex justify-between gap-3">
+          <span>Persentase:</span>
+          <span className="font-semibold text-[#00c875]">{data.payload.percent}%</span>
+        </div>
+      </div>
+    );
+  }
+  return null;
+};
+
+// Custom Tooltip untuk Chart Line (Sinyal, Suhu)
+const CustomLineTooltip = ({ active, payload, label, unit }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-slate-900/95 dark:bg-slate-900/95 text-white text-[11px] px-2.5 py-1.5 rounded-lg shadow-xl border border-slate-700/80 backdrop-blur-xs font-sans z-50">
+        <div className="text-slate-400 font-mono text-[10px] mb-0.5">{label}</div>
+        <div className="flex items-center gap-1.5">
+          <span
+            className="size-2 rounded-full"
+            style={{ backgroundColor: payload[0].color }}
+          />
+          <span className="font-medium text-slate-200">{payload[0].name}:</span>
+          <span className="font-bold text-white">
+            {payload[0].value} {unit}
+          </span>
+        </div>
+      </div>
+    );
+  }
+  return null;
+};
+
+// Custom Tooltip untuk Metric Area (CPU, RAM, SD, Storage)
+const CustomMetricTooltip = ({ active, payload, label, unit, color }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-slate-900/95 dark:bg-slate-900/95 text-white text-[11px] px-2.5 py-1.5 rounded-lg shadow-xl border border-slate-700/80 backdrop-blur-xs font-sans z-50">
+        <div className="text-slate-400 font-mono text-[10px] mb-0.5">{label}</div>
+        <div className="flex items-center gap-1.5">
+          <span
+            className="size-2 rounded-full"
+            style={{ backgroundColor: color || payload[0]?.color || "#00c875" }}
+          />
+          <span className="font-medium text-slate-200">{payload[0].name}:</span>
+          <span className="font-bold text-white">
+            {payload[0].value}{unit}
+          </span>
+        </div>
+      </div>
+    );
+  }
+  return null;
+};
+
 // Tipe data device yang sedang trouble
 interface TroubleDevice {
   id: string;
@@ -88,15 +167,25 @@ interface TroubleDevice {
 }
 
 export default function OverviewPage() {
+  const [mounted, setMounted] = useState(false);
   const [activeTrendTab, setActiveTrendTab] = useState<
     "system" | "cellular" | "dvr" | "uptime"
   >("system");
+
+  // State domain chart switcher untuk 12 chart yang dipindahkan dari Cellular, DVR, System Health
+  const [activeDomainChartTab, setActiveDomainChartTab] = useState<
+    "all" | "cellular" | "dvr" | "system"
+  >("all");
 
   // State filter untuk daftar device trouble
   const [activeTroubleCategory, setActiveTroubleCategory] = useState<
     "all" | "critical" | "warning" | "cellular" | "dvr" | "system"
   >("all");
   const [troubleSearchQuery, setTroubleSearchQuery] = useState("");
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Ambil data dashboard real-time
   const { data: systemDashboard } = useSystemHealthDashboard({
@@ -177,6 +266,134 @@ export default function OverviewPage() {
       ]
     );
   };
+
+  // --- 1. DATASET GRAFIK SELULER (Dipindahkan dari Cellular Connectivity) ---
+  const cellCharts = cellularDashboard?.charts;
+  const cpuModemData = cellCharts?.cpu_modem_comm?.slices.map((s) => ({
+    name: s.label,
+    value: s.count,
+    percent: s.percent,
+    color: s.color,
+  })) || [
+    { name: "Connected", value: 1960, percent: 98.0, color: "#00c875" },
+    { name: "Not Detected", value: 20, percent: 1.0, color: "#e2445c" },
+    { name: "No Response", value: 12, percent: 0.6, color: "#fdab3d" },
+    { name: "Driver Error", value: 8, percent: 0.4, color: "#579bfc" },
+  ];
+
+  const networkStatusData = cellCharts?.modem_network_status?.slices.map((s) => ({
+    name: s.label,
+    value: s.count,
+    percent: s.percent,
+    color: s.color,
+  })) || [
+    { name: "Online", value: 1720, percent: 86.0, color: "#00c875" },
+    { name: "Searching", value: 50, percent: 2.5, color: "#fdab3d" },
+    { name: "No Service", value: 120, percent: 6.0, color: "#e2445c" },
+    { name: "SIM Error", value: 40, percent: 2.0, color: "#a855f7" },
+    { name: "Roaming", value: 70, percent: 3.5, color: "#f59e0b" },
+  ];
+
+  const cellRsrpTimeline = cellCharts?.signal_strength?.timeline || [
+    { time: "00:00", value: -88 },
+    { time: "04:00", value: -85 },
+    { time: "08:00", value: -82 },
+    { time: "12:00", value: -84 },
+    { time: "16:00", value: -86 },
+    { time: "20:00", value: -85 },
+  ];
+
+  const cellTempTimeline = cellCharts?.modem_temperature?.timeline || [
+    { time: "00:00", value: 38 },
+    { time: "04:00", value: 42 },
+    { time: "08:00", value: 46 },
+    { time: "12:00", value: 48 },
+    { time: "16:00", value: 47 },
+    { time: "20:00", value: 41 },
+  ];
+
+  // --- 2. DATASET GRAFIK DVR & RECORDING (Dipindahkan dari DVR Recording) ---
+  const dvrCharts = dvrDashboard?.charts;
+  const cpuDvrData = dvrCharts?.cpu_dvr_comm?.slices.map((s) => ({
+    name: s.label,
+    value: s.count,
+    percent: s.percent,
+    color: s.color,
+  })) || [
+    { name: "Connected", value: 1850, percent: 92.5, color: "#00c875" },
+    { name: "Timeout", value: 90, percent: 4.5, color: "#fdab3d" },
+    { name: "Auth Failed", value: 40, percent: 2.0, color: "#e2445c" },
+    { name: "Port Closed", value: 20, percent: 1.0, color: "#579bfc" },
+  ];
+
+  const statusKameraData = dvrCharts?.status_kamera?.slices.map((s) => ({
+    name: s.label,
+    value: s.count,
+    percent: s.percent,
+    color: s.color,
+  })) || [
+    { name: "Online", value: 7350, percent: 90.2, color: "#00c875" },
+    { name: "No Video", value: 450, percent: 5.5, color: "#fdab3d" },
+    { name: "Offline", value: 350, percent: 4.3, color: "#e2445c" },
+  ];
+
+  const recordingStatusData = dvrCharts?.recording_status?.slices.map((s) => ({
+    name: s.label,
+    value: s.count,
+    percent: s.percent,
+    color: s.color,
+  })) || [
+    { name: "Merekam", value: 1765, percent: 88.3, color: "#00c875" },
+    { name: "Tidak Merekam", value: 140, percent: 7.0, color: "#fdab3d" },
+    { name: "Error/Corrupt", value: 95, percent: 4.7, color: "#e2445c" },
+  ];
+
+  const dvrStorageTimeline = dvrCharts?.storage_usage?.timeline || [
+    { time: "00:00", value: 71 },
+    { time: "04:00", value: 72 },
+    { time: "08:00", value: 73 },
+    { time: "12:00", value: 74 },
+    { time: "16:00", value: 74 },
+    { time: "20:00", value: 75 },
+  ];
+
+  // --- 3. DATASET GRAFIK SYSTEM HEALTH (Dipindahkan dari System Health) ---
+  const sysCharts = systemDashboard?.charts;
+  const sysCpuTimeline = sysCharts?.cpu?.timeline || [
+    { time: "00:00", value: 32 },
+    { time: "04:00", value: 28 },
+    { time: "08:00", value: 45 },
+    { time: "12:00", value: 58 },
+    { time: "16:00", value: 52 },
+    { time: "20:00", value: 38 },
+  ];
+
+  const sysRamTimeline = sysCharts?.ram?.timeline || [
+    { time: "00:00", value: 54 },
+    { time: "04:00", value: 52 },
+    { time: "08:00", value: 61 },
+    { time: "12:00", value: 68 },
+    { time: "16:00", value: 65 },
+    { time: "20:00", value: 58 },
+  ];
+
+  const sysSdTimeline = sysCharts?.sd_card?.timeline || [
+    { time: "00:00", value: 42 },
+    { time: "04:00", value: 42 },
+    { time: "08:00", value: 43 },
+    { time: "12:00", value: 43 },
+    { time: "16:00", value: 44 },
+    { time: "20:00", value: 44 },
+  ];
+
+  const sysUptimeTimeline = sysCharts?.uptime?.timeline || [
+    { time: "00:00", value: 99.2 },
+    { time: "04:00", value: 99.0 },
+    { time: "08:00", value: 98.4 },
+    { time: "12:00", value: 97.9 },
+    { time: "16:00", value: 98.2 },
+    { time: "20:00", value: 98.8 },
+  ];
 
   // Daftar lengkap device yang sedang mengalami gangguan / alert
   const troubleDevices: TroubleDevice[] = [
@@ -369,38 +586,28 @@ export default function OverviewPage() {
   }, [troubleDevices, activeTroubleCategory, troubleSearchQuery]);
 
   return (
-    <AppLayout title="Overview">
-      <div className="space-y-6 max-w-[1600px] mx-auto pb-12 font-sans transition-colors">
-        {/* ========================================================= */}
-        {/* 1. SIMPLE CLEAN HEADER */}
-        {/* ========================================================= */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2 border-b border-slate-200 dark:border-slate-800">
-          <div>
-            <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-              Overview
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-              Ringkasan performa 2,000 SmartBox Gateway, status kesehatan sistem, dan telemetri armada.
-            </p>
+    <AppLayout
+      title="Overview"
+      headerRight={
+        <div className="flex items-center gap-2.5">
+          {/* Quick Live Pill */}
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs">
+            <span className="size-2 rounded-full bg-[#00c875] animate-ping" />
+            <span className="font-bold text-[#00c875]">{onlinePct}% Online</span>
+            <span className="text-slate-400">({onlineCount}/{totalGateways})</span>
           </div>
 
-          <div className="flex items-center gap-3 shrink-0">
-            {/* Quick Live Pill */}
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs">
-              <span className="size-2 rounded-full bg-[#00c875] animate-ping" />
-              <span className="font-bold text-[#00c875]">{onlinePct}% Online</span>
-              <span className="text-slate-400">({onlineCount}/{totalGateways})</span>
-            </div>
-
-            <Link
-              href="/reports/cellular"
-              className="bg-[#0073ea] hover:bg-blue-600 active:scale-95 text-white text-xs font-semibold px-3.5 py-2 rounded-xl flex items-center gap-1.5 shadow-sm transition-all"
-            >
-              <FileSpreadsheet className="size-3.5" />
-              <span>Buka Reports</span>
-            </Link>
-          </div>
+          <Link
+            href="/reports/cellular"
+            className="bg-[#0073ea] hover:bg-blue-600 active:scale-95 text-white text-xs font-semibold px-3 py-1.5 rounded-xl flex items-center gap-1.5 shadow-xs transition-all"
+          >
+            <FileSpreadsheet className="size-3.5" />
+            <span>Buka Reports</span>
+          </Link>
         </div>
+      }
+    >
+      <div className="space-y-6 max-w-[1600px] mx-auto pb-12 font-sans transition-colors">
 
         {/* ========================================================= */}
         {/* 2. 4 BENTO STAT CARDS UTAMA (CORE PILLARS) */}
@@ -945,7 +1152,671 @@ export default function OverviewPage() {
         </div>
 
         {/* ========================================================= */}
-        {/* 4. DAFTAR DEVICE YANG SEDANG TROUBLE / ALERT */}
+        {/* 4. REAL-TIME DOMAIN TELEMETRY CHARTS (CELLULAR, DVR, SYSTEM HEALTH) */}
+        {/* ========================================================= */}
+        <div className="pt-4 space-y-4 border-t border-slate-200 dark:border-slate-800">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <Activity className="size-5 text-[#0073ea]" />
+                <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
+                  Real-Time Domain Telemetry Charts
+                </h2>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Monitoring grafik operasional real-time untuk Cellular Connectivity, DVR Recording, dan System Health.
+              </p>
+            </div>
+
+            {/* Domain Switcher Tabs */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+              <button
+                type="button"
+                onClick={() => setActiveDomainChartTab("all")}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 flex items-center gap-1.5 ${
+                  activeDomainChartTab === "all"
+                    ? "bg-[#0073ea] text-white shadow-xs"
+                    : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
+                }`}
+              >
+                <Layers className="size-3.5" />
+                Semua Domain (12)
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveDomainChartTab("cellular")}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 flex items-center gap-1.5 ${
+                  activeDomainChartTab === "cellular"
+                    ? "bg-cyan-600 text-white shadow-xs"
+                    : "bg-cyan-500/10 text-cyan-500 hover:bg-cyan-500/20 border border-cyan-500/20"
+                }`}
+              >
+                <Radio className="size-3.5" />
+                Cellular (4)
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveDomainChartTab("dvr")}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 flex items-center gap-1.5 ${
+                  activeDomainChartTab === "dvr"
+                    ? "bg-amber-600 text-white shadow-xs"
+                    : "bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 border border-amber-500/20"
+                }`}
+              >
+                <Video className="size-3.5" />
+                DVR & Recording (4)
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveDomainChartTab("system")}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 flex items-center gap-1.5 ${
+                  activeDomainChartTab === "system"
+                    ? "bg-emerald-600 text-white shadow-xs"
+                    : "bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 border border-emerald-500/20"
+                }`}
+              >
+                <Cpu className="size-3.5" />
+                System Health (4)
+              </button>
+            </div>
+          </div>
+
+          {/* 4.A CELLULAR CONNECTIVITY CHARTS (4 CHARTS) */}
+          {(activeDomainChartTab === "all" || activeDomainChartTab === "cellular") && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between pb-1">
+                <div className="flex items-center gap-2">
+                  <span className="size-2 rounded-full bg-[#00d2ff]" />
+                  <span className="text-xs font-extrabold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                    Cellular Connectivity Telemetry
+                  </span>
+                </div>
+                <Link
+                  href="/cellular-connectivity"
+                  className="text-[11px] font-semibold text-[#0073ea] hover:underline flex items-center gap-1"
+                >
+                  Buka Halaman Seluler <ChevronRight className="size-3" />
+                </Link>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3.5">
+                {/* Cell Chart 1: CPU - Modem Comm Donut */}
+                <ChartCard
+                  title="Komunikasi CPU – Modem"
+                  subtitle="Status Handshake Hardware"
+                  icon={Cpu}
+                >
+                  <div className="flex items-center gap-2 h-40">
+                    <div className="w-32 h-32 relative shrink-0">
+                      {mounted && (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Tooltip content={<CustomDonutTooltip />} />
+                            <Pie
+                              data={cpuModemData}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={32}
+                              outerRadius={50}
+                              paddingAngle={3}
+                              dataKey="value"
+                            >
+                              {cpuModemData.map((entry, index) => (
+                                <Cell key={`cell-cpu-${index}`} fill={entry.color} />
+                              ))}
+                            </Pie>
+                          </PieChart>
+                        </ResponsiveContainer>
+                      )}
+                      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                        <span className="text-sm font-black text-slate-900 dark:text-white leading-none">
+                          98.0%
+                        </span>
+                        <span className="text-[9px] text-slate-400">Connected</span>
+                      </div>
+                    </div>
+                    <div className="flex-1 space-y-1.5 text-xs">
+                      {cpuModemData.map((d) => (
+                        <div key={d.name} className="flex items-center justify-between">
+                          <span className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 truncate">
+                            <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
+                            {d.name}
+                          </span>
+                          <span className="font-bold text-slate-800 dark:text-slate-200">{d.percent}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </ChartCard>
+
+                {/* Cell Chart 2: Modem Network Status Donut */}
+                <ChartCard
+                  title="Koneksi Jaringan"
+                  subtitle="Distribusi Status Jaringan"
+                  icon={Globe}
+                >
+                  <div className="flex items-center gap-2 h-40">
+                    <div className="w-32 h-32 relative shrink-0">
+                      {mounted && (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Tooltip content={<CustomDonutTooltip />} />
+                            <Pie
+                              data={networkStatusData}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={32}
+                              outerRadius={50}
+                              paddingAngle={3}
+                              dataKey="value"
+                            >
+                              {networkStatusData.map((entry, index) => (
+                                <Cell key={`cell-net-${index}`} fill={entry.color} />
+                              ))}
+                            </Pie>
+                          </PieChart>
+                        </ResponsiveContainer>
+                      )}
+                      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                        <span className="text-sm font-black text-slate-900 dark:text-white leading-none">
+                          86.0%
+                        </span>
+                        <span className="text-[9px] text-slate-400">Online</span>
+                      </div>
+                    </div>
+                    <div className="flex-1 space-y-1.5 text-xs">
+                      {networkStatusData.map((d) => (
+                        <div key={d.name} className="flex items-center justify-between">
+                          <span className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 truncate">
+                            <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
+                            {d.name}
+                          </span>
+                          <span className="font-bold text-slate-800 dark:text-slate-200">{d.percent}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </ChartCard>
+
+                {/* Cell Chart 3: Signal RSRP Trend */}
+                <ChartCard
+                  title="Kekuatan Sinyal (RSRP)"
+                  subtitle="Rata-rata 24 Jam"
+                  icon={Signal}
+                >
+                  <div className="flex items-stretch gap-1.5 h-40">
+                    <div className="flex-1 h-full relative">
+                      {mounted && (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={cellRsrpTimeline} margin={{ top: 8, right: 0, left: -4, bottom: 0 }}>
+                            <XAxis dataKey="time" tick={{ fontSize: 9, fill: "#94a3b8" }} axisLine={{ stroke: "#334155", strokeWidth: 0.5 }} tickLine={false} />
+                            <YAxis width={28} domain={[-120, -60]} ticks={[-120, -90, -60]} tick={{ fontSize: 9, fill: "#94a3b8" }} tickFormatter={(v) => `${v}`} axisLine={false} tickLine={false} />
+                            <Tooltip content={<CustomLineTooltip unit="dBm" />} />
+                            <Line type="monotone" name="RSRP" dataKey="value" stroke="#0073ea" strokeWidth={2} dot={{ r: 2, fill: "#0073ea" }} activeDot={{ r: 4 }} />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      )}
+                    </div>
+                    <div className="w-14 shrink-0 flex flex-col justify-between py-1 border-l border-slate-100 dark:border-slate-800/80 pl-1.5">
+                      <div>
+                        <div className="text-[10px] text-slate-400 font-medium leading-none">Avg</div>
+                        <div className="text-xs font-bold text-[#0073ea] mt-0.5">{cellCharts?.signal_strength?.avg ?? "-85"} dBm</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] text-slate-400 font-medium leading-none">Min</div>
+                        <div className="text-xs font-bold text-[#e2445c] mt-0.5">{cellCharts?.signal_strength?.min ?? "-110"} dBm</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] text-slate-400 font-medium leading-none">Max</div>
+                        <div className="text-xs font-bold text-[#00c875] mt-0.5">{cellCharts?.signal_strength?.max ?? "-72"} dBm</div>
+                      </div>
+                    </div>
+                  </div>
+                </ChartCard>
+
+                {/* Cell Chart 4: Modem Temperature Trend */}
+                <ChartCard
+                  title="Temperatur Modem"
+                  subtitle="Rata-rata 24 Jam"
+                  icon={Thermometer}
+                >
+                  <div className="flex items-stretch gap-1.5 h-40">
+                    <div className="flex-1 h-full relative">
+                      {mounted && (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={cellTempTimeline} margin={{ top: 8, right: 0, left: -4, bottom: 0 }}>
+                            <XAxis dataKey="time" tick={{ fontSize: 9, fill: "#94a3b8" }} axisLine={{ stroke: "#334155", strokeWidth: 0.5 }} tickLine={false} />
+                            <YAxis width={28} domain={[0, 100]} ticks={[0, 50, 100]} tick={{ fontSize: 9, fill: "#94a3b8" }} tickFormatter={(v) => `${v}°C`} axisLine={false} tickLine={false} />
+                            <Tooltip content={<CustomLineTooltip unit="°C" />} />
+                            <Line type="monotone" name="Suhu" dataKey="value" stroke="#e2445c" strokeWidth={2} dot={{ r: 2, fill: "#e2445c" }} activeDot={{ r: 4 }} />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      )}
+                    </div>
+                    <div className="w-14 shrink-0 flex flex-col justify-between py-1 border-l border-slate-100 dark:border-slate-800/80 pl-1.5">
+                      <div>
+                        <div className="text-[10px] text-slate-400 font-medium leading-none">Avg</div>
+                        <div className="text-xs font-bold text-[#fdab3d] mt-0.5">{cellCharts?.modem_temperature?.avg ?? "43.5"}°C</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] text-slate-400 font-medium leading-none">Max</div>
+                        <div className="text-xs font-bold text-[#e2445c] mt-0.5">{cellCharts?.modem_temperature?.max ?? "62.0"}°C</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] text-slate-400 font-medium leading-none">Min</div>
+                        <div className="text-xs font-bold text-[#00c875] mt-0.5">{cellCharts?.modem_temperature?.min ?? "28.0"}°C</div>
+                      </div>
+                    </div>
+                  </div>
+                </ChartCard>
+              </div>
+            </div>
+          )}
+
+          {/* 4.B DVR & RECORDING CHARTS (4 CHARTS) */}
+          {(activeDomainChartTab === "all" || activeDomainChartTab === "dvr") && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between pb-1">
+                <div className="flex items-center gap-2">
+                  <span className="size-2 rounded-full bg-[#fdab3d]" />
+                  <span className="text-xs font-extrabold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                    DVR & CCTV Recording Telemetry
+                  </span>
+                </div>
+                <Link
+                  href="/dvr-recording"
+                  className="text-[11px] font-semibold text-[#0073ea] hover:underline flex items-center gap-1"
+                >
+                  Buka Halaman DVR <ChevronRight className="size-3" />
+                </Link>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3.5">
+                {/* DVR Chart 1: CPU - DVR Comm Donut */}
+                <ChartCard
+                  title="Komunikasi CPU – DVR"
+                  subtitle="Status Handshake Hardware"
+                  icon={Cpu}
+                >
+                  <div className="flex items-center gap-2 h-40">
+                    <div className="w-32 h-32 relative shrink-0">
+                      {mounted && (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Tooltip content={<CustomDonutTooltip />} />
+                            <Pie
+                              data={cpuDvrData}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={32}
+                              outerRadius={50}
+                              paddingAngle={3}
+                              dataKey="value"
+                            >
+                              {cpuDvrData.map((entry, index) => (
+                                <Cell key={`cell-dvr-cpu-${index}`} fill={entry.color} />
+                              ))}
+                            </Pie>
+                          </PieChart>
+                        </ResponsiveContainer>
+                      )}
+                      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                        <span className="text-sm font-black text-slate-900 dark:text-white leading-none">
+                          92.5%
+                        </span>
+                        <span className="text-[9px] text-slate-400">Connected</span>
+                      </div>
+                    </div>
+                    <div className="flex-1 space-y-1.5 text-xs">
+                      {cpuDvrData.map((d) => (
+                        <div key={d.name} className="flex items-center justify-between">
+                          <span className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 truncate">
+                            <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
+                            {d.name}
+                          </span>
+                          <span className="font-bold text-slate-800 dark:text-slate-200">{d.percent}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </ChartCard>
+
+                {/* DVR Chart 2: Status Kamera Donut */}
+                <ChartCard
+                  title="Status Kamera"
+                  subtitle="Distribusi Channel CCTV"
+                  icon={Video}
+                >
+                  <div className="flex items-center gap-2 h-40">
+                    <div className="w-32 h-32 relative shrink-0">
+                      {mounted && (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Tooltip content={<CustomDonutTooltip />} />
+                            <Pie
+                              data={statusKameraData}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={32}
+                              outerRadius={50}
+                              paddingAngle={3}
+                              dataKey="value"
+                            >
+                              {statusKameraData.map((entry, index) => (
+                                <Cell key={`cell-dvr-cam-${index}`} fill={entry.color} />
+                              ))}
+                            </Pie>
+                          </PieChart>
+                        </ResponsiveContainer>
+                      )}
+                      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                        <span className="text-sm font-black text-slate-900 dark:text-white leading-none">
+                          90.2%
+                        </span>
+                        <span className="text-[9px] text-slate-400">Online</span>
+                      </div>
+                    </div>
+                    <div className="flex-1 space-y-1.5 text-xs">
+                      {statusKameraData.map((d) => (
+                        <div key={d.name} className="flex items-center justify-between">
+                          <span className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 truncate">
+                            <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
+                            {d.name}
+                          </span>
+                          <span className="font-bold text-slate-800 dark:text-slate-200">{d.percent}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </ChartCard>
+
+                {/* DVR Chart 3: Recording Status Donut */}
+                <ChartCard
+                  title="Status Recording"
+                  subtitle="Distribusi Status Stream"
+                  icon={Disc}
+                >
+                  <div className="flex items-center gap-2 h-40">
+                    <div className="w-32 h-32 relative shrink-0">
+                      {mounted && (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Tooltip content={<CustomDonutTooltip />} />
+                            <Pie
+                              data={recordingStatusData}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={32}
+                              outerRadius={50}
+                              paddingAngle={3}
+                              dataKey="value"
+                            >
+                              {recordingStatusData.map((entry, index) => (
+                                <Cell key={`cell-dvr-rec-${index}`} fill={entry.color} />
+                              ))}
+                            </Pie>
+                          </PieChart>
+                        </ResponsiveContainer>
+                      )}
+                      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                        <span className="text-sm font-black text-slate-900 dark:text-white leading-none">
+                          88.3%
+                        </span>
+                        <span className="text-[9px] text-slate-400">Merekam</span>
+                      </div>
+                    </div>
+                    <div className="flex-1 space-y-1.5 text-xs">
+                      {recordingStatusData.map((d) => (
+                        <div key={d.name} className="flex items-center justify-between">
+                          <span className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 truncate">
+                            <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
+                            {d.name}
+                          </span>
+                          <span className="font-bold text-slate-800 dark:text-slate-200">{d.percent}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </ChartCard>
+
+                {/* DVR Chart 4: Storage Usage Trend AreaChart */}
+                <ChartCard
+                  title="Tren Penggunaan Storage"
+                  subtitle="Kapasitas 24 Jam"
+                  icon={HardDrive}
+                >
+                  <div className="flex items-stretch gap-1.5 h-40">
+                    <div className="flex-1 h-full relative">
+                      {mounted && (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart data={dvrStorageTimeline} margin={{ top: 8, right: 0, left: -4, bottom: 0 }}>
+                            <defs>
+                              <linearGradient id="ovDvrStorageGrad" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#c084fc" stopOpacity={0.4} />
+                                <stop offset="95%" stopColor="#c084fc" stopOpacity={0.0} />
+                              </linearGradient>
+                            </defs>
+                            <XAxis dataKey="time" tick={{ fontSize: 9, fill: "#94a3b8" }} axisLine={{ stroke: "#334155", strokeWidth: 0.5 }} tickLine={false} />
+                            <YAxis width={28} domain={[0, 100]} ticks={[0, 50, 100]} tick={{ fontSize: 9, fill: "#94a3b8" }} tickFormatter={(v) => `${v}%`} axisLine={false} tickLine={false} />
+                            <Tooltip content={<CustomMetricTooltip unit="%" color="#c084fc" />} />
+                            <Area type="monotone" name="Storage" dataKey="value" stroke="#c084fc" strokeWidth={2} fillOpacity={1} fill="url(#ovDvrStorageGrad)" activeDot={{ r: 4, fill: "#c084fc" }} />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      )}
+                    </div>
+                    <div className="w-14 shrink-0 flex flex-col justify-between py-1 border-l border-slate-100 dark:border-slate-800/80 pl-1.5">
+                      <div>
+                        <div className="text-[10px] text-slate-400 font-medium leading-none">Avg</div>
+                        <div className="text-xs font-bold text-purple-400 mt-0.5">{dvrCharts?.storage_usage?.avg ?? "72.0"}%</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] text-slate-400 font-medium leading-none">Max</div>
+                        <div className="text-xs font-bold text-[#e2445c] mt-0.5">{dvrCharts?.storage_usage?.max ?? "88.0"}%</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] text-slate-400 font-medium leading-none">Min</div>
+                        <div className="text-xs font-bold text-[#00c875] mt-0.5">{dvrCharts?.storage_usage?.min ?? "65.0"}%</div>
+                      </div>
+                    </div>
+                  </div>
+                </ChartCard>
+              </div>
+            </div>
+          )}
+
+          {/* 4.C SYSTEM HEALTH CHARTS (4 CHARTS) */}
+          {(activeDomainChartTab === "all" || activeDomainChartTab === "system") && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between pb-1">
+                <div className="flex items-center gap-2">
+                  <span className="size-2 rounded-full bg-[#00c875]" />
+                  <span className="text-xs font-extrabold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                    SBC System Health Telemetry
+                  </span>
+                </div>
+                <Link
+                  href="/system-health"
+                  className="text-[11px] font-semibold text-[#0073ea] hover:underline flex items-center gap-1"
+                >
+                  Buka Halaman System Health <ChevronRight className="size-3" />
+                </Link>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3.5">
+                {/* Sys Chart 1: CPU Usage */}
+                <ChartCard
+                  title="CPU Usage"
+                  subtitle="Rata-rata Semua Unit"
+                  icon={Cpu}
+                >
+                  <div className="flex items-stretch gap-1.5 h-40">
+                    <div className="flex-1 h-full relative">
+                      {mounted && (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart data={sysCpuTimeline} margin={{ top: 8, right: 0, left: -4, bottom: 0 }}>
+                            <defs>
+                              <linearGradient id="ovSysCpuGrad" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#00c875" stopOpacity={0.35} />
+                                <stop offset="95%" stopColor="#00c875" stopOpacity={0.0} />
+                              </linearGradient>
+                            </defs>
+                            <XAxis dataKey="time" tick={{ fontSize: 9, fill: "#94a3b8" }} axisLine={{ stroke: "#334155", strokeWidth: 0.5 }} tickLine={false} />
+                            <YAxis width={28} domain={[0, 100]} ticks={[0, 50, 100]} tick={{ fontSize: 9, fill: "#94a3b8" }} tickFormatter={(v) => `${v}%`} axisLine={false} tickLine={false} />
+                            <Tooltip content={<CustomMetricTooltip unit="%" color="#00c875" />} />
+                            <Area type="monotone" name="CPU Usage" dataKey="value" stroke="#00c875" strokeWidth={2} fillOpacity={1} fill="url(#ovSysCpuGrad)" activeDot={{ r: 4, fill: "#00c875", stroke: "#fff", strokeWidth: 2 }} />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      )}
+                    </div>
+                    <div className="w-12 shrink-0 flex flex-col justify-between py-1 border-l border-slate-100 dark:border-slate-800/80 pl-1.5">
+                      <div>
+                        <div className="text-[10px] text-slate-400 font-medium leading-none">Avg</div>
+                        <div className="text-xs font-bold text-[#00c875] mt-1">{sysCharts?.cpu?.avg ?? "43.2%"}</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] text-slate-400 font-medium leading-none">Max</div>
+                        <div className="text-xs font-bold text-[#e2445c] mt-1">{sysCharts?.cpu?.max ?? "88.0%"}</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] text-slate-400 font-medium leading-none">Min</div>
+                        <div className="text-xs font-bold text-[#0073ea] mt-1">{sysCharts?.cpu?.min ?? "12.4%"}</div>
+                      </div>
+                    </div>
+                  </div>
+                </ChartCard>
+
+                {/* Sys Chart 2: RAM Usage */}
+                <ChartCard
+                  title="RAM Usage"
+                  subtitle="Rata-rata Semua Unit"
+                  icon={Cpu}
+                >
+                  <div className="flex items-stretch gap-1.5 h-40">
+                    <div className="flex-1 h-full relative">
+                      {mounted && (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart data={sysRamTimeline} margin={{ top: 8, right: 0, left: -4, bottom: 0 }}>
+                            <defs>
+                              <linearGradient id="ovSysRamGrad" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#0073ea" stopOpacity={0.35} />
+                                <stop offset="95%" stopColor="#0073ea" stopOpacity={0.0} />
+                              </linearGradient>
+                            </defs>
+                            <XAxis dataKey="time" tick={{ fontSize: 9, fill: "#94a3b8" }} axisLine={{ stroke: "#334155", strokeWidth: 0.5 }} tickLine={false} />
+                            <YAxis width={28} domain={[0, 100]} ticks={[0, 50, 100]} tick={{ fontSize: 9, fill: "#94a3b8" }} tickFormatter={(v) => `${v}%`} axisLine={false} tickLine={false} />
+                            <Tooltip content={<CustomMetricTooltip unit="%" color="#0073ea" />} />
+                            <Area type="monotone" name="RAM Usage" dataKey="value" stroke="#0073ea" strokeWidth={2} fillOpacity={1} fill="url(#ovSysRamGrad)" activeDot={{ r: 4, fill: "#0073ea", stroke: "#fff", strokeWidth: 2 }} />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      )}
+                    </div>
+                    <div className="w-12 shrink-0 flex flex-col justify-between py-1 border-l border-slate-100 dark:border-slate-800/80 pl-1.5">
+                      <div>
+                        <div className="text-[10px] text-slate-400 font-medium leading-none">Avg</div>
+                        <div className="text-xs font-bold text-[#0073ea] mt-1">{sysCharts?.ram?.avg ?? "61.5%"}</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] text-slate-400 font-medium leading-none">Max</div>
+                        <div className="text-xs font-bold text-[#e2445c] mt-1">{sysCharts?.ram?.max ?? "91.2%"}</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] text-slate-400 font-medium leading-none">Min</div>
+                        <div className="text-xs font-bold text-[#00c875] mt-1">{sysCharts?.ram?.min ?? "34.0%"}</div>
+                      </div>
+                    </div>
+                  </div>
+                </ChartCard>
+
+                {/* Sys Chart 3: SD Card Storage */}
+                <ChartCard
+                  title="SD Card Storage"
+                  subtitle="Rata-rata Kapasitas"
+                  icon={HardDrive}
+                >
+                  <div className="flex items-stretch gap-1.5 h-40">
+                    <div className="flex-1 h-full relative">
+                      {mounted && (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart data={sysSdTimeline} margin={{ top: 8, right: 0, left: -4, bottom: 0 }}>
+                            <defs>
+                              <linearGradient id="ovSysSdGrad" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#fdab3d" stopOpacity={0.35} />
+                                <stop offset="95%" stopColor="#fdab3d" stopOpacity={0.0} />
+                              </linearGradient>
+                            </defs>
+                            <XAxis dataKey="time" tick={{ fontSize: 9, fill: "#94a3b8" }} axisLine={{ stroke: "#334155", strokeWidth: 0.5 }} tickLine={false} />
+                            <YAxis width={28} domain={[0, 100]} ticks={[0, 50, 100]} tick={{ fontSize: 9, fill: "#94a3b8" }} tickFormatter={(v) => `${v}%`} axisLine={false} tickLine={false} />
+                            <Tooltip content={<CustomMetricTooltip unit="%" color="#fdab3d" />} />
+                            <Area type="monotone" name="SD Storage" dataKey="value" stroke="#fdab3d" strokeWidth={2} fillOpacity={1} fill="url(#ovSysSdGrad)" activeDot={{ r: 4, fill: "#fdab3d", stroke: "#fff", strokeWidth: 2 }} />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      )}
+                    </div>
+                    <div className="w-12 shrink-0 flex flex-col justify-between py-1 border-l border-slate-100 dark:border-slate-800/80 pl-1.5">
+                      <div>
+                        <div className="text-[10px] text-slate-400 font-medium leading-none">Avg</div>
+                        <div className="text-xs font-bold text-[#fdab3d] mt-1">{sysCharts?.sd_card?.avg ?? "42.8%"}</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] text-slate-400 font-medium leading-none">Max</div>
+                        <div className="text-xs font-bold text-[#e2445c] mt-1">{sysCharts?.sd_card?.max ?? "74.0%"}</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] text-slate-400 font-medium leading-none">Min</div>
+                        <div className="text-xs font-bold text-[#00c875] mt-1">{sysCharts?.sd_card?.min ?? "20.1%"}</div>
+                      </div>
+                    </div>
+                  </div>
+                </ChartCard>
+
+                {/* Sys Chart 4: Uptime Trend */}
+                <ChartCard
+                  title="Uptime Trend"
+                  subtitle="Rata-rata Ketersediaan"
+                  icon={Clock}
+                >
+                  <div className="flex items-stretch gap-1.5 h-40">
+                    <div className="flex-1 h-full relative">
+                      {mounted && (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart data={sysUptimeTimeline} margin={{ top: 8, right: 0, left: -4, bottom: 0 }}>
+                            <defs>
+                              <linearGradient id="ovSysUpGrad" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#0073ea" stopOpacity={0.35} />
+                                <stop offset="95%" stopColor="#0073ea" stopOpacity={0.0} />
+                              </linearGradient>
+                            </defs>
+                            <XAxis dataKey="time" tick={{ fontSize: 9, fill: "#94a3b8" }} axisLine={{ stroke: "#334155", strokeWidth: 0.5 }} tickLine={false} />
+                            <YAxis width={28} domain={[0, 100]} ticks={[0, 50, 100]} tick={{ fontSize: 9, fill: "#94a3b8" }} tickFormatter={(v) => `${v}%`} axisLine={false} tickLine={false} />
+                            <Tooltip content={<CustomMetricTooltip unit="%" color="#0073ea" />} />
+                            <Area type="monotone" name="Uptime" dataKey="value" stroke="#0073ea" strokeWidth={2} fillOpacity={1} fill="url(#ovSysUpGrad)" activeDot={{ r: 4, fill: "#0073ea", stroke: "#fff", strokeWidth: 2 }} />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      )}
+                    </div>
+                    <div className="w-12 shrink-0 flex flex-col justify-between py-1 border-l border-slate-100 dark:border-slate-800/80 pl-1.5">
+                      <div>
+                        <div className="text-[10px] text-slate-400 font-medium leading-none">Avg</div>
+                        <div className="text-xs font-bold text-[#0073ea] mt-1">{sysCharts?.uptime?.avg ?? "48.5%"}</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] text-slate-400 font-medium leading-none">Max</div>
+                        <div className="text-xs font-bold text-[#00c875] mt-1">{sysCharts?.uptime?.max ?? "99.8%"}</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] text-slate-400 font-medium leading-none">Min</div>
+                        <div className="text-xs font-bold text-[#e2445c] mt-1">{sysCharts?.uptime?.min ?? "18.2%"}</div>
+                      </div>
+                    </div>
+                  </div>
+                </ChartCard>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ========================================================= */}
+        {/* 5. DAFTAR DEVICE YANG SEDANG TROUBLE / ALERT */}
         {/* ========================================================= */}
         <div className="pt-4 space-y-4 border-t border-slate-200 dark:border-slate-800">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">

@@ -26,7 +26,6 @@ import {
   Box,
   Cpu,
   Globe,
-  Signal,
   Thermometer,
   MoreHorizontal,
 } from "lucide-react";
@@ -231,37 +230,21 @@ export default function CellularConnectivityPage() {
   // Table Columns
   const columns: ColumnDef<ICellularGatewayItem>[] = [
     {
-      id: "no",
-      header: "No.",
-      width: "48px",
-      align: "center",
-      cell: (_, idx) => (
-        <span className="text-slate-400 font-mono text-[11px]">
-          {(currentPage - 1) * pageSize + idx + 1}
-        </span>
-      ),
-    },
-    {
       id: "id",
       header: "Gateway ID",
       cell: (item) => {
         const isSelected = selectedGatewayId === item.id;
         return (
-          <div className="flex items-center gap-2">
-            <div className="size-6 rounded-md bg-blue-500/10 dark:bg-blue-500/15 text-[#0073ea] flex items-center justify-center shrink-0">
-              <Signal className="size-3.5" />
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="font-bold text-slate-900 dark:text-white font-mono hover:text-[#0073ea] transition-colors">
-                {item.id}
+          <div className="flex items-center gap-1.5">
+            <span className="font-bold text-slate-900 dark:text-white font-mono hover:text-[#0073ea] transition-colors">
+              {item.id}
+            </span>
+            {isSelected && (
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#0073ea] opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-[#0073ea]" />
               </span>
-              {isSelected && (
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#0073ea] opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-[#0073ea]" />
-                </span>
-              )}
-            </div>
+            )}
           </div>
         );
       },
@@ -376,32 +359,14 @@ export default function CellularConnectivityPage() {
         </span>
       ),
     },
-    {
-      id: "action",
-      header: "Action",
-      align: "center",
-      width: "56px",
-      cell: (item) => (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            handleSelectGateway(item);
-          }}
-          className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-          title="Lihat Detail Telemetry"
-        >
-          <MoreHorizontal className="size-4" />
-        </button>
-      ),
-    },
   ];
 
   return (
-    <AppLayout title="Cellular Connectivity">
-      <div className="space-y-5 max-w-[1600px] mx-auto pb-16 font-sans transition-colors">
-        {/* 1. Header with Filters */}
+    <AppLayout
+      title="Cellular Connectivity"
+      headerRight={
         <FilterHeader
+          inline
           search={search}
           onSearchChange={(val) => {
             setSearch(val);
@@ -412,6 +377,9 @@ export default function CellularConnectivityPage() {
           timeframe="Last 24 Hours"
           onTimeframeClick={() => {}}
         />
+      }
+    >
+      <div className="space-y-5 max-w-[1600px] mx-auto pb-16 font-sans transition-colors">
 
         {/* 2. Top Summary Metric Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
@@ -468,183 +436,9 @@ export default function CellularConnectivityPage() {
           />
         </div>
 
-        {/* 3. Four Real-time Charts directly in page */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3.5">
-          {/* Chart 1: CPU - Modem Comm Donut */}
-          <ChartCard
-            title="Komunikasi CPU – Modem"
-            subtitle="Status Handshake Hardware"
-            icon={Cpu}
-          >
-            <div className="flex items-center gap-2 h-40">
-              <div className="w-32 h-32 relative shrink-0">
-                {mounted && (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Tooltip content={<CustomDonutTooltip />} />
-                      <Pie
-                        data={cpuModemData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={32}
-                        outerRadius={50}
-                        paddingAngle={3}
-                        dataKey="value"
-                      >
-                        {cpuModemData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                    </PieChart>
-                  </ResponsiveContainer>
-                )}
-                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <span className="text-sm font-black text-slate-900 dark:text-white leading-none">
-                    98.0%
-                  </span>
-                  <span className="text-[9px] text-slate-400">Connected</span>
-                </div>
-              </div>
-              <div className="flex-1 space-y-1.5 text-xs">
-                {cpuModemData.map((d) => (
-                  <div key={d.name} className="flex items-center justify-between">
-                    <span className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 truncate">
-                      <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
-                      {d.name}
-                    </span>
-                    <span className="font-bold text-slate-800 dark:text-slate-200">{d.percent}%</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </ChartCard>
-
-          {/* Chart 2: Modem Network Status Donut */}
-          <ChartCard
-            title="Koneksi Jaringan"
-            subtitle="Distribusi Status Jaringan"
-            icon={Globe}
-          >
-            <div className="flex items-center gap-2 h-40">
-              <div className="w-32 h-32 relative shrink-0">
-                {mounted && (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Tooltip content={<CustomDonutTooltip />} />
-                      <Pie
-                        data={networkStatusData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={32}
-                        outerRadius={50}
-                        paddingAngle={3}
-                        dataKey="value"
-                      >
-                        {networkStatusData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                    </PieChart>
-                  </ResponsiveContainer>
-                )}
-                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <span className="text-sm font-black text-slate-900 dark:text-white leading-none">
-                    86.0%
-                  </span>
-                  <span className="text-[9px] text-slate-400">Online</span>
-                </div>
-              </div>
-              <div className="flex-1 space-y-1.5 text-xs">
-                {networkStatusData.map((d) => (
-                  <div key={d.name} className="flex items-center justify-between">
-                    <span className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 truncate">
-                      <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
-                      {d.name}
-                    </span>
-                    <span className="font-bold text-slate-800 dark:text-slate-200">{d.percent}%</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </ChartCard>
-
-          {/* Chart 3: Signal RSRP Trend */}
-          <ChartCard
-            title="Kekuatan Sinyal (RSRP)"
-            subtitle="Rata-rata 24 Jam"
-            icon={Signal}
-          >
-            <div className="flex items-stretch gap-1.5 h-40">
-              <div className="flex-1 h-full relative">
-                {mounted && (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={rsrpTimeline} margin={{ top: 8, right: 0, left: -4, bottom: 0 }}>
-                      <XAxis dataKey="time" tick={{ fontSize: 9, fill: "#94a3b8" }} axisLine={{ stroke: "#334155", strokeWidth: 0.5 }} tickLine={false} />
-                      <YAxis width={28} domain={[-120, -60]} ticks={[-120, -90, -60]} tick={{ fontSize: 9, fill: "#94a3b8" }} tickFormatter={(v) => `${v}`} axisLine={false} tickLine={false} />
-                      <Tooltip content={<CustomLineTooltip unit="dBm" />} />
-                      <Line type="monotone" name="RSRP" dataKey="value" stroke="#0073ea" strokeWidth={2} dot={{ r: 2, fill: "#0073ea" }} activeDot={{ r: 4 }} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                )}
-              </div>
-              <div className="w-14 shrink-0 flex flex-col justify-between py-1 border-l border-slate-100 dark:border-slate-800/80 pl-1.5">
-                <div>
-                  <div className="text-[10px] text-slate-400 font-medium leading-none">Avg</div>
-                  <div className="text-xs font-bold text-[#0073ea] mt-0.5">{charts?.signal_strength.avg ?? "-85"} dBm</div>
-                </div>
-                <div>
-                  <div className="text-[10px] text-slate-400 font-medium leading-none">Min</div>
-                  <div className="text-xs font-bold text-[#e2445c] mt-0.5">{charts?.signal_strength.min ?? "-110"} dBm</div>
-                </div>
-                <div>
-                  <div className="text-[10px] text-slate-400 font-medium leading-none">Max</div>
-                  <div className="text-xs font-bold text-[#00c875] mt-0.5">{charts?.signal_strength.max ?? "-72"} dBm</div>
-                </div>
-              </div>
-            </div>
-          </ChartCard>
-
-          {/* Chart 4: Modem Temperature Trend */}
-          <ChartCard
-            title="Temperatur Modem"
-            subtitle="Rata-rata 24 Jam"
-            icon={Thermometer}
-          >
-            <div className="flex items-stretch gap-1.5 h-40">
-              <div className="flex-1 h-full relative">
-                {mounted && (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={tempTimeline} margin={{ top: 8, right: 0, left: -4, bottom: 0 }}>
-                      <XAxis dataKey="time" tick={{ fontSize: 9, fill: "#94a3b8" }} axisLine={{ stroke: "#334155", strokeWidth: 0.5 }} tickLine={false} />
-                      <YAxis width={28} domain={[0, 100]} ticks={[0, 50, 100]} tick={{ fontSize: 9, fill: "#94a3b8" }} tickFormatter={(v) => `${v}°C`} axisLine={false} tickLine={false} />
-                      <Tooltip content={<CustomLineTooltip unit="°C" />} />
-                      <Line type="monotone" name="Suhu" dataKey="value" stroke="#e2445c" strokeWidth={2} dot={{ r: 2, fill: "#e2445c" }} activeDot={{ r: 4 }} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                )}
-              </div>
-              <div className="w-14 shrink-0 flex flex-col justify-between py-1 border-l border-slate-100 dark:border-slate-800/80 pl-1.5">
-                <div>
-                  <div className="text-[10px] text-slate-400 font-medium leading-none">Avg</div>
-                  <div className="text-xs font-bold text-[#fdab3d] mt-0.5">{charts?.modem_temperature.avg ?? "43.5"}°C</div>
-                </div>
-                <div>
-                  <div className="text-[10px] text-slate-400 font-medium leading-none">Max</div>
-                  <div className="text-xs font-bold text-[#e2445c] mt-0.5">{charts?.modem_temperature.max ?? "62.0"}°C</div>
-                </div>
-                <div>
-                  <div className="text-[10px] text-slate-400 font-medium leading-none">Min</div>
-                  <div className="text-xs font-bold text-[#00c875] mt-0.5">{charts?.modem_temperature.min ?? "28.0"}°C</div>
-                </div>
-              </div>
-            </div>
-          </ChartCard>
-        </div>
-
-        {/* 4. Filterable & Paginated Daftar Gateway Table (Directly rendered with DataTable) */}
+        {/* 3. Filterable & Paginated Daftar Gateway Table */}
         <DataTable
           title="Daftar Gateway Cellular"
-          titleIcon={Signal}
           subtitle="Klik baris untuk membuka detail telemetry cellular di bawah"
           data={gateways}
           columns={columns}

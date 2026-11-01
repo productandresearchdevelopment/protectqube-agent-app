@@ -1070,7 +1070,7 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                     &gt; GET /ISAPI/System/deviceInfo
                   </div>
                   <div className="text-slate-300">
-                    HTTP/1.1 200 OK (Device: {d.dvr_model}, Firmware V4.20.000)
+                    HTTP/1.1 200 OK (Device: {d.dvr_model}, Firmware {d.firmware || "V4.20.000"})
                   </div>
                   <div className="text-emerald-400">
                     &gt; GET /ISAPI/ContentMgmt/Storage
@@ -1243,70 +1243,42 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                   Riwayat Kejadian & Aktivitas DVR
                 </div>
                 <span className="text-[11px] text-slate-400">
-                  Total 5 Log Terakhir
+                  Total {(d.events && d.events.length) || 0} Log Terakhir
                 </span>
               </div>
               <div className="divide-y divide-slate-200 dark:divide-slate-800/60 text-xs">
-                <div className="py-2.5 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="size-2 rounded-full bg-emerald-500" />
-                    <span className="text-slate-800 dark:text-slate-200 font-medium">
-                      Protokol ISAPI sinkronisasi berhasil dengan {d.dvr_model}{" "}
-                      ({d.ip_address})
-                    </span>
+                {d.events && d.events.length > 0 ? (
+                  d.events.map((evt, idx) => (
+                    <div
+                      key={evt.id || idx}
+                      className="py-2.5 flex items-center justify-between gap-4"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span
+                          className={`size-2 rounded-full shrink-0 ${
+                            evt.status === "error"
+                              ? "bg-rose-500"
+                              : evt.status === "warning"
+                              ? "bg-amber-500"
+                              : evt.status === "info"
+                              ? "bg-sky-500"
+                              : "bg-emerald-500"
+                          }`}
+                        />
+                        <span className="text-slate-800 dark:text-slate-200 font-medium truncate">
+                          {evt.title}
+                        </span>
+                      </div>
+                      <span className="text-slate-400 font-mono text-[11px] whitespace-nowrap shrink-0">
+                        {evt.time}
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <div className="py-4 text-center text-slate-400 text-xs">
+                    Belum ada log telemetri DVR tercatat untuk gateway ini.
                   </div>
-                  <span className="text-slate-400 font-mono text-[11px]">
-                    {formatToWIB(d.last_update)}
-                  </span>
-                </div>
-                <div className="py-2.5 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="size-2 rounded-full bg-emerald-500" />
-                    <span className="text-slate-800 dark:text-slate-200 font-medium">
-                      Perekaman video kontinu (24/7 CMR) aktif pada Channel 1
-                      &amp; 2
-                    </span>
-                  </div>
-                  <span className="text-slate-400 font-mono text-[11px]">
-                    {formatToWIB(d.last_update)}
-                  </span>
-                </div>
-                <div className="py-2.5 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="size-2 rounded-full bg-amber-500" />
-                    <span className="text-slate-800 dark:text-slate-200 font-medium">
-                      Kamera Ch 3 &amp; Ch 4 terdeteksi No Video signal (Kabel
-                      kamera belum terpasang)
-                    </span>
-                  </div>
-                  <span className="text-slate-400 font-mono text-[11px]">
-                    {formatToWIB(d.last_update)}
-                  </span>
-                </div>
-                <div className="py-2.5 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="size-2 rounded-full bg-emerald-500" />
-                    <span className="text-slate-800 dark:text-slate-200 font-medium">
-                      Pemeriksaan SMART status disk SATA HDD hdd1 (3.64 TB):
-                      PASSED (0 Bad Sector)
-                    </span>
-                  </div>
-                  <span className="text-slate-400 font-mono text-[11px]">
-                    {formatToWIB(d.last_update)}
-                  </span>
-                </div>
-                <div className="py-2.5 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="size-2 rounded-full bg-sky-500" />
-                    <span className="text-slate-800 dark:text-slate-200 font-medium">
-                      Heartbeat keepalive probe NVR surveillance aktif (Response
-                      latency &lt; 15 ms)
-                    </span>
-                  </div>
-                  <span className="text-slate-400 font-mono text-[11px]">
-                    {formatToWIB(d.last_update)}
-                  </span>
-                </div>
+                )}
               </div>
             </div>
           </div>
@@ -1337,15 +1309,25 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                       Firmware Version
                     </span>
                     <span className="font-mono text-slate-800 dark:text-slate-200 font-semibold">
-                      V4.20.000
+                      {d.firmware || "V4.20.000"}
                     </span>
                   </div>
+                  {d.serial_number && (
+                    <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1.5">
+                      <span className="text-slate-500 dark:text-slate-400">
+                        Nomor Seri (Serial)
+                      </span>
+                      <span className="font-mono text-slate-800 dark:text-slate-200 font-semibold text-[11px] truncate max-w-48" title={d.serial_number}>
+                        {d.serial_number}
+                      </span>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1.5">
                     <span className="text-slate-500 dark:text-slate-400">
                       Tipe Perangkat
                     </span>
                     <span className="font-medium text-slate-800 dark:text-slate-200">
-                      Surveillance NVR / IPC Hub
+                      {d.device_type || "Surveillance NVR / IPC Hub"}
                     </span>
                   </div>
                   <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1.5">

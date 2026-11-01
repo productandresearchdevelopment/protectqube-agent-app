@@ -15,7 +15,7 @@ import {
   IFilterConfig,
 } from "@/components/ui";
 import { HealthReportDetailCard } from "@/components/reports/health/HealthReportDetailCard";
-import { MoreHorizontal, Cpu } from "lucide-react";
+import { Cpu } from "lucide-react";
 
 export default function ReportHealthPage() {
   const [filters, setFilters] = useState<IHealthReportFilters>({
@@ -24,7 +24,7 @@ export default function ReportHealthPage() {
     location: "Semua Lokasi",
     date_range: "01 Oct 2026 - 31 Oct 2026",
     page: 1,
-    pageSize: 10,
+    pageSize: 50,
   });
 
   const [selectedGateways, setSelectedGateways] = useState<string[]>([]);
@@ -147,12 +147,6 @@ export default function ReportHealthPage() {
   const columns = useMemo<ColumnDef<IHealthReportItem>[]>(
     () => [
       {
-        id: "no",
-        header: "No.",
-        align: "center",
-        cell: (gw) => <span className="text-slate-500 dark:text-slate-400">{gw.no}</span>,
-      },
-      {
         id: "id",
         header: "Gateway ID",
         cell: (gw) => (
@@ -171,8 +165,9 @@ export default function ReportHealthPage() {
         ),
       },
       {
-        id: "type",
+        id: "tipe",
         header: "Tipe",
+        className: "border-r-2 border-slate-300 dark:border-slate-700/80",
         cell: (gw) => {
           const isBlack = gw.type.includes("Hitam");
           return (
@@ -197,9 +192,11 @@ export default function ReportHealthPage() {
           );
         },
       },
+      // Group 1: CPU (Apple Blue Group)
       {
         id: "cpu_avg",
         header: "Rata-rata",
+        className: "bg-blue-500/[0.025] dark:bg-blue-500/[0.04]",
         cell: (gw) => (
           <div className="flex items-center gap-1.5 whitespace-nowrap">
             <div className="w-8 h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden shrink-0">
@@ -218,6 +215,7 @@ export default function ReportHealthPage() {
         id: "cpu_peak",
         header: "Puncak",
         align: "center",
+        className: "bg-blue-500/[0.025] dark:bg-blue-500/[0.04]",
         cell: (gw) => (
           <span
             className={`font-bold whitespace-nowrap ${
@@ -236,6 +234,7 @@ export default function ReportHealthPage() {
         id: "cpu_throttle_count",
         header: "Throttle",
         align: "center",
+        className: "bg-blue-500/[0.025] dark:bg-blue-500/[0.04] border-r-2 border-r-blue-300 dark:border-r-blue-700/80",
         cell: (gw) => (
           <span
             className={`font-semibold whitespace-nowrap ${
@@ -248,9 +247,11 @@ export default function ReportHealthPage() {
           </span>
         ),
       },
+      // Group 2: RAM (Apple Teal Group)
       {
         id: "ram_avg",
         header: "Rata-rata",
+        className: "bg-teal-500/[0.025] dark:bg-teal-500/[0.04]",
         cell: (gw) => (
           <div className="flex items-center gap-1.5 whitespace-nowrap">
             <div className="w-8 h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden shrink-0">
@@ -269,6 +270,7 @@ export default function ReportHealthPage() {
         id: "ram_peak",
         header: "Puncak",
         align: "center",
+        className: "bg-teal-500/[0.025] dark:bg-teal-500/[0.04]",
         cell: (gw) => (
           <span
             className={`font-bold whitespace-nowrap ${
@@ -287,6 +289,7 @@ export default function ReportHealthPage() {
         id: "ram_oom_count",
         header: "OOM",
         align: "center",
+        className: "bg-teal-500/[0.025] dark:bg-teal-500/[0.04] border-r-2 border-r-teal-300 dark:border-r-teal-700/80",
         cell: (gw) => (
           <span
             className={`font-semibold whitespace-nowrap ${
@@ -299,10 +302,12 @@ export default function ReportHealthPage() {
           </span>
         ),
       },
+      // Group 3: SD Card Usage (Apple Amber Group)
       {
         id: "sd_usage_avg",
         header: "Rata-rata",
         align: "center",
+        className: "bg-amber-500/[0.025] dark:bg-amber-500/[0.04]",
         cell: (gw) => (
           <span className="text-slate-700 dark:text-slate-300 font-mono whitespace-nowrap text-[11px]">
             {gw.sd_avg}%
@@ -313,6 +318,7 @@ export default function ReportHealthPage() {
         id: "sd_usage_peak",
         header: "Puncak",
         align: "center",
+        className: "bg-amber-500/[0.025] dark:bg-amber-500/[0.04]",
         cell: (gw) => (
           <span
             className={`font-bold whitespace-nowrap ${
@@ -331,16 +337,19 @@ export default function ReportHealthPage() {
         id: "sd_usage_free",
         header: "Free Space",
         align: "center",
+        className: "bg-amber-500/[0.025] dark:bg-amber-500/[0.04] border-r-2 border-r-amber-300 dark:border-r-amber-700/80",
         cell: (gw) => (
           <span className="text-slate-700 dark:text-slate-300 font-mono whitespace-nowrap text-[11px]">
             {gw.sd_gt_90_duration}
           </span>
         ),
       },
+      // Group 4: SD Card Health (Apple Emerald Group)
       {
         id: "sd_wear_level",
         header: "Wear Level",
         align: "center",
+        className: "bg-emerald-500/[0.025] dark:bg-emerald-500/[0.04]",
         cell: (gw) => (
           <span
             className={`font-mono whitespace-nowrap font-medium ${
@@ -359,12 +368,15 @@ export default function ReportHealthPage() {
         id: "sd_health_status",
         header: "Status",
         align: "center",
+        className: "bg-emerald-500/[0.025] dark:bg-emerald-500/[0.04] border-r-2 border-r-emerald-300 dark:border-r-emerald-700/80",
         cell: (gw) => getSdStatusBadge(gw.sd_health_status),
       },
+      // Group 5: Suhu Sistem (Apple Rose Group)
       {
         id: "temp_avg",
         header: "Rata-rata",
         align: "center",
+        className: "bg-rose-500/[0.025] dark:bg-rose-500/[0.04]",
         cell: (gw) => (
           <span className="text-slate-700 dark:text-slate-300 font-medium whitespace-nowrap">
             {gw.temp_avg}&deg;C
@@ -375,6 +387,7 @@ export default function ReportHealthPage() {
         id: "temp_peak",
         header: "Puncak",
         align: "center",
+        className: "bg-rose-500/[0.025] dark:bg-rose-500/[0.04] border-r-2 border-r-rose-300 dark:border-r-rose-700/80",
         cell: (gw) => (
           <span
             className={`font-bold whitespace-nowrap ${
@@ -389,10 +402,12 @@ export default function ReportHealthPage() {
           </span>
         ),
       },
+      // Trailing Group: Periode Gangguan (Apple Purple Group)
       {
         id: "incident_count",
         header: "Jumlah Event",
         align: "center",
+        className: "bg-purple-500/[0.025] dark:bg-purple-500/[0.04]",
         cell: (gw) => (
           <span
             className={`font-bold whitespace-nowrap ${
@@ -406,23 +421,11 @@ export default function ReportHealthPage() {
       {
         id: "incident_last_offline",
         header: "Uptime",
+        className: "bg-purple-500/[0.025] dark:bg-purple-500/[0.04] border-r-2 border-r-purple-300 dark:border-r-purple-700/80",
         cell: (gw) => (
           <span className="text-slate-500 dark:text-slate-400 whitespace-nowrap font-mono text-[11px]">
             {gw.uptime_duration}
           </span>
-        ),
-      },
-      {
-        id: "action",
-        header: "Action",
-        align: "center",
-        cell: () => (
-          <button
-            onClick={(e) => e.stopPropagation()}
-            className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
-          >
-            <MoreHorizontal className="size-4" />
-          </button>
         ),
       },
     ],
@@ -432,7 +435,7 @@ export default function ReportHealthPage() {
   // Grouped Multi-level 2-Tier Header for DataTable
   const customHeaderRow = (
     <>
-      <tr className="border-b border-slate-200/80 dark:border-slate-800/80 bg-slate-50/70 dark:bg-[#0e1628]/80 text-slate-500 dark:text-slate-400 font-semibold">
+      <tr className="border-b border-slate-200/80 dark:border-slate-800/80 bg-slate-100 dark:bg-[#0e1628] text-slate-700 dark:text-slate-200 font-semibold text-xs">
         <th rowSpan={2} className="py-2.5 px-3 w-10 text-center border-r border-slate-200/60 dark:border-slate-800/60">
           <input
             type="checkbox"
@@ -441,103 +444,97 @@ export default function ReportHealthPage() {
             className="rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-[#0073ea] focus:ring-[#0073ea] size-3.5 cursor-pointer"
           />
         </th>
-        <th rowSpan={2} className="py-2.5 px-2.5 w-10 text-center border-r border-slate-200/60 dark:border-slate-800/60">
-          No.
-        </th>
         <th rowSpan={2} className="py-2.5 px-3 whitespace-nowrap border-r border-slate-200/60 dark:border-slate-800/60">
           Gateway ID
         </th>
         <th rowSpan={2} className="py-2.5 px-4 whitespace-nowrap border-r border-slate-200/60 dark:border-slate-800/60">
           Lokasi
         </th>
-        <th rowSpan={2} className="py-2.5 px-3 whitespace-nowrap border-r border-slate-200/60 dark:border-slate-800/60">
+        <th rowSpan={2} className="py-2.5 px-3 whitespace-nowrap border-r-2 border-r-slate-300 dark:border-r-slate-700/80">
           Tipe
         </th>
 
-        {/* Group 1: CPU */}
+        {/* Group 1: CPU (Apple Blue Group) */}
         <th
           colSpan={3}
-          className="py-2 px-3 text-center border-r border-slate-200/60 dark:border-slate-800/60 font-bold text-slate-800 dark:text-slate-200 bg-slate-100/40 dark:bg-slate-800/30"
+          className="py-2 px-3 text-center border-r-2 border-r-blue-300 dark:border-r-blue-700 font-bold text-blue-900 dark:text-blue-200 bg-[#edf4ff] dark:bg-[#0c1e3d] border-b border-b-blue-200 dark:border-b-blue-800/60"
         >
           CPU
         </th>
 
-        {/* Group 2: RAM */}
+        {/* Group 2: RAM (Apple Teal Group) */}
         <th
           colSpan={3}
-          className="py-2 px-3 text-center border-r border-slate-200/60 dark:border-slate-800/60 font-bold text-slate-800 dark:text-slate-200 bg-slate-100/40 dark:bg-slate-800/30"
+          className="py-2 px-3 text-center border-r-2 border-r-teal-300 dark:border-r-teal-700 font-bold text-teal-900 dark:text-teal-200 bg-[#e6fbf5] dark:bg-[#062422] border-b border-b-teal-200 dark:border-b-teal-800/60"
         >
           RAM
         </th>
 
-        {/* Group 3: SD Card Usage */}
+        {/* Group 3: SD Card Usage (Apple Amber Group) */}
         <th
           colSpan={3}
-          className="py-2 px-3 text-center border-r border-slate-200/60 dark:border-slate-800/60 font-bold text-slate-800 dark:text-slate-200 bg-slate-100/40 dark:bg-slate-800/30"
+          className="py-2 px-3 text-center border-r-2 border-r-amber-300 dark:border-r-amber-700 font-bold text-amber-900 dark:text-amber-200 bg-[#fffbeb] dark:bg-[#261705] border-b border-b-amber-200 dark:border-b-amber-800/60"
         >
           SD Card Usage
         </th>
 
-        {/* Group 4: SD Card Health */}
+        {/* Group 4: SD Card Health (Apple Emerald Group) */}
         <th
           colSpan={2}
-          className="py-2 px-3 text-center border-r border-slate-200/60 dark:border-slate-800/60 font-bold text-slate-800 dark:text-slate-200 bg-slate-100/40 dark:bg-slate-800/30"
+          className="py-2 px-3 text-center border-r-2 border-r-emerald-300 dark:border-r-emerald-700 font-bold text-emerald-900 dark:text-emerald-200 bg-[#f0fdf4] dark:bg-[#05210f] border-b border-b-emerald-200 dark:border-b-emerald-800/60"
         >
           SD Card Health
         </th>
 
-        {/* Group 5: Suhu Sistem */}
+        {/* Group 5: Suhu Sistem (Apple Rose Group) */}
         <th
           colSpan={2}
-          className="py-2 px-3 text-center border-r border-slate-200/60 dark:border-slate-800/60 font-bold text-slate-800 dark:text-slate-200 bg-slate-100/40 dark:bg-slate-800/30"
+          className="py-2 px-3 text-center border-r-2 border-r-rose-300 dark:border-r-rose-700 font-bold text-rose-900 dark:text-rose-200 bg-[#fff1f2] dark:bg-[#2d0f14] border-b border-b-rose-200 dark:border-b-rose-800/60"
         >
           Suhu Sistem
         </th>
 
-        {/* Individual Trailing Columns */}
-        <th rowSpan={2} className="py-2.5 px-3 text-center whitespace-nowrap border-r border-slate-200/60 dark:border-slate-800/60 font-bold">
+        {/* Individual Trailing Columns (Apple Purple Group) */}
+        <th rowSpan={2} className="py-2.5 px-3 text-center whitespace-nowrap border-r border-purple-200/60 dark:border-purple-900/50 font-bold bg-[#f5f0ff] dark:bg-[#1a0f30] text-purple-900 dark:text-purple-200">
           Jumlah Event
         </th>
-        <th rowSpan={2} className="py-2.5 px-3.5 whitespace-nowrap border-r border-slate-200/60 dark:border-slate-800/60">
+        <th rowSpan={2} className="py-2.5 px-3.5 whitespace-nowrap border-r-2 border-r-purple-300 dark:border-r-purple-700 bg-[#f5f0ff] dark:bg-[#1a0f30] text-purple-900 dark:text-purple-200">
           Terakhir Spike
-        </th>
-        <th rowSpan={2} className="py-2.5 px-2 text-center whitespace-nowrap">
-          Action
         </th>
       </tr>
 
       {/* Level 2 Sub-headers */}
-      <tr className="border-b border-slate-200/80 dark:border-slate-800/80 bg-slate-50/50 dark:bg-[#0e1628]/60 text-[11px] text-slate-500 dark:text-slate-400 font-semibold">
-        {/* Under CPU */}
-        <th className="py-2 px-2.5 text-center">Rata-rata</th>
-        <th className="py-2 px-2.5 text-center">Puncak</th>
-        <th className="py-2 px-2.5 text-center border-r border-slate-200/60 dark:border-slate-800/60">
+      <tr className="border-b border-slate-200/80 dark:border-slate-800/80 text-[11px] font-semibold">
+        {/* Under CPU (Blue Sub-headers) */}
+        <th className="py-2 px-2.5 text-center text-blue-900 dark:text-blue-200 bg-[#f4f8ff] dark:bg-[#08152b] border-r border-blue-200/60 dark:border-blue-900/50">Rata-rata</th>
+        <th className="py-2 px-2.5 text-center text-blue-900 dark:text-blue-200 bg-[#f4f8ff] dark:bg-[#08152b] border-r border-blue-200/60 dark:border-blue-900/50">Puncak</th>
+        <th className="py-2 px-2.5 text-center text-blue-900 dark:text-blue-200 bg-[#f4f8ff] dark:bg-[#08152b] border-r-2 border-r-blue-300 dark:border-r-blue-700">
           Throttle
         </th>
 
-        {/* Under RAM */}
-        <th className="py-2 px-2.5 text-center">Rata-rata</th>
-        <th className="py-2 px-2.5 text-center">Puncak</th>
-        <th className="py-2 px-2.5 text-center border-r border-slate-200/60 dark:border-slate-800/60">
+        {/* Under RAM (Teal Sub-headers) */}
+        <th className="py-2 px-2.5 text-center text-teal-900 dark:text-teal-200 bg-[#effcf8] dark:bg-[#041a18] border-r border-teal-200/60 dark:border-teal-900/50">Rata-rata</th>
+        <th className="py-2 px-2.5 text-center text-teal-900 dark:text-teal-200 bg-[#effcf8] dark:bg-[#041a18] border-r border-teal-200/60 dark:border-teal-900/50">Puncak</th>
+        <th className="py-2 px-2.5 text-center text-teal-900 dark:text-teal-200 bg-[#effcf8] dark:bg-[#041a18] border-r-2 border-r-teal-300 dark:border-r-teal-700">
           OOM
         </th>
 
-        {/* Under SD Card Usage */}
-        <th className="py-2 px-2.5 text-center">Rata-rata</th>
-        <th className="py-2 px-2.5 text-center">Puncak</th>
-        <th className="py-2 px-2.5 text-center border-r border-slate-200/60 dark:border-slate-800/60">
+        {/* Under SD Card Usage (Amber Sub-headers) */}
+        <th className="py-2 px-2.5 text-center text-amber-900 dark:text-amber-200 bg-[#fffdf5] dark:bg-[#1a0f02] border-r border-amber-200/60 dark:border-amber-900/50">Rata-rata</th>
+        <th className="py-2 px-2.5 text-center text-amber-900 dark:text-amber-200 bg-[#fffdf5] dark:bg-[#1a0f02] border-r border-amber-200/60 dark:border-amber-900/50">Puncak</th>
+        <th className="py-2 px-2.5 text-center text-amber-900 dark:text-amber-200 bg-[#fffdf5] dark:bg-[#1a0f02] border-r-2 border-r-amber-300 dark:border-r-amber-700">
           Free Space
         </th>
 
-        {/* Under SD Card Health */}
-        <th className="py-2 px-2.5 text-center">Wear Level</th>
-        <th className="py-2 px-2.5 text-center border-r border-slate-200/60 dark:border-slate-800/60">
+        {/* Under SD Card Health (Emerald Sub-headers) */}
+        <th className="py-2 px-2.5 text-center text-emerald-900 dark:text-emerald-200 bg-[#f7fef9] dark:bg-[#03170a] border-r border-emerald-200/60 dark:border-emerald-900/50">Wear Level</th>
+        <th className="py-2 px-2.5 text-center text-emerald-900 dark:text-emerald-200 bg-[#f7fef9] dark:bg-[#03170a] border-r-2 border-r-emerald-300 dark:border-r-emerald-700">
           Status
         </th>
 
-        {/* Under Suhu Sistem */}
-        <th className="py-2 px-2.5 text-center">Rata-rata</th>
-        <th className="py-2 px-2.5 text-center border-r border-slate-200/60 dark:border-slate-800/60">
+        {/* Under Suhu Sistem (Rose Sub-headers) */}
+        <th className="py-2 px-2.5 text-center text-rose-900 dark:text-rose-200 bg-[#fff5f5] dark:bg-[#1f0a0d] border-r border-rose-200/60 dark:border-rose-900/50">Rata-rata</th>
+        <th className="py-2 px-2.5 text-center text-rose-900 dark:text-rose-200 bg-[#fff5f5] dark:bg-[#1f0a0d] border-r-2 border-r-rose-300 dark:border-r-rose-700">
           Puncak
         </th>
       </tr>
@@ -545,13 +542,11 @@ export default function ReportHealthPage() {
   );
 
   return (
-    <AppLayout title="Report System Health">
-      <div className="space-y-4 max-w-[1600px] mx-auto pb-12 font-sans transition-colors">
-        {/* 1. Global Filter Header with Multi-Filters & CSV Export */}
+    <AppLayout
+      title="Report System Health"
+      headerRight={
         <FilterHeader
-          title="Daftar Semua Gateway"
-          titleIcon={Cpu}
-          totalCount={pagination?.total_items ?? 2000}
+          inline
           search={filters.search || ""}
           onSearchChange={(val) => handleFilterChange("search", val)}
           searchPlaceholder="Cari Gateway ID / Lokasi..."
@@ -560,7 +555,9 @@ export default function ReportHealthPage() {
           onTimeframeClick={() => {}}
           onExportClick={handleExport}
         />
-
+      }
+    >
+      <div className="w-full flex-1 flex flex-col min-h-0 font-sans transition-colors pb-2">
         {/* 2. Global DataTable with Grouped Multi-Level Telemetry Header */}
         <DataTable
           data={gateways}
@@ -574,11 +571,12 @@ export default function ReportHealthPage() {
           onRowClick={handleSelectGateway}
           pagination={pagination}
           currentPage={filters.page || 1}
-          pageSize={filters.pageSize || 10}
+          pageSize={filters.pageSize || 50}
           onPageChange={handlePageChange}
           onPageSizeChange={handlePageSizeChange}
           customHeaderRow={customHeaderRow}
           isLoading={isLoading}
+          className={selectedGatewayId ? "min-h-[500px]" : "h-[calc(100vh-84px)] flex-1"}
         />
 
         {/* 3. Detail Performa Gateway - Muncul di bawah saat baris diklik */}

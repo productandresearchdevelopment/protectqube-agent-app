@@ -1,4 +1,4 @@
-# ProtectQube AIOps - Frontend Dashboard App
+# ProtectQube AIOPS - Frontend Dashboard App
 
 Web Dashboard diagnostik & pemantauan telemetri real-time untuk armada SmartBox Edge Gateway. Dibangun menggunakan Next.js (App Router), React, Tailwind CSS, dan Lucide Icons.
 

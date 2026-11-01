@@ -391,17 +391,20 @@ export interface ICellularReportItem {
   location: string;
   type: string;
   modem: string;
+  modem_name?: string;
+  modem_temp?: number;
   provider: string;
   sim_number: string;
+  quota_remaining_gb?: number;
   cpu_modem_uptime: string;
   cpu_modem_offline: string;
   cpu_modem_success_rate: number;
-  cpu_modem_avg_resp_ms: number;
+  cpu_modem_avg_resp_ms?: number;
   network_uptime: string;
   network_offline: string;
   network_success_rate?: number;
   network_avg_rsrp: number;
-  network_avg_temp: number;
+  network_avg_temp?: number;
   trouble_events_count: number;
   trouble_last_offline: string;
 }
@@ -1021,6 +1024,9 @@ export interface ISignalStrengthDetail {
   min_rsrp: string;
   avg_rsrp: string;
   sparkline: number[];
+  max_time?: string;
+  min_time?: string;
+  csq?: number;
 }
 
 export interface INetworkSIMDetail {
@@ -1030,6 +1036,9 @@ export interface INetworkSIMDetail {
   sim_status: string;
   imsi: string;
   iccid: string;
+  phone_number?: string;
+  quota_info?: string;
+  quota_main_gb?: number;
   data_upload: string;
   data_download: string;
   roaming: string;
@@ -1042,6 +1051,15 @@ export interface IModemTempDetail {
   min_temp: string;
   avg_temp: string;
   sparkline: number[];
+  max_time?: string;
+  min_time?: string;
+}
+
+export interface ICellularEventItem {
+  id?: string;
+  title: string;
+  time: string;
+  status?: "success" | "warning" | "error" | "info";
 }
 
 export interface ICellularGatewayDetailData {
@@ -1059,6 +1077,7 @@ export interface ICellularGatewayDetailData {
   signal_strength: ISignalStrengthDetail;
   network_sim: INetworkSIMDetail;
   modem_temperature: IModemTempDetail;
+  events?: ICellularEventItem[];
 }
 
 export const fetchCellularGatewayDetail = async (
@@ -1121,6 +1140,9 @@ export interface IDVRHealthDetail {
   temperature: string;
   fan_status: string;
   bad_sector: number;
+  power_on_hours?: number;
+  health_percent?: number;
+  health_label?: string;
 }
 
 export interface ICameraChannelPreview {
@@ -1132,6 +1154,13 @@ export interface ICameraChannelPreview {
   resolution: string;
   bitrate: string;
   timestamp: string;
+}
+
+export interface IDVREventItem {
+  id?: string;
+  title: string;
+  time: string;
+  status?: "success" | "warning" | "error" | "info";
 }
 
 export interface IDVRGatewayDetailData {
@@ -1148,6 +1177,10 @@ export interface IDVRGatewayDetailData {
   recording_storage: IRecordingStorageDetail;
   dvr_health: IDVRHealthDetail;
   cameras: ICameraChannelPreview[];
+  firmware?: string;
+  serial_number?: string;
+  device_type?: string;
+  events?: IDVREventItem[];
 }
 
 export const fetchDVRGatewayDetail = async (

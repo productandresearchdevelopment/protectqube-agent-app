@@ -60,6 +60,8 @@ export interface DataTableProps<T> {
   isLoading?: boolean;
   emptyMessage?: string;
   className?: string;
+  // Layout
+  maxHeight?: string;
 }
 
 export function DataTable<T extends Record<string, any>>({
@@ -79,22 +81,30 @@ export function DataTable<T extends Record<string, any>>({
   onRowClick,
   pagination,
   currentPage = 1,
-  pageSize = 10,
+  pageSize = 50,
   onPageChange,
   onPageSizeChange,
-  pageSizeOptions = [5, 10, 25, 50, 100],
+  pageSizeOptions = [10, 25, 50, 100],
   isLoading = false,
   emptyMessage = "Tidak ada data yang ditemukan",
   className = "",
+  maxHeight,
 }: DataTableProps<T>) {
   const isAllSelected =
     data.length > 0 &&
     data.every((item) => selectedIds.includes(String(item[keyField])));
 
-  const totalPages = pagination?.total_pages || Math.ceil((pagination?.total_items || data.length) / pageSize) || 1;
+  const totalPages =
+    pagination?.total_pages ||
+    Math.ceil((pagination?.total_items || data.length) / pageSize) ||
+    1;
   const currPage = pagination?.current_page || currentPage;
-  const showingStart = pagination?.showing_start || (data.length > 0 ? (currPage - 1) * pageSize + 1 : 0);
-  const showingEnd = pagination?.showing_end || Math.min(currPage * pageSize, pagination?.total_items || data.length);
+  const showingStart =
+    pagination?.showing_start ||
+    (data.length > 0 ? (currPage - 1) * pageSize + 1 : 0);
+  const showingEnd =
+    pagination?.showing_end ||
+    Math.min(currPage * pageSize, pagination?.total_items || data.length);
   const totalItems = pagination?.total_items ?? data.length;
 
   // Generate page numbers for pagination bar (sliding window around current page)
@@ -106,9 +116,25 @@ export function DataTable<T extends Record<string, any>>({
       if (currPage <= 4) {
         pages.push(1, 2, 3, 4, 5, "...", totalPages);
       } else if (currPage >= totalPages - 3) {
-        pages.push(1, "...", totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+        pages.push(
+          1,
+          "...",
+          totalPages - 4,
+          totalPages - 3,
+          totalPages - 2,
+          totalPages - 1,
+          totalPages,
+        );
       } else {
-        pages.push(1, "...", currPage - 1, currPage, currPage + 1, "...", totalPages);
+        pages.push(
+          1,
+          "...",
+          currPage - 1,
+          currPage,
+          currPage + 1,
+          "...",
+          totalPages,
+        );
       }
     }
     return pages;
@@ -116,11 +142,11 @@ export function DataTable<T extends Record<string, any>>({
 
   return (
     <div
-      className={`bg-white dark:bg-[#0b1120] border border-slate-200/90 dark:border-slate-800/80 rounded-xl overflow-hidden shadow-xs transition-colors ${className}`}
+      className={`bg-white dark:bg-[#0b1120] border border-slate-200/90 dark:border-slate-800/80 rounded-xl overflow-hidden shadow-xs transition-colors flex flex-col ${className}`}
     >
       {/* Optional Top Table Toolbar Bar */}
       {(title || headerActions) && (
-        <div className="px-4 py-3.5 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 bg-white dark:bg-[#0b1120]">
+        <div className="px-4 py-3.5 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 bg-white dark:bg-[#0b1120] shrink-0">
           <div className="flex items-center gap-2.5">
             {TitleIcon && (
               <div className="size-7 rounded-lg bg-blue-500/10 dark:bg-blue-500/15 text-[#0073ea] flex items-center justify-center shrink-0">
@@ -148,14 +174,17 @@ export function DataTable<T extends Record<string, any>>({
       )}
 
       {/* Table Container */}
-      <div className="overflow-x-auto">
+      <div
+        className={`overflow-x-auto overflow-y-auto flex-1 min-h-0`}
+        style={maxHeight ? { maxHeight } : undefined}
+      >
         <table className="w-full text-left border-collapse text-xs whitespace-nowrap">
           {/* Custom Header Row (e.g. for multi-level group headers) OR Standard Header Row */}
-          <thead>
+          <thead className="sticky top-0 z-20 shadow-xs">
             {customHeaderRow ? (
               customHeaderRow
             ) : (
-              <tr className="border-b border-slate-200/80 dark:border-slate-800/80 bg-slate-50/70 dark:bg-[#0e1628]/80 text-slate-500 dark:text-slate-400 font-semibold">
+              <tr className="border-b border-slate-200/80 dark:border-slate-800/80 bg-slate-50 dark:bg-[#0e1628] text-slate-500 dark:text-slate-400 font-semibold">
                 {enableSelection && (
                   <th className="py-2.5 px-3 w-10 text-center border-r border-slate-200/60 dark:border-slate-800/60">
                     <input
@@ -171,15 +200,17 @@ export function DataTable<T extends Record<string, any>>({
                     col.align === "center"
                       ? "text-center"
                       : col.align === "right"
-                      ? "text-right"
-                      : "text-left";
+                        ? "text-right"
+                        : "text-left";
                   const isLast = idx === columns.length - 1;
                   return (
                     <th
                       key={col.id || String(col.accessorKey) || idx}
                       style={{ width: col.width }}
                       className={`py-2.5 px-3 ${alignClass} ${
-                        !isLast ? "border-r border-slate-200/60 dark:border-slate-800/60" : ""
+                        !isLast
+                          ? "border-r border-slate-200/60 dark:border-slate-800/60"
+                          : ""
                       } ${col.headerClassName || ""}`}
                     >
                       {col.header}
@@ -250,7 +281,9 @@ export function DataTable<T extends Record<string, any>>({
                         <input
                           type="checkbox"
                           checked={isSelected}
-                          onChange={() => onToggleSelectOne && onToggleSelectOne(idVal)}
+                          onChange={() =>
+                            onToggleSelectOne && onToggleSelectOne(idVal)
+                          }
                           className="rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-[#0073ea] focus:ring-[#0073ea] size-3.5 cursor-pointer"
                         />
                       </td>
@@ -262,8 +295,8 @@ export function DataTable<T extends Record<string, any>>({
                         col.align === "center"
                           ? "text-center"
                           : col.align === "right"
-                          ? "text-right"
-                          : "text-left";
+                            ? "text-right"
+                            : "text-left";
                       const isLast = cIdx === columns.length - 1;
 
                       let cellContent: React.ReactNode = null;
@@ -277,7 +310,9 @@ export function DataTable<T extends Record<string, any>>({
                         <td
                           key={col.id || String(col.accessorKey) || cIdx}
                           className={`py-2.5 px-3 ${alignClass} ${
-                            !isLast ? "border-r border-slate-100 dark:border-slate-800/50" : ""
+                            !isLast
+                              ? "border-r border-slate-100 dark:border-slate-800/50"
+                              : ""
                           } ${col.className || ""}`}
                         >
                           {cellContent}
@@ -294,7 +329,7 @@ export function DataTable<T extends Record<string, any>>({
 
       {/* Signature Report-Style Pagination Footer */}
       {onPageChange && (
-        <div className="px-4 py-3 border-t border-slate-200/90 dark:border-slate-800/80 bg-slate-50/50 dark:bg-[#0e1628]/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+        <div className="px-4 py-3 border-t border-slate-200/90 dark:border-slate-800/80 bg-slate-50/50 dark:bg-[#0e1628]/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shrink-0">
           {/* Left: Showing info */}
           <div className="text-slate-500 dark:text-slate-400">
             Showing{" "}

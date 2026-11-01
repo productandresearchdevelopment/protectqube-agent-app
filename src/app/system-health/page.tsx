@@ -193,37 +193,21 @@ export default function SystemHealthPage() {
   // Table Columns
   const columns: ColumnDef<IGatewayItem>[] = [
     {
-      id: "no",
-      header: "No.",
-      width: "48px",
-      align: "center",
-      cell: (_, idx) => (
-        <span className="text-slate-400 font-mono text-[11px]">
-          {(currentPage - 1) * pageSize + idx + 1}
-        </span>
-      ),
-    },
-    {
       id: "id",
       header: "Gateway ID",
       cell: (item) => {
         const isSelected = selectedGatewayId === item.id;
         return (
-          <div className="flex items-center gap-2">
-            <div className="size-6 rounded-md bg-blue-500/10 dark:bg-blue-500/15 text-[#0073ea] flex items-center justify-center shrink-0">
-              <Server className="size-3.5" />
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="font-bold text-slate-900 dark:text-white font-mono hover:text-[#0073ea] transition-colors">
-                {item.id}
+          <div className="flex items-center gap-1.5">
+            <span className="font-bold text-slate-900 dark:text-white font-mono hover:text-[#0073ea] transition-colors">
+              {item.id}
+            </span>
+            {isSelected && (
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#0073ea] opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-[#0073ea]" />
               </span>
-              {isSelected && (
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#0073ea] opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-[#0073ea]" />
-                </span>
-              )}
-            </div>
+            )}
           </div>
         );
       },
@@ -305,32 +289,14 @@ export default function SystemHealthPage() {
         </span>
       ),
     },
-    {
-      id: "action",
-      header: "Action",
-      align: "center",
-      width: "56px",
-      cell: (item) => (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            handleSelectGateway(item);
-          }}
-          className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-          title="Lihat Detail Telemetry"
-        >
-          <MoreHorizontal className="size-4" />
-        </button>
-      ),
-    },
   ];
 
   return (
-    <AppLayout title="System Health">
-      <div className="space-y-5 max-w-[1600px] mx-auto pb-16 font-sans transition-colors">
-        {/* 1. Header with Filters */}
+    <AppLayout
+      title="System Health"
+      headerRight={
         <FilterHeader
+          inline
           search={search}
           onSearchChange={(val) => {
             setSearch(val);
@@ -341,6 +307,9 @@ export default function SystemHealthPage() {
           timeframe="Last 24 Hours"
           onTimeframeClick={() => {}}
         />
+      }
+    >
+      <div className="space-y-5 max-w-[1600px] mx-auto pb-16 font-sans transition-colors">
 
         {/* 2. Top Summary Metric Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
@@ -397,182 +366,9 @@ export default function SystemHealthPage() {
           />
         </div>
 
-        {/* 3. Four Real-time Charts directly in page */}
-        {/* 3. Four Real-time Charts directly in page */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3.5">
-          {/* Chart 1: CPU Usage */}
-          <ChartCard
-            title="CPU Usage"
-            subtitle="Rata-rata Semua Unit"
-            icon={Cpu}
-          >
-            <div className="flex items-stretch gap-1.5 h-40">
-              <div className="flex-1 h-full relative">
-                {mounted && (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={cpuTimeline} margin={{ top: 8, right: 0, left: -4, bottom: 0 }}>
-                      <defs>
-                        <linearGradient id="cpuGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#00c875" stopOpacity={0.35} />
-                          <stop offset="95%" stopColor="#00c875" stopOpacity={0.0} />
-                        </linearGradient>
-                      </defs>
-                      <XAxis dataKey="time" tick={{ fontSize: 9, fill: "#94a3b8" }} axisLine={{ stroke: "#334155", strokeWidth: 0.5 }} tickLine={false} />
-                      <YAxis width={28} domain={[0, 100]} ticks={[0, 50, 100]} tick={{ fontSize: 9, fill: "#94a3b8" }} tickFormatter={(v) => `${v}%`} axisLine={false} tickLine={false} />
-                      <Tooltip content={<CustomMetricTooltip unit="%" color="#00c875" />} />
-                      <Area type="monotone" name="CPU Usage" dataKey="value" stroke="#00c875" strokeWidth={2} fillOpacity={1} fill="url(#cpuGrad)" activeDot={{ r: 4, fill: "#00c875", stroke: "#fff", strokeWidth: 2 }} />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                )}
-              </div>
-              <div className="w-12 shrink-0 flex flex-col justify-between py-1 border-l border-slate-100 dark:border-slate-800/80 pl-1.5">
-                <div>
-                  <div className="text-[10px] text-slate-400 font-medium leading-none">Avg</div>
-                  <div className="text-xs font-bold text-[#00c875] mt-1">{charts?.cpu.avg ?? "43.2%"}</div>
-                </div>
-                <div>
-                  <div className="text-[10px] text-slate-400 font-medium leading-none">Max</div>
-                  <div className="text-xs font-bold text-[#e2445c] mt-1">{charts?.cpu.max ?? "88.0%"}</div>
-                </div>
-                <div>
-                  <div className="text-[10px] text-slate-400 font-medium leading-none">Min</div>
-                  <div className="text-xs font-bold text-[#0073ea] mt-1">{charts?.cpu.min ?? "12.4%"}</div>
-                </div>
-              </div>
-            </div>
-          </ChartCard>
-
-          {/* Chart 2: RAM Usage */}
-          <ChartCard
-            title="RAM Usage"
-            subtitle="Rata-rata Semua Unit"
-            icon={Cpu}
-          >
-            <div className="flex items-stretch gap-1.5 h-40">
-              <div className="flex-1 h-full relative">
-                {mounted && (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={ramTimeline} margin={{ top: 8, right: 0, left: -4, bottom: 0 }}>
-                      <defs>
-                        <linearGradient id="ramGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#0073ea" stopOpacity={0.35} />
-                          <stop offset="95%" stopColor="#0073ea" stopOpacity={0.0} />
-                        </linearGradient>
-                      </defs>
-                      <XAxis dataKey="time" tick={{ fontSize: 9, fill: "#94a3b8" }} axisLine={{ stroke: "#334155", strokeWidth: 0.5 }} tickLine={false} />
-                      <YAxis width={28} domain={[0, 100]} ticks={[0, 50, 100]} tick={{ fontSize: 9, fill: "#94a3b8" }} tickFormatter={(v) => `${v}%`} axisLine={false} tickLine={false} />
-                      <Tooltip content={<CustomMetricTooltip unit="%" color="#0073ea" />} />
-                      <Area type="monotone" name="RAM Usage" dataKey="value" stroke="#0073ea" strokeWidth={2} fillOpacity={1} fill="url(#ramGrad)" activeDot={{ r: 4, fill: "#0073ea", stroke: "#fff", strokeWidth: 2 }} />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                )}
-              </div>
-              <div className="w-12 shrink-0 flex flex-col justify-between py-1 border-l border-slate-100 dark:border-slate-800/80 pl-1.5">
-                <div>
-                  <div className="text-[10px] text-slate-400 font-medium leading-none">Avg</div>
-                  <div className="text-xs font-bold text-[#0073ea] mt-1">{charts?.ram.avg ?? "61.5%"}</div>
-                </div>
-                <div>
-                  <div className="text-[10px] text-slate-400 font-medium leading-none">Max</div>
-                  <div className="text-xs font-bold text-[#e2445c] mt-1">{charts?.ram.max ?? "91.2%"}</div>
-                </div>
-                <div>
-                  <div className="text-[10px] text-slate-400 font-medium leading-none">Min</div>
-                  <div className="text-xs font-bold text-[#00c875] mt-1">{charts?.ram.min ?? "34.0%"}</div>
-                </div>
-              </div>
-            </div>
-          </ChartCard>
-
-          {/* Chart 3: SD Card Storage */}
-          <ChartCard
-            title="SD Card Storage"
-            subtitle="Rata-rata Kapasitas"
-            icon={HardDrive}
-          >
-            <div className="flex items-stretch gap-1.5 h-40">
-              <div className="flex-1 h-full relative">
-                {mounted && (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={sdCardTimeline} margin={{ top: 8, right: 0, left: -4, bottom: 0 }}>
-                      <defs>
-                        <linearGradient id="sdGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#fdab3d" stopOpacity={0.35} />
-                          <stop offset="95%" stopColor="#fdab3d" stopOpacity={0.0} />
-                        </linearGradient>
-                      </defs>
-                      <XAxis dataKey="time" tick={{ fontSize: 9, fill: "#94a3b8" }} axisLine={{ stroke: "#334155", strokeWidth: 0.5 }} tickLine={false} />
-                      <YAxis width={28} domain={[0, 100]} ticks={[0, 50, 100]} tick={{ fontSize: 9, fill: "#94a3b8" }} tickFormatter={(v) => `${v}%`} axisLine={false} tickLine={false} />
-                      <Tooltip content={<CustomMetricTooltip unit="%" color="#fdab3d" />} />
-                      <Area type="monotone" name="SD Storage" dataKey="value" stroke="#fdab3d" strokeWidth={2} fillOpacity={1} fill="url(#sdGrad)" activeDot={{ r: 4, fill: "#fdab3d", stroke: "#fff", strokeWidth: 2 }} />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                )}
-              </div>
-              <div className="w-12 shrink-0 flex flex-col justify-between py-1 border-l border-slate-100 dark:border-slate-800/80 pl-1.5">
-                <div>
-                  <div className="text-[10px] text-slate-400 font-medium leading-none">Avg</div>
-                  <div className="text-xs font-bold text-[#fdab3d] mt-1">{charts?.sd_card.avg ?? "42.8%"}</div>
-                </div>
-                <div>
-                  <div className="text-[10px] text-slate-400 font-medium leading-none">Max</div>
-                  <div className="text-xs font-bold text-[#e2445c] mt-1">{charts?.sd_card.max ?? "74.0%"}</div>
-                </div>
-                <div>
-                  <div className="text-[10px] text-slate-400 font-medium leading-none">Min</div>
-                  <div className="text-xs font-bold text-[#00c875] mt-1">{charts?.sd_card.min ?? "20.1%"}</div>
-                </div>
-              </div>
-            </div>
-          </ChartCard>
-
-          {/* Chart 4: Uptime Trend */}
-          <ChartCard
-            title="Uptime Trend"
-            subtitle="Rata-rata Ketersediaan"
-            icon={Clock}
-          >
-            <div className="flex items-stretch gap-1.5 h-40">
-              <div className="flex-1 h-full relative">
-                {mounted && (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={uptimeTimeline} margin={{ top: 8, right: 0, left: -4, bottom: 0 }}>
-                      <defs>
-                        <linearGradient id="upGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#0073ea" stopOpacity={0.35} />
-                          <stop offset="95%" stopColor="#0073ea" stopOpacity={0.0} />
-                        </linearGradient>
-                      </defs>
-                      <XAxis dataKey="time" tick={{ fontSize: 9, fill: "#94a3b8" }} axisLine={{ stroke: "#334155", strokeWidth: 0.5 }} tickLine={false} />
-                      <YAxis width={28} domain={[0, 100]} ticks={[0, 50, 100]} tick={{ fontSize: 9, fill: "#94a3b8" }} tickFormatter={(v) => `${v}%`} axisLine={false} tickLine={false} />
-                      <Tooltip content={<CustomMetricTooltip unit="%" color="#0073ea" />} />
-                      <Area type="monotone" name="Uptime" dataKey="value" stroke="#0073ea" strokeWidth={2} fillOpacity={1} fill="url(#upGrad)" activeDot={{ r: 4, fill: "#0073ea", stroke: "#fff", strokeWidth: 2 }} />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                )}
-              </div>
-              <div className="w-12 shrink-0 flex flex-col justify-between py-1 border-l border-slate-100 dark:border-slate-800/80 pl-1.5">
-                <div>
-                  <div className="text-[10px] text-slate-400 font-medium leading-none">Avg</div>
-                  <div className="text-xs font-bold text-[#0073ea] mt-1">{charts?.uptime.avg ?? "48.5%"}</div>
-                </div>
-                <div>
-                  <div className="text-[10px] text-slate-400 font-medium leading-none">Max</div>
-                  <div className="text-xs font-bold text-[#00c875] mt-1">{charts?.uptime.max ?? "99.8%"}</div>
-                </div>
-                <div>
-                  <div className="text-[10px] text-slate-400 font-medium leading-none">Min</div>
-                  <div className="text-xs font-bold text-[#e2445c] mt-1">{charts?.uptime.min ?? "18.2%"}</div>
-                </div>
-              </div>
-            </div>
-          </ChartCard>
-        </div>
-
-        {/* 4. Filterable & Paginated Daftar Gateway Table */}
+        {/* 3. Filterable & Paginated Daftar Gateway Table */}
         <DataTable
           title="Daftar Gateway"
-          titleIcon={Server}
           subtitle="Klik baris untuk membuka detail telemetry di bawah"
           data={gateways}
           columns={columns}

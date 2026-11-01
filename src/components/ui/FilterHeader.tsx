@@ -32,6 +32,7 @@ interface FilterHeaderProps {
   totalCount?: number;
   unitLabel?: string;
   className?: string;
+  inline?: boolean;
 }
 
 export const FilterHeader: React.FC<FilterHeaderProps> = ({
@@ -49,7 +50,83 @@ export const FilterHeader: React.FC<FilterHeaderProps> = ({
   totalCount,
   unitLabel = "unit",
   className = "",
+  inline = false,
 }) => {
+  if (inline) {
+    return (
+      <div className={`flex items-center gap-2 flex-wrap ${className}`}>
+        {/* Search Input */}
+        <div className="relative min-w-44 sm:min-w-56 max-w-xs">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-slate-400 dark:text-slate-500" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => onSearchChange(e.target.value)}
+            placeholder={searchPlaceholder}
+            className="w-full pl-8 pr-7 py-1.5 text-xs bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 rounded-xl text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-hidden focus:ring-2 focus:ring-[#0073ea]/30 focus:border-[#0073ea] transition-all"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => onSearchChange("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5 rounded cursor-pointer"
+            >
+              <X className="size-3" />
+            </button>
+          )}
+        </div>
+
+        {/* Dynamic Filters */}
+        {filters.map((f) => (
+          <div key={f.id} className="relative">
+            <select
+              value={f.value}
+              onChange={(e) => f.onChange(e.target.value)}
+              className="appearance-none pl-2.5 pr-7 py-1.5 text-xs bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 rounded-xl text-slate-700 dark:text-slate-200 font-medium focus:outline-hidden focus:ring-2 focus:ring-[#0073ea]/30 focus:border-[#0073ea] transition-all cursor-pointer shadow-xs"
+            >
+              {f.options.map((opt) => (
+                <option
+                  key={opt.value}
+                  value={opt.value}
+                  className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100"
+                >
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 size-3.5 text-slate-400 pointer-events-none" />
+          </div>
+        ))}
+
+        {actions}
+
+        {onTimeframeClick && (
+          <button
+            type="button"
+            onClick={onTimeframeClick}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer shadow-xs"
+          >
+            <Calendar className="size-3.5 text-[#0073ea]" />
+            <span>{timeframe}</span>
+            <ChevronDown className="size-3 text-slate-400" />
+          </button>
+        )}
+
+        {onExportClick && (
+          <button
+            type="button"
+            disabled={exportLoading}
+            onClick={onExportClick}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-[#0073ea] hover:bg-blue-600 active:scale-95 rounded-xl transition-all shadow-xs disabled:opacity-50 cursor-pointer"
+          >
+            <Download className="size-3.5" />
+            <span>{exportLoading ? "Exporting..." : "Export CSV"}</span>
+          </button>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div
       className={`bg-white dark:bg-[#0b1120] border border-slate-200/90 dark:border-slate-800/80 rounded-xl p-4 shadow-xs transition-colors ${className}`}

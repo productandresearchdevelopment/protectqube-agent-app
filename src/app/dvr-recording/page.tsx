@@ -221,37 +221,21 @@ export default function DVRRecordingPage() {
   // Table Columns
   const columns: ColumnDef<IDVRGatewayItem>[] = [
     {
-      id: "no",
-      header: "No.",
-      width: "48px",
-      align: "center",
-      cell: (_, idx) => (
-        <span className="text-slate-400 font-mono text-[11px]">
-          {(currentPage - 1) * pageSize + idx + 1}
-        </span>
-      ),
-    },
-    {
       id: "id",
       header: "Gateway ID",
       cell: (item) => {
         const isSelected = selectedGatewayId === item.id;
         return (
-          <div className="flex items-center gap-2">
-            <div className="size-6 rounded-md bg-blue-500/10 dark:bg-blue-500/15 text-[#0073ea] flex items-center justify-center shrink-0">
-              <Video className="size-3.5" />
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="font-bold text-slate-900 dark:text-white font-mono hover:text-[#0073ea] transition-colors">
-                {item.id}
+          <div className="flex items-center gap-1.5">
+            <span className="font-bold text-slate-900 dark:text-white font-mono hover:text-[#0073ea] transition-colors">
+              {item.id}
+            </span>
+            {isSelected && (
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#0073ea] opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-[#0073ea]" />
               </span>
-              {isSelected && (
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#0073ea] opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-[#0073ea]" />
-                </span>
-              )}
-            </div>
+            )}
           </div>
         );
       },
@@ -366,32 +350,14 @@ export default function DVRRecordingPage() {
         </span>
       ),
     },
-    {
-      id: "action",
-      header: "Action",
-      align: "center",
-      width: "56px",
-      cell: (item) => (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            handleSelectGateway(item);
-          }}
-          className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-          title="Lihat Detail Telemetry & Video Preview"
-        >
-          <MoreHorizontal className="size-4" />
-        </button>
-      ),
-    },
   ];
 
   return (
-    <AppLayout title="DVR & Recording">
-      <div className="space-y-5 max-w-[1600px] mx-auto pb-16 font-sans transition-colors">
-        {/* 1. Header with Filters */}
+    <AppLayout
+      title="DVR & Recording"
+      headerRight={
         <FilterHeader
+          inline
           search={search}
           onSearchChange={(val) => {
             setSearch(val);
@@ -402,6 +368,9 @@ export default function DVRRecordingPage() {
           timeframe="Last 24 Hours"
           onTimeframeClick={() => {}}
         />
+      }
+    >
+      <div className="space-y-5 max-w-[1600px] mx-auto pb-16 font-sans transition-colors">
 
         {/* 2. Top Summary Metric Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
@@ -467,202 +436,9 @@ export default function DVRRecordingPage() {
           />
         </div>
 
-        {/* 3. Four Real-time Charts directly in page */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3.5">
-          {/* Chart 1: CPU - DVR Comm Donut */}
-          <ChartCard
-            title="Komunikasi CPU – DVR"
-            subtitle="Status Handshake Hardware"
-            icon={Cpu}
-          >
-            <div className="flex items-center gap-2 h-40">
-              <div className="w-32 h-32 relative shrink-0">
-                {mounted && (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Tooltip content={<CustomDonutTooltip />} />
-                      <Pie
-                        data={cpuDvrData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={32}
-                        outerRadius={50}
-                        paddingAngle={3}
-                        dataKey="value"
-                      >
-                        {cpuDvrData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                    </PieChart>
-                  </ResponsiveContainer>
-                )}
-                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <span className="text-sm font-black text-slate-900 dark:text-white leading-none">
-                    92.5%
-                  </span>
-                  <span className="text-[9px] text-slate-400">Connected</span>
-                </div>
-              </div>
-              <div className="flex-1 space-y-1.5 text-xs">
-                {cpuDvrData.map((d) => (
-                  <div key={d.name} className="flex items-center justify-between">
-                    <span className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 truncate">
-                      <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
-                      {d.name}
-                    </span>
-                    <span className="font-bold text-slate-800 dark:text-slate-200">{d.percent}%</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </ChartCard>
-
-          {/* Chart 2: Status Kamera Donut */}
-          <ChartCard
-            title="Status Kamera"
-            subtitle="Distribusi Channel CCTV"
-            icon={Video}
-          >
-            <div className="flex items-center gap-2 h-40">
-              <div className="w-32 h-32 relative shrink-0">
-                {mounted && (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Tooltip content={<CustomDonutTooltip />} />
-                      <Pie
-                        data={statusKameraData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={32}
-                        outerRadius={50}
-                        paddingAngle={3}
-                        dataKey="value"
-                      >
-                        {statusKameraData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                    </PieChart>
-                  </ResponsiveContainer>
-                )}
-                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <span className="text-sm font-black text-slate-900 dark:text-white leading-none">
-                    90.2%
-                  </span>
-                  <span className="text-[9px] text-slate-400">Online</span>
-                </div>
-              </div>
-              <div className="flex-1 space-y-1.5 text-xs">
-                {statusKameraData.map((d) => (
-                  <div key={d.name} className="flex items-center justify-between">
-                    <span className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 truncate">
-                      <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
-                      {d.name}
-                    </span>
-                    <span className="font-bold text-slate-800 dark:text-slate-200">{d.percent}%</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </ChartCard>
-
-          {/* Chart 3: Recording Status Donut */}
-          <ChartCard
-            title="Status Recording"
-            subtitle="Distribusi Status Stream"
-            icon={Disc}
-          >
-            <div className="flex items-center gap-2 h-40">
-              <div className="w-32 h-32 relative shrink-0">
-                {mounted && (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Tooltip content={<CustomDonutTooltip />} />
-                      <Pie
-                        data={recordingStatusData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={32}
-                        outerRadius={50}
-                        paddingAngle={3}
-                        dataKey="value"
-                      >
-                        {recordingStatusData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                    </PieChart>
-                  </ResponsiveContainer>
-                )}
-                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <span className="text-sm font-black text-slate-900 dark:text-white leading-none">
-                    88.3%
-                  </span>
-                  <span className="text-[9px] text-slate-400">Merekam</span>
-                </div>
-              </div>
-              <div className="flex-1 space-y-1.5 text-xs">
-                {recordingStatusData.map((d) => (
-                  <div key={d.name} className="flex items-center justify-between">
-                    <span className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 truncate">
-                      <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
-                      {d.name}
-                    </span>
-                    <span className="font-bold text-slate-800 dark:text-slate-200">{d.percent}%</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </ChartCard>
-
-          {/* Chart 4: Storage Usage Trend AreaChart */}
-          <ChartCard
-            title="Tren Penggunaan Storage"
-            subtitle="Kapasitas 24 Jam"
-            icon={HardDrive}
-          >
-            <div className="flex items-stretch gap-1.5 h-40">
-              <div className="flex-1 h-full relative">
-                {mounted && (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={storageTimeline} margin={{ top: 8, right: 0, left: -4, bottom: 0 }}>
-                      <defs>
-                        <linearGradient id="storageGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#c084fc" stopOpacity={0.4} />
-                          <stop offset="95%" stopColor="#c084fc" stopOpacity={0.0} />
-                        </linearGradient>
-                      </defs>
-                      <XAxis dataKey="time" tick={{ fontSize: 9, fill: "#94a3b8" }} axisLine={{ stroke: "#334155", strokeWidth: 0.5 }} tickLine={false} />
-                      <YAxis width={28} domain={[0, 100]} ticks={[0, 50, 100]} tick={{ fontSize: 9, fill: "#94a3b8" }} tickFormatter={(v) => `${v}%`} axisLine={false} tickLine={false} />
-                      <Tooltip content={<CustomAreaTooltip />} />
-                      <Area type="monotone" name="Storage" dataKey="value" stroke="#c084fc" strokeWidth={2} fillOpacity={1} fill="url(#storageGrad)" activeDot={{ r: 4, fill: "#c084fc" }} />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                )}
-              </div>
-              <div className="w-14 shrink-0 flex flex-col justify-between py-1 border-l border-slate-100 dark:border-slate-800/80 pl-1.5">
-                <div>
-                  <div className="text-[10px] text-slate-400 font-medium leading-none">Avg</div>
-                  <div className="text-xs font-bold text-purple-400 mt-0.5">{charts?.storage_usage.avg ?? "72.0"}%</div>
-                </div>
-                <div>
-                  <div className="text-[10px] text-slate-400 font-medium leading-none">Max</div>
-                  <div className="text-xs font-bold text-[#e2445c] mt-0.5">{charts?.storage_usage.max ?? "88.0"}%</div>
-                </div>
-                <div>
-                  <div className="text-[10px] text-slate-400 font-medium leading-none">Min</div>
-                  <div className="text-xs font-bold text-[#00c875] mt-0.5">{charts?.storage_usage.min ?? "65.0"}%</div>
-                </div>
-              </div>
-            </div>
-          </ChartCard>
-        </div>
-
-        {/* 4. Filterable & Paginated Daftar Gateway Table */}
+        {/* 3. Filterable & Paginated Daftar Gateway Table */}
         <DataTable
           title="Daftar Gateway DVR & Recording"
-          titleIcon={Video}
           subtitle="Klik baris untuk membuka detail telemetry DVR & CCTV preview di bawah"
           data={gateways}
           columns={columns}

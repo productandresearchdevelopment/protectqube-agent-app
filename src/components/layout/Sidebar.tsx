@@ -115,7 +115,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <AIPreventiveLogo className="w-7 h-7 text-white shrink-0" />
                 {!collapsed && (
                   <span className="font-extrabold text-base sm:text-[17px] tracking-tight text-white truncate">
-                    Protect<span className="text-[#ff7a59]">Q</span>ube AIOps
+                    Protect<span className="text-[#ff7a59]">Q</span>ube AIOPS
                   </span>
                 )}
               </Link>
