@@ -48,7 +48,7 @@ export default function LoginPage() {
       } else {
         localStorage.removeItem("savedIdentifier");
       }
-      router.push("/");
+      window.location.href = "/";
     } catch (err: any) {
       setErrorMessage(
         err.message || "Incorrect username or password. Please check and try again."
@@ -87,7 +87,7 @@ export default function LoginPage() {
             SmartBox Edge AI Agent
           </h2>
           <p className="text-sm text-slate-300/90 leading-relaxed">
-            AI Agent yang ditanam langsung di dalam SmartBox Gateway untuk pemantauan kesehatan perangkat, konektivitas seluler, dan telemetri sistem secara otonom dan real-time.
+            Autonomous AI Agent embedded directly in SmartBox Gateway for edge device health monitoring, cellular connectivity, and real-time telemetry.
           </p>
         </div>
       </div>
@@ -103,7 +103,7 @@ export default function LoginPage() {
               Protect<span className="text-[#ff7a59]">Q</span>ube AIOPS
             </h1>
             <p className="text-sm text-slate-500 dark:text-slate-400">
-              Silakan masuk ke akun Anda untuk melanjutkan.
+              Please sign in to your account to continue.
             </p>
           </div>
 

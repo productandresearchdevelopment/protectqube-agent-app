@@ -16,14 +16,16 @@ import {
 } from "@/components/ui";
 import { CellularReportDetailCard } from "@/components/reports/cellular/CellularReportDetailCard";
 import { MoreHorizontal, Radio } from "lucide-react";
+import { getCurrentMonthPeriodStr } from "@/lib/reportPeriodUtils";
 
 export default function ReportCellularPage() {
   const [filters, setFilters] = useState<ICellularReportFilters>({
     search: "",
-    type: "Semua Tipe",
-    provider: "Semua Provider",
-    location: "Semua Lokasi",
-    date_range: "01 Oct 2026 - 31 Oct 2026",
+    type: "All Types",
+    provider: "All Providers",
+    location: "All Locations",
+    date_range: getCurrentMonthPeriodStr(),
+
     page: 1,
     pageSize: 50,
   });
@@ -91,20 +93,20 @@ export default function ReportCellularPage() {
   const filterConfigs: IFilterConfig[] = [
     {
       id: "type",
-      value: filters.type || "Semua Tipe",
+      value: filters.type || "All Types",
       onChange: (val) => handleFilterChange("type", val),
       options: [
-        { label: "Semua Tipe", value: "Semua Tipe" },
-        { label: "SmartBox Hitam", value: "SmartBox Hitam" },
-        { label: "SmartBox Putih", value: "SmartBox Putih" },
+        { label: "All Types", value: "All Types" },
+        { label: "SmartBox Black", value: "SmartBox Hitam" },
+        { label: "SmartBox White", value: "SmartBox Putih" },
       ],
     },
     {
       id: "provider",
-      value: filters.provider || "Semua Provider",
+      value: filters.provider || "All Providers",
       onChange: (val) => handleFilterChange("provider", val),
       options: [
-        { label: "Semua Provider", value: "Semua Provider" },
+        { label: "All Providers", value: "All Providers" },
         { label: "Telkomsel", value: "Telkomsel" },
         { label: "Indosat", value: "Indosat" },
         { label: "XL Axiata", value: "XL Axiata" },
@@ -113,10 +115,10 @@ export default function ReportCellularPage() {
     },
     {
       id: "location",
-      value: filters.location || "Semua Lokasi",
+      value: filters.location || "All Locations",
       onChange: (val) => handleFilterChange("location", val),
       options: [
-        { label: "Semua Lokasi", value: "Semua Lokasi" },
+        { label: "All Locations", value: "All Locations" },
         { label: "Alfa Mart", value: "Alfa" },
         { label: "Indomaret", value: "IDM" },
         { label: "SPBU", value: "SPBU" },
@@ -141,7 +143,7 @@ export default function ReportCellularPage() {
       },
       {
         id: "location",
-        header: "Lokasi",
+        header: "Location",
         cell: (gw) => (
           <span className="text-slate-800 dark:text-slate-200 whitespace-nowrap">
             {gw.location}
@@ -150,7 +152,7 @@ export default function ReportCellularPage() {
       },
       {
         id: "type",
-        header: "Tipe",
+        header: "Type",
         className: "border-r-2 border-slate-300 dark:border-slate-700/80",
         cell: (gw) => {
           const isBlack = gw.type.includes("Hitam");
@@ -170,16 +172,16 @@ export default function ReportCellularPage() {
                 />
               </div>
               <span className="text-slate-700 dark:text-slate-300 text-[11px]">
-                {isBlack ? "Hitam" : "Putih"}
+                {isBlack ? "Black" : "White"}
               </span>
             </div>
           );
         },
       },
-      // Group: Perangkat Modem (Apple Indigo / Slate Group)
+      // Group: Modem Device (Apple Indigo / Slate Group)
       {
         id: "modem_name",
-        header: "Nama",
+        header: "Model",
         className: "bg-indigo-500/[0.025] dark:bg-indigo-500/[0.04]",
         cell: (gw) => (
           <span className="text-slate-800 dark:text-slate-200 font-semibold whitespace-nowrap">
@@ -189,7 +191,7 @@ export default function ReportCellularPage() {
       },
       {
         id: "modem_temp",
-        header: "Avg Suhu",
+        header: "Avg Temp",
         align: "center",
         className: "bg-indigo-500/[0.025] dark:bg-indigo-500/[0.04] border-r-2 border-r-indigo-300 dark:border-r-indigo-700/80",
         cell: (gw) => {
@@ -209,7 +211,7 @@ export default function ReportCellularPage() {
           );
         },
       },
-      // Group: Kartu SIM & Kuota (Apple Warm Amber Group)
+      // Group: SIM Card & Data (Apple Warm Amber Group)
       {
         id: "provider",
         header: "Provider",
@@ -222,7 +224,7 @@ export default function ReportCellularPage() {
       },
       {
         id: "sim_number",
-        header: "No. SIM Card",
+        header: "SIM Card No.",
         className: "bg-amber-500/[0.025] dark:bg-amber-500/[0.04]",
         cell: (gw) => (
           <span className="font-mono text-slate-800 dark:text-slate-200 whitespace-nowrap">
@@ -232,7 +234,7 @@ export default function ReportCellularPage() {
       },
       {
         id: "quota_remaining_gb",
-        header: "Sisa Kuota",
+        header: "Remaining Quota",
         align: "center",
         className: "bg-amber-500/[0.025] dark:bg-amber-500/[0.04] border-r-2 border-r-amber-300 dark:border-r-amber-700/80",
         cell: (gw) => {
@@ -285,7 +287,7 @@ export default function ReportCellularPage() {
           </span>
         ),
       },
-      // Group 2: Koneksi Jaringan (Apple Teal Tint)
+      // Group 2: Network Connection (Apple Teal Tint)
       {
         id: "network_uptime",
         header: "Uptime",
@@ -338,10 +340,10 @@ export default function ReportCellularPage() {
           </span>
         ),
       },
-      // Group 3: Periode Gangguan (Apple Purple Tint)
+      // Group 3: Incident Period (Apple Purple Tint)
       {
         id: "trouble_events_count",
-        header: "Jumlah Event",
+        header: "Total Events",
         align: "center",
         className: "bg-purple-500/[0.025] dark:bg-purple-500/[0.04]",
         cell: (gw) => (
@@ -356,7 +358,7 @@ export default function ReportCellularPage() {
       },
       {
         id: "trouble_last_offline",
-        header: "Terakhir Offline",
+        header: "Last Update",
         className: "bg-purple-500/[0.025] dark:bg-purple-500/[0.04] border-r-2 border-r-purple-300 dark:border-r-purple-700/80",
         cell: (gw) => (
           <span className="text-slate-500 dark:text-slate-400 whitespace-nowrap font-mono text-[11px]">
@@ -384,26 +386,26 @@ export default function ReportCellularPage() {
           Gateway ID
         </th>
         <th rowSpan={2} className="py-2.5 px-4 whitespace-nowrap border-r border-slate-200/80 dark:border-slate-800/60 bg-slate-100 dark:bg-[#0e1628]">
-          Lokasi
+          Location
         </th>
         <th rowSpan={2} className="py-2.5 px-3 whitespace-nowrap border-r-2 border-r-slate-300 dark:border-r-slate-700/80 bg-slate-100 dark:bg-[#0e1628]">
-          Tipe
+          Type
         </th>
 
-        {/* Group: Perangkat Modem (Apple Indigo / Slate) */}
+        {/* Group: Modem Device (Apple Indigo / Slate) */}
         <th
           colSpan={2}
           className="py-2 px-3 text-center border-r-2 border-r-indigo-300 dark:border-r-indigo-700/80 font-bold text-indigo-950 dark:text-indigo-200 bg-[#edf0ff] dark:bg-[#12132e] border-b border-b-indigo-200 dark:border-b-indigo-800/60"
         >
-          Perangkat Modem
+          Modem Device
         </th>
 
-        {/* Group: Kartu SIM & Kuota (Apple Warm Amber) */}
+        {/* Group: SIM Card & Data (Apple Warm Amber) */}
         <th
           colSpan={3}
           className="py-2 px-3 text-center border-r-2 border-r-amber-300 dark:border-r-amber-700/80 font-bold text-amber-950 dark:text-amber-200 bg-[#fff8eb] dark:bg-[#261a08] border-b border-b-amber-200 dark:border-b-amber-800/60"
         >
-          Kartu SIM & Kuota
+          SIM Card & Data
         </th>
 
         {/* Group 1: Komunikasi CPU – Modem (Apple Blue) */}
@@ -411,45 +413,45 @@ export default function ReportCellularPage() {
           colSpan={3}
           className="py-2 px-3 text-center border-r-2 border-r-blue-300 dark:border-r-blue-700 font-bold text-blue-900 dark:text-blue-200 bg-[#edf4ff] dark:bg-[#0c1e3d] border-b border-b-blue-200 dark:border-b-blue-800/60"
         >
-          Komunikasi CPU &ndash; Modem
+          CPU &ndash; Modem Communication
         </th>
 
-        {/* Group 2: Koneksi Jaringan (Apple Teal) */}
+        {/* Group 2: Network Connection (Apple Teal) */}
         <th
           colSpan={4}
           className="py-2 px-3 text-center border-r-2 border-r-teal-300 dark:border-r-teal-700 font-bold text-teal-900 dark:text-teal-200 bg-[#e6fbf5] dark:bg-[#062422] border-b border-b-teal-200 dark:border-b-teal-800/60"
         >
-          Koneksi Jaringan
+          Network Connection
         </th>
 
-        {/* Group 3: Periode Gangguan (Apple Purple) */}
+        {/* Group 3: Incident Period (Apple Purple) */}
         <th
           colSpan={2}
           className="py-2 px-3 text-center border-r-2 border-r-purple-300 dark:border-r-purple-700 font-bold text-purple-900 dark:text-purple-200 bg-[#f5f0ff] dark:bg-[#1a0f30] border-b border-b-purple-200 dark:border-b-purple-800/60"
         >
-          Periode Gangguan
+          Incident Period
         </th>
       </tr>
 
       {/* Level 2 Sub-headers */}
       <tr className="border-b border-slate-200/80 dark:border-slate-800/80 text-[11px] font-semibold">
-        {/* Under Perangkat Modem */}
+        {/* Under Modem Device */}
         <th className="py-2 px-3 text-center whitespace-nowrap text-indigo-900/90 dark:text-indigo-200 bg-[#f5f6ff] dark:bg-[#181a3a] border-r border-indigo-200/60 dark:border-indigo-900/50">
-          Nama
+          Name
         </th>
         <th className="py-2 px-3 text-center whitespace-nowrap text-indigo-900/90 dark:text-indigo-200 bg-[#f5f6ff] dark:bg-[#181a3a] border-r-2 border-r-indigo-300 dark:border-r-indigo-700/80">
-          Avg Suhu
+          Avg Temp
         </th>
 
-        {/* Under Kartu SIM & Kuota */}
+        {/* Under SIM Card & Data */}
         <th className="py-2 px-3 text-center whitespace-nowrap text-amber-900/90 dark:text-amber-200 bg-[#fffcf4] dark:bg-[#30220c] border-r border-amber-200/60 dark:border-amber-900/50">
           Provider
         </th>
         <th className="py-2 px-3.5 text-center whitespace-nowrap text-amber-900/90 dark:text-amber-200 bg-[#fffcf4] dark:bg-[#30220c] border-r border-amber-200/60 dark:border-amber-900/50">
-          No. SIM Card
+          SIM Card No.
         </th>
         <th className="py-2 px-3 text-center whitespace-nowrap text-amber-900/90 dark:text-amber-200 bg-[#fffcf4] dark:bg-[#30220c] border-r-2 border-r-amber-300 dark:border-r-amber-700/80">
-          Sisa Kuota
+          Remaining Quota
         </th>
 
         {/* Under CPU - Modem (Blue Sub-headers) */}
@@ -459,7 +461,7 @@ export default function ReportCellularPage() {
           Success Rate
         </th>
 
-        {/* Under Koneksi Jaringan (Teal Sub-headers) */}
+        {/* Under Network Connection (Teal Sub-headers) */}
         <th className="py-2 px-2.5 text-center text-[#00c875] bg-[#effcf8] dark:bg-[#041a18] border-r border-teal-200/60 dark:border-teal-900/50">Uptime</th>
         <th className="py-2 px-2.5 text-center text-[#e2445c] bg-[#effcf8] dark:bg-[#041a18] border-r border-teal-200/60 dark:border-teal-900/50">Offline</th>
         <th className="py-2 px-2.5 text-center whitespace-nowrap text-[#00c875] bg-[#effcf8] dark:bg-[#041a18] border-r border-teal-200/60 dark:border-teal-900/50">Success Rate</th>
@@ -467,10 +469,10 @@ export default function ReportCellularPage() {
           Avg RSRP (dBm)
         </th>
 
-        {/* Under Periode Gangguan (Purple Sub-headers) */}
-        <th className="py-2 px-2.5 text-center whitespace-nowrap text-purple-900 dark:text-purple-200 bg-[#f8f4ff] dark:bg-[#120a22] border-r border-purple-200/60 dark:border-purple-900/50">Jumlah Event</th>
+        {/* Under Incident Period (Purple Sub-headers) */}
+        <th className="py-2 px-2.5 text-center whitespace-nowrap text-purple-900 dark:text-purple-200 bg-[#f8f4ff] dark:bg-[#120a22] border-r border-purple-200/60 dark:border-purple-900/50">Total Events</th>
         <th className="py-2 px-3 whitespace-nowrap text-purple-900 dark:text-purple-200 bg-[#f8f4ff] dark:bg-[#120a22] border-r-2 border-r-purple-300 dark:border-r-purple-700">
-          Terakhir Offline
+          Last Update
         </th>
       </tr>
     </>
@@ -484,9 +486,10 @@ export default function ReportCellularPage() {
           inline
           search={filters.search || ""}
           onSearchChange={(val) => handleFilterChange("search", val)}
-          searchPlaceholder="Cari Gateway ID / Lokasi..."
+          searchPlaceholder="Search Gateway ID / Location..."
           filters={filterConfigs}
-          timeframe={filters.date_range || "01 Oct 2026 - 31 Oct 2026"}
+          timeframe={filters.date_range || getCurrentMonthPeriodStr()}
+
           onTimeframeClick={() => {}}
           onExportClick={handleExport}
         />

@@ -59,7 +59,7 @@ const CustomDonutTooltip = ({ active, payload }: any) => {
           <span className="font-semibold text-white">{data.value.toLocaleString()}</span>
         </div>
         <div className="text-slate-300 flex justify-between gap-3">
-          <span>Persentase:</span>
+          <span>Percentage:</span>
           <span className="font-semibold text-[#00c875]">{data.payload.percent}%</span>
         </div>
       </div>
@@ -92,8 +92,8 @@ const CustomLineTooltip = ({ active, payload, label, unit }: any) => {
 export default function CellularConnectivityPage() {
   const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState("");
-  const [typeFilter, setTypeFilter] = useState("Semua Tipe");
-  const [providerFilter, setProviderFilter] = useState("Semua Provider");
+  const [typeFilter, setTypeFilter] = useState("All Types");
+  const [providerFilter, setProviderFilter] = useState("All Providers");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [selectedGateways, setSelectedGateways] = useState<string[]>([]);
@@ -152,9 +152,9 @@ export default function CellularConnectivityPage() {
         setCurrentPage(1);
       },
       options: [
-        { label: "Semua Tipe", value: "Semua Tipe" },
-        { label: "SmartBox Hitam", value: "SmartBox Hitam" },
-        { label: "SmartBox Putih", value: "SmartBox Putih" },
+        { label: "All Types", value: "All Types" },
+        { label: "SmartBox Black", value: "SmartBox Hitam" },
+        { label: "SmartBox White", value: "SmartBox Putih" },
       ],
     },
     {
@@ -165,7 +165,7 @@ export default function CellularConnectivityPage() {
         setCurrentPage(1);
       },
       options: [
-        { label: "Semua Provider", value: "Semua Provider" },
+        { label: "All Providers", value: "All Providers" },
         { label: "Telkomsel", value: "Telkomsel" },
         { label: "Indosat Ooredoo", value: "Indosat Ooredoo" },
         { label: "XL Axiata", value: "XL Axiata" },
@@ -251,7 +251,7 @@ export default function CellularConnectivityPage() {
     },
     {
       id: "location",
-      header: "Lokasi",
+      header: "Location",
       accessorKey: "location",
       cell: (item) => (
         <span className="text-slate-700 dark:text-slate-300 font-medium">
@@ -261,7 +261,7 @@ export default function CellularConnectivityPage() {
     },
     {
       id: "type",
-      header: "Tipe",
+      header: "Type",
       cell: (item) => <DeviceTypeBadge type={item.type} />,
     },
     {
@@ -286,7 +286,7 @@ export default function CellularConnectivityPage() {
     },
     {
       id: "sim_status",
-      header: "Status SIM",
+      header: "SIM Status",
       accessorKey: "sim_status",
       cell: (item) => (
         <span className="font-mono text-slate-700 dark:text-slate-300 text-[11px]">
@@ -372,7 +372,7 @@ export default function CellularConnectivityPage() {
             setSearch(val);
             setCurrentPage(1);
           }}
-          searchPlaceholder="Cari Gateway ID, Provider, Lokasi..."
+          searchPlaceholder="Search Gateway ID, Provider, Location..."
           filters={filters}
           timeframe="Last 24 Hours"
           onTimeframeClick={() => {}}
@@ -411,7 +411,7 @@ export default function CellularConnectivityPage() {
             percentage={`${summary?.offline_percent ?? 10.5}%`}
           />
           <SummaryCard
-            title="SmartBox Hitam"
+            title="SmartBox Black"
             sublabel="(Raspberry Pi 3B+)"
             value={hitamTotal}
             deviceType="hitam"
@@ -423,7 +423,7 @@ export default function CellularConnectivityPage() {
             }}
           />
           <SummaryCard
-            title="SmartBox Putih"
+            title="SmartBox White"
             sublabel="(Rockchip RK3328)"
             value={putihTotal}
             deviceType="putih"
@@ -438,8 +438,8 @@ export default function CellularConnectivityPage() {
 
         {/* 3. Filterable & Paginated Daftar Gateway Table */}
         <DataTable
-          title="Daftar Gateway Cellular"
-          subtitle="Klik baris untuk membuka detail telemetry cellular di bawah"
+          title="Cellular Gateway List"
+          subtitle="Click a row to inspect cellular telemetry details below"
           data={gateways}
           columns={columns}
           keyField="id"

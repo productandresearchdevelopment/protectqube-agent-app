@@ -62,8 +62,8 @@ const CustomMetricTooltip = ({ active, payload, label, unit, color }: any) => {
 export default function SystemHealthPage() {
   const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState("");
-  const [typeFilter, setTypeFilter] = useState("Semua Tipe");
-  const [statusFilter, setStatusFilter] = useState("Semua Status");
+  const [typeFilter, setTypeFilter] = useState("All Types");
+  const [statusFilter, setStatusFilter] = useState("All Statuses");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [selectedGateways, setSelectedGateways] = useState<string[]>([]);
@@ -122,9 +122,9 @@ export default function SystemHealthPage() {
         setCurrentPage(1);
       },
       options: [
-        { label: "Semua Tipe", value: "Semua Tipe" },
-        { label: "SmartBox Hitam", value: "SmartBox Hitam" },
-        { label: "SmartBox Putih", value: "SmartBox Putih" },
+        { label: "All Types", value: "All Types" },
+        { label: "SmartBox Black", value: "SmartBox Hitam" },
+        { label: "SmartBox White", value: "SmartBox Putih" },
       ],
     },
     {
@@ -135,7 +135,7 @@ export default function SystemHealthPage() {
         setCurrentPage(1);
       },
       options: [
-        { label: "Semua Status", value: "Semua Status" },
+        { label: "All Statuses", value: "All Statuses" },
         { label: "Healthy", value: "Healthy" },
         { label: "Warning", value: "Warning" },
         { label: "Critical", value: "Critical" },
@@ -214,7 +214,7 @@ export default function SystemHealthPage() {
     },
     {
       id: "location",
-      header: "Lokasi",
+      header: "Location",
       accessorKey: "location",
       cell: (item) => (
         <span className="text-slate-700 dark:text-slate-300 font-medium">
@@ -224,7 +224,7 @@ export default function SystemHealthPage() {
     },
     {
       id: "type",
-      header: "Tipe",
+      header: "Type",
       cell: (item) => <DeviceTypeBadge type={item.type} />,
     },
     {
@@ -302,7 +302,7 @@ export default function SystemHealthPage() {
             setSearch(val);
             setCurrentPage(1);
           }}
-          searchPlaceholder="Cari Gateway ID atau Lokasi..."
+          searchPlaceholder="Search Gateway ID or Location..."
           filters={filters}
           timeframe="Last 24 Hours"
           onTimeframeClick={() => {}}
@@ -341,7 +341,7 @@ export default function SystemHealthPage() {
             percentage={`${summary?.critical_percent ?? 1.5}%`}
           />
           <SummaryCard
-            title="SmartBox Hitam"
+            title="SmartBox Black"
             sublabel="(Raspberry Pi 3B+)"
             value={hitamTotal}
             deviceType="hitam"
@@ -353,7 +353,7 @@ export default function SystemHealthPage() {
             }}
           />
           <SummaryCard
-            title="SmartBox Putih"
+            title="SmartBox White"
             sublabel="(Rockchip RK3328)"
             value={putihTotal}
             deviceType="putih"
@@ -368,8 +368,8 @@ export default function SystemHealthPage() {
 
         {/* 3. Filterable & Paginated Daftar Gateway Table */}
         <DataTable
-          title="Daftar Gateway"
-          subtitle="Klik baris untuk membuka detail telemetry di bawah"
+          title="Gateway List"
+          subtitle="Click a row to inspect telemetry details below"
           data={gateways}
           columns={columns}
           keyField="id"

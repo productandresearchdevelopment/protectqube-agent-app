@@ -86,7 +86,7 @@ export function DataTable<T extends Record<string, any>>({
   onPageSizeChange,
   pageSizeOptions = [10, 25, 50, 100],
   isLoading = false,
-  emptyMessage = "Tidak ada data yang ditemukan",
+  emptyMessage = "No data found",
   className = "",
   maxHeight,
 }: DataTableProps<T>) {

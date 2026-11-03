@@ -265,13 +265,13 @@ export const CellularDeviceDetailCard: React.FC<
   CellularDeviceDetailCardProps
 > = ({ gatewayId, onClose }) => {
   const [activeTab, setActiveTab] = useState<
-    | "Ringkasan"
+    | "Overview"
     | "CPU – Modem"
     | "Modem & SIM"
     | "Signal & Network"
     | "Temperatur"
     | "Event Log"
-  >("Ringkasan");
+  >("Overview");
 
   // Fetch telemetry detail for selected gateway from FastAPI
   const { data, isLoading } = useCellularGatewayDetail(gatewayId);
@@ -292,7 +292,7 @@ export const CellularDeviceDetailCard: React.FC<
   if (!data) {
     return (
       <div className="bg-white dark:bg-[#070e1d] rounded-2xl border border-slate-200 dark:border-slate-800/90 shadow-xl p-6 text-center text-slate-500 dark:text-slate-400 text-sm">
-        Data cellular untuk gateway {gatewayId} tidak ditemukan.
+        Cellular data for gateway {gatewayId} not found.
       </div>
     );
   }
@@ -300,14 +300,14 @@ export const CellularDeviceDetailCard: React.FC<
   const d = data;
 
   const tabs: Array<
-    | "Ringkasan"
+    | "Overview"
     | "CPU – Modem"
     | "Modem & SIM"
     | "Signal & Network"
     | "Temperatur"
     | "Event Log"
   > = [
-    "Ringkasan",
+    "Overview",
     "CPU – Modem",
     "Modem & SIM",
     "Signal & Network",
@@ -399,7 +399,7 @@ export const CellularDeviceDetailCard: React.FC<
             <button
               onClick={onClose}
               className="text-slate-400 hover:text-slate-700 dark:hover:text-white p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-              title="Tutup Detail"
+              title="Close Details"
             >
               <X className="size-4" />
             </button>
@@ -412,8 +412,52 @@ export const CellularDeviceDetailCard: React.FC<
         {/* ========================================================= */}
         {/* TAB 1: RINGKASAN */}
         {/* ========================================================= */}
-        {activeTab === "Ringkasan" && (
+        {activeTab === "Overview" && (
           <div className="space-y-4 animate-in fade-in duration-200">
+            {/* Incident Alert Banner (Tegangan drop, mati listrik, sim lepas, dll.) */}
+            {d.last_incident && (
+              <div
+                className={`p-3.5 rounded-xl border flex items-start gap-3 shadow-xs ${
+                  d.last_incident.status === "ACTIVE"
+                    ? "bg-rose-500/10 border-rose-500/30 text-rose-300"
+                    : "bg-amber-500/10 border-amber-500/30 text-amber-300"
+                }`}
+              >
+                <div
+                  className={`size-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
+                    d.last_incident.status === "ACTIVE"
+                      ? "bg-rose-500/20 text-rose-400"
+                      : "bg-amber-500/20 text-amber-400"
+                  }`}
+                >
+                  <AlertTriangle className="size-4" />
+                </div>
+                <div className="flex-1 min-w-0 text-xs">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-bold text-slate-900 dark:text-white">
+                      {d.last_incident.title}
+                    </span>
+                    {d.last_incident.duration && d.last_incident.duration !== "N/A" && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                        Downtime: {d.last_incident.duration}
+                      </span>
+                    )}
+                    <span className="text-[10px] text-slate-400 font-mono">
+                      {d.last_incident.time_wib}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-slate-600 dark:text-slate-300 leading-relaxed">
+                    {d.last_incident.message}
+                  </p>
+                  {d.last_incident.recommendation && (
+                    <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400 italic">
+                      Solution: {d.last_incident.recommendation}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* BARIS 1: 2 Kolom (9 Kolom Profile & Specs + 3 Kolom CPU-Modem Communication) */}
             <div className="grid grid-cols-1 xl:grid-cols-12 gap-3.5 items-stretch">
               {/* Kolom 1 (9 col): Device Profile & Specs (Spacious, No Text Overflow!) */}
@@ -962,7 +1006,7 @@ export const CellularDeviceDetailCard: React.FC<
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-slate-500 dark:text-slate-400">
-                      Status Operasi
+                      Operation Status
                     </span>
                     <span className="font-semibold text-emerald-500">
                       {d.service_status}
@@ -979,7 +1023,7 @@ export const CellularDeviceDetailCard: React.FC<
                 <div className="space-y-2 text-xs">
                   <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1.5">
                     <span className="text-slate-500 dark:text-slate-400">
-                      Status Kartu SIM
+                      SIM Card Status
                     </span>
                     <span className="font-semibold text-emerald-500 flex items-center gap-1">
                       <CheckCircle2 className="size-3.5" /> {d.sim_card}
@@ -1014,7 +1058,7 @@ export const CellularDeviceDetailCard: React.FC<
                   {d.network_sim.quota_info && (
                     <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1.5">
                       <span className="text-slate-500 dark:text-slate-400">
-                        Informasi Kuota
+                        Quota Information
                       </span>
                       <span className="font-medium text-emerald-600 dark:text-emerald-400">
                         {d.network_sim.quota_info}
@@ -1051,7 +1095,7 @@ export const CellularDeviceDetailCard: React.FC<
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
               <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-2">
                 <span className="text-xs text-slate-500 font-medium">
-                  Kekuatan Sinyal RSRP
+                  RSRP Signal Strength
                 </span>
                 <div className="text-2xl font-bold text-slate-900 dark:text-white font-mono">
                   {d.signal_strength.rsrp} dBm
@@ -1088,14 +1132,14 @@ export const CellularDeviceDetailCard: React.FC<
                   {d.network_sim.data_download}
                 </div>
                 <div className="text-xs text-emerald-500">
-                  Koneksi Aktif (Roaming: {d.network_sim.roaming})
+                  Active Connection (Roaming: {d.network_sim.roaming})
                 </div>
               </div>
             </div>
 
             <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-3">
               <div className="text-xs font-bold text-slate-900 dark:text-white">
-                Grafik Fluktuasi Sinyal (24 Jam Terakhir)
+                Signal Fluctuation Chart (Last 24 Hours)
               </div>
               <SparklineWave
                 data={d.signal_strength.sparkline}
@@ -1113,46 +1157,46 @@ export const CellularDeviceDetailCard: React.FC<
           <div className="space-y-4 animate-in fade-in duration-200">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-3.5">
               <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4">
-                <div className="text-xs text-slate-500">Suhu Saat Ini</div>
+                <div className="text-xs text-slate-500">Current Temperature</div>
                 <div className="text-2xl font-bold text-sky-400 font-mono mt-1">
                   {d.modem_temperature.temperature}°C
                 </div>
                 <div className="text-[11px] text-emerald-500 mt-1">
-                  Status Operasional Normal
+                  Normal Operational Status
                 </div>
               </div>
               <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4">
-                <div className="text-xs text-slate-500">Suhu Tertinggi</div>
+                <div className="text-xs text-slate-500">Max Temperature</div>
                 <div className="text-2xl font-bold text-rose-500 font-mono mt-1">
                   {d.modem_temperature.max_temp}
                 </div>
                 <div className="text-[11px] text-slate-400 mt-1">
-                  {d.modem_temperature.max_time || "Puncak Periode"}
+                  {d.modem_temperature.max_time || "Peak Period"}
                 </div>
               </div>
               <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4">
-                <div className="text-xs text-slate-500">Suhu Terendah</div>
+                <div className="text-xs text-slate-500">Min Temperature</div>
                 <div className="text-2xl font-bold text-blue-400 font-mono mt-1">
                   {d.modem_temperature.min_temp}
                 </div>
                 <div className="text-[11px] text-slate-400 mt-1">
-                  {d.modem_temperature.min_time || "Terendah Periode"}
+                  {d.modem_temperature.min_time || "Lowest Period"}
                 </div>
               </div>
               <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4">
-                <div className="text-xs text-slate-500">Rata-rata Periode</div>
+                <div className="text-xs text-slate-500">Period Average</div>
                 <div className="text-2xl font-bold text-slate-900 dark:text-white font-mono mt-1">
                   {d.modem_temperature.avg_temp}
                 </div>
                 <div className="text-[11px] text-slate-400 mt-1">
-                  Ambang Batas Maks: 85°C (Aman)
+                  Max Threshold: 85°C (Safe)
                 </div>
               </div>
             </div>
 
             <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-3">
               <div className="text-xs font-bold text-slate-900 dark:text-white">
-                Trend Termal Modem
+                Modem Thermal Trend
               </div>
               <SparklineWave
                 data={d.modem_temperature.sparkline}
@@ -1171,10 +1215,10 @@ export const CellularDeviceDetailCard: React.FC<
             <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="text-xs font-bold text-slate-900 dark:text-white">
-                  Riwayat Aktivitas & Event Selular
+                  Cellular Activity & Event History
                 </div>
                 <span className="text-[11px] text-slate-400">
-                  Total {(d.events && d.events.length) || 0} Aktivitas Terakhir
+                  Total {(d.events && d.events.length) || 0} Recent Activities
                 </span>
               </div>
               <div className="divide-y divide-slate-200 dark:divide-slate-800/60 text-xs">
@@ -1207,7 +1251,7 @@ export const CellularDeviceDetailCard: React.FC<
                   ))
                 ) : (
                   <div className="py-4 text-center text-slate-400 text-xs">
-                    Belum ada riwayat aktivitas telemetri untuk gateway ini.
+                    No telemetry activity history recorded for this gateway yet.
                   </div>
                 )}
               </div>

@@ -69,7 +69,6 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   const navContent = (isCollapsed: boolean) => (
     <div className="flex flex-col h-full justify-between select-none">
       <div>
-        {/* Brand & Logo Header in Sidebar */}
         <div
           className={`h-16 px-4 border-b border-[#1e4682]/70 flex items-center shrink-0 ${
             isCollapsed ? "justify-center" : "justify-between"
@@ -93,7 +92,6 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
           </button>
         </div>
 
-        {/* Navigation Menu */}
         <nav className={`p-3 ${isCollapsed ? "space-y-2 px-2" : "space-y-1.5"}`}>
           <Link
             href="/"
@@ -155,7 +153,6 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
             {!isCollapsed && <span>DVR & Recording</span>}
           </Link>
 
-          {/* Reports Accordion */}
           <div className="pt-0.5">
             <button
               type="button"
@@ -248,7 +245,6 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         </nav>
       </div>
 
-      {/* Footer Profile, Theme Toggle & Logout */}
       <div className="border-t border-[#1e4682]/70 p-3 bg-[#0d2347]/80">
         <div
           className={`flex items-center ${
@@ -272,7 +268,6 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
           </div>
 
           <div className="flex items-center gap-1 shrink-0">
-            {/* Theme Toggle beside Logout */}
             <button
               onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
               className="p-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
@@ -286,7 +281,6 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
               )}
             </button>
 
-            {/* Logout Button */}
             <button
               onClick={handleLogout}
               className="text-slate-300 hover:text-rose-400 p-1.5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
@@ -303,7 +297,6 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
 
   return (
     <div className="min-h-screen bg-[#f6f8fb] dark:bg-[#0c101d] flex text-slate-800 dark:text-slate-100 transition-colors">
-      {/* DESKTOP SIDEBAR (Rich Navy Blue #122d5a, Collapsible) */}
       <aside
         className={`hidden md:flex ${
           desktopCollapsed ? "w-20" : "w-64"
@@ -312,7 +305,6 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         {navContent(desktopCollapsed)}
       </aside>
 
-      {/* MOBILE SIDEBAR DRAWER */}
       <AnimatePresence>
         {mobileOpen && (
           <div className="fixed inset-0 z-50 md:hidden flex">
@@ -337,12 +329,9 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         )}
       </AnimatePresence>
 
-      {/* MAIN CONTENT AREA - NO TOP NAVBAR */}
       <main className="flex-1 min-h-screen flex flex-col overflow-x-hidden">
-        {/* TOP ROW: Perfectly aligned with sidebar header height (h-16) - NO DIVIDER LINE */}
         {(title || headerRight) && (
           <div className="h-16 px-4 md:px-6 flex items-center justify-between gap-3 shrink-0">
-            {/* Kiri: Button Collapse Sidebar + Title (Seimbang dengan Header Sidebar) */}
             <div className="flex items-center gap-2.5 shrink-0">
               <button
                 onClick={() => setMobileOpen(true)}
@@ -368,7 +357,6 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
               )}
             </div>
 
-            {/* Kanan: Filter-filter & Search sejajar di kanan */}
             {headerRight && (
               <div className="flex items-center gap-2 flex-wrap sm:ml-auto">
                 {headerRight}

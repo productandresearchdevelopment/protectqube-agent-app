@@ -57,7 +57,7 @@ const CustomDonutTooltip = ({ active, payload }: any) => {
           <span className="font-semibold text-white">{data.value.toLocaleString()}</span>
         </div>
         <div className="text-slate-300 flex justify-between gap-3">
-          <span>Persentase:</span>
+          <span>Percentage:</span>
           <span className="font-semibold text-[#00c875]">{data.payload.percent}%</span>
         </div>
       </div>
@@ -85,8 +85,8 @@ const CustomAreaTooltip = ({ active, payload, label }: any) => {
 export default function DVRRecordingPage() {
   const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState("");
-  const [typeFilter, setTypeFilter] = useState("Semua Tipe");
-  const [statusFilter, setStatusFilter] = useState("Semua Status");
+  const [typeFilter, setTypeFilter] = useState("All Types");
+  const [statusFilter, setStatusFilter] = useState("All Statuses");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [selectedGateways, setSelectedGateways] = useState<string[]>([]);
@@ -145,9 +145,9 @@ export default function DVRRecordingPage() {
         setCurrentPage(1);
       },
       options: [
-        { label: "Semua Tipe", value: "Semua Tipe" },
-        { label: "SmartBox Hitam", value: "SmartBox Hitam" },
-        { label: "SmartBox Putih", value: "SmartBox Putih" },
+        { label: "All Types", value: "All Types" },
+        { label: "SmartBox Black", value: "SmartBox Hitam" },
+        { label: "SmartBox White", value: "SmartBox Putih" },
       ],
     },
     {
@@ -158,7 +158,7 @@ export default function DVRRecordingPage() {
         setCurrentPage(1);
       },
       options: [
-        { label: "Semua Status", value: "Semua Status" },
+        { label: "All Statuses", value: "All Statuses" },
         { label: "Online", value: "Online" },
         { label: "Warning", value: "Warning" },
         { label: "Offline", value: "Offline" },
@@ -242,7 +242,7 @@ export default function DVRRecordingPage() {
     },
     {
       id: "location",
-      header: "Lokasi",
+      header: "Location",
       accessorKey: "location",
       cell: (item) => (
         <span className="text-slate-700 dark:text-slate-300 font-medium">
@@ -252,7 +252,7 @@ export default function DVRRecordingPage() {
     },
     {
       id: "type",
-      header: "Tipe",
+      header: "Type",
       cell: (item) => <DeviceTypeBadge type={item.type} />,
     },
     {
@@ -296,7 +296,7 @@ export default function DVRRecordingPage() {
     },
     {
       id: "camera_status",
-      header: "Status Kamera",
+      header: "Camera Status",
       align: "center",
       cell: (item) => {
         const isAllUp = item.kamera_online === item.total_kamera;
@@ -363,7 +363,7 @@ export default function DVRRecordingPage() {
             setSearch(val);
             setCurrentPage(1);
           }}
-          searchPlaceholder="Cari Gateway ID atau Lokasi..."
+          searchPlaceholder="Search Gateway ID or Location..."
           filters={filters}
           timeframe="Last 24 Hours"
           onTimeframeClick={() => {}}
@@ -402,7 +402,7 @@ export default function DVRRecordingPage() {
             percentage={`${summary?.offline_percent ?? 3.0}%`}
           />
           <SummaryCard
-            title="Total Kamera"
+            title="Total Cameras"
             value={summary ? summary.total_kamera : 8150}
             icon={Video}
             color="slate"
@@ -438,8 +438,8 @@ export default function DVRRecordingPage() {
 
         {/* 3. Filterable & Paginated Daftar Gateway Table */}
         <DataTable
-          title="Daftar Gateway DVR & Recording"
-          subtitle="Klik baris untuk membuka detail telemetry DVR & CCTV preview di bawah"
+          title="DVR & Recording Gateway List"
+          subtitle="Click a row to inspect DVR telemetry and CCTV previews below"
           data={gateways}
           columns={columns}
           keyField="id"

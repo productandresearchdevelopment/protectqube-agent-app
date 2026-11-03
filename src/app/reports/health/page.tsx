@@ -16,13 +16,15 @@ import {
 } from "@/components/ui";
 import { HealthReportDetailCard } from "@/components/reports/health/HealthReportDetailCard";
 import { Cpu } from "lucide-react";
+import { getCurrentMonthPeriodStr } from "@/lib/reportPeriodUtils";
 
 export default function ReportHealthPage() {
   const [filters, setFilters] = useState<IHealthReportFilters>({
     search: "",
-    type: "Semua Tipe",
-    location: "Semua Lokasi",
-    date_range: "01 Oct 2026 - 31 Oct 2026",
+    type: "All Types",
+    location: "All Locations",
+    date_range: getCurrentMonthPeriodStr(),
+
     page: 1,
     pageSize: 50,
   });
@@ -90,20 +92,20 @@ export default function ReportHealthPage() {
   const filterConfigs: IFilterConfig[] = [
     {
       id: "type",
-      value: filters.type || "Semua Tipe",
+      value: filters.type || "All Types",
       onChange: (val) => handleFilterChange("type", val),
       options: [
-        { label: "Semua Tipe", value: "Semua Tipe" },
-        { label: "SmartBox Hitam", value: "SmartBox Hitam" },
-        { label: "SmartBox Putih", value: "SmartBox Putih" },
+        { label: "All Types", value: "All Types" },
+        { label: "SmartBox Black", value: "SmartBox Hitam" },
+        { label: "SmartBox White", value: "SmartBox Putih" },
       ],
     },
     {
       id: "location",
-      value: filters.location || "Semua Lokasi",
+      value: filters.location || "All Locations",
       onChange: (val) => handleFilterChange("location", val),
       options: [
-        { label: "Semua Lokasi", value: "Semua Lokasi" },
+        { label: "All Locations", value: "All Locations" },
         { label: "Alfa Mart", value: "Alfa" },
         { label: "Indomaret", value: "IDM" },
         { label: "SPBU", value: "SPBU" },
@@ -157,7 +159,7 @@ export default function ReportHealthPage() {
       },
       {
         id: "location",
-        header: "Lokasi",
+        header: "Location",
         cell: (gw) => (
           <span className="text-slate-800 dark:text-slate-200 whitespace-nowrap">
             {gw.location}
@@ -166,7 +168,7 @@ export default function ReportHealthPage() {
       },
       {
         id: "tipe",
-        header: "Tipe",
+        header: "Type",
         className: "border-r-2 border-slate-300 dark:border-slate-700/80",
         cell: (gw) => {
           const isBlack = gw.type.includes("Hitam");
@@ -186,7 +188,7 @@ export default function ReportHealthPage() {
                 />
               </div>
               <span className="text-slate-700 dark:text-slate-300 text-[11px]">
-                {isBlack ? "Hitam" : "Putih"}
+                {isBlack ? "Black" : "White"}
               </span>
             </div>
           );
@@ -195,7 +197,7 @@ export default function ReportHealthPage() {
       // Group 1: CPU (Apple Blue Group)
       {
         id: "cpu_avg",
-        header: "Rata-rata",
+        header: "Average",
         className: "bg-blue-500/[0.025] dark:bg-blue-500/[0.04]",
         cell: (gw) => (
           <div className="flex items-center gap-1.5 whitespace-nowrap">
@@ -213,7 +215,7 @@ export default function ReportHealthPage() {
       },
       {
         id: "cpu_peak",
-        header: "Puncak",
+        header: "Peak",
         align: "center",
         className: "bg-blue-500/[0.025] dark:bg-blue-500/[0.04]",
         cell: (gw) => (
@@ -250,7 +252,7 @@ export default function ReportHealthPage() {
       // Group 2: RAM (Apple Teal Group)
       {
         id: "ram_avg",
-        header: "Rata-rata",
+        header: "Average",
         className: "bg-teal-500/[0.025] dark:bg-teal-500/[0.04]",
         cell: (gw) => (
           <div className="flex items-center gap-1.5 whitespace-nowrap">
@@ -268,7 +270,7 @@ export default function ReportHealthPage() {
       },
       {
         id: "ram_peak",
-        header: "Puncak",
+        header: "Peak",
         align: "center",
         className: "bg-teal-500/[0.025] dark:bg-teal-500/[0.04]",
         cell: (gw) => (
@@ -305,7 +307,7 @@ export default function ReportHealthPage() {
       // Group 3: SD Card Usage (Apple Amber Group)
       {
         id: "sd_usage_avg",
-        header: "Rata-rata",
+        header: "Average",
         align: "center",
         className: "bg-amber-500/[0.025] dark:bg-amber-500/[0.04]",
         cell: (gw) => (
@@ -316,7 +318,7 @@ export default function ReportHealthPage() {
       },
       {
         id: "sd_usage_peak",
-        header: "Puncak",
+        header: "Peak",
         align: "center",
         className: "bg-amber-500/[0.025] dark:bg-amber-500/[0.04]",
         cell: (gw) => (
@@ -371,10 +373,10 @@ export default function ReportHealthPage() {
         className: "bg-emerald-500/[0.025] dark:bg-emerald-500/[0.04] border-r-2 border-r-emerald-300 dark:border-r-emerald-700/80",
         cell: (gw) => getSdStatusBadge(gw.sd_health_status),
       },
-      // Group 5: Suhu Sistem (Apple Rose Group)
+      // Group 5: System Temperature (Apple Rose Group)
       {
         id: "temp_avg",
-        header: "Rata-rata",
+        header: "Average",
         align: "center",
         className: "bg-rose-500/[0.025] dark:bg-rose-500/[0.04]",
         cell: (gw) => (
@@ -385,7 +387,7 @@ export default function ReportHealthPage() {
       },
       {
         id: "temp_peak",
-        header: "Puncak",
+        header: "Peak",
         align: "center",
         className: "bg-rose-500/[0.025] dark:bg-rose-500/[0.04] border-r-2 border-r-rose-300 dark:border-r-rose-700/80",
         cell: (gw) => (
@@ -405,7 +407,7 @@ export default function ReportHealthPage() {
       // Trailing Group: Periode Gangguan (Apple Purple Group)
       {
         id: "incident_count",
-        header: "Jumlah Event",
+        header: "Total Events",
         align: "center",
         className: "bg-purple-500/[0.025] dark:bg-purple-500/[0.04]",
         cell: (gw) => (
@@ -448,10 +450,10 @@ export default function ReportHealthPage() {
           Gateway ID
         </th>
         <th rowSpan={2} className="py-2.5 px-4 whitespace-nowrap border-r border-slate-200/60 dark:border-slate-800/60">
-          Lokasi
+          Location
         </th>
         <th rowSpan={2} className="py-2.5 px-3 whitespace-nowrap border-r-2 border-r-slate-300 dark:border-r-slate-700/80">
-          Tipe
+          Type
         </th>
 
         {/* Group 1: CPU (Apple Blue Group) */}
@@ -486,42 +488,42 @@ export default function ReportHealthPage() {
           SD Card Health
         </th>
 
-        {/* Group 5: Suhu Sistem (Apple Rose Group) */}
+        {/* Group 5: System Temperature (Apple Rose Group) */}
         <th
           colSpan={2}
           className="py-2 px-3 text-center border-r-2 border-r-rose-300 dark:border-r-rose-700 font-bold text-rose-900 dark:text-rose-200 bg-[#fff1f2] dark:bg-[#2d0f14] border-b border-b-rose-200 dark:border-b-rose-800/60"
         >
-          Suhu Sistem
+          System Temperature
         </th>
 
         {/* Individual Trailing Columns (Apple Purple Group) */}
         <th rowSpan={2} className="py-2.5 px-3 text-center whitespace-nowrap border-r border-purple-200/60 dark:border-purple-900/50 font-bold bg-[#f5f0ff] dark:bg-[#1a0f30] text-purple-900 dark:text-purple-200">
-          Jumlah Event
+          Total Events
         </th>
         <th rowSpan={2} className="py-2.5 px-3.5 whitespace-nowrap border-r-2 border-r-purple-300 dark:border-r-purple-700 bg-[#f5f0ff] dark:bg-[#1a0f30] text-purple-900 dark:text-purple-200">
-          Terakhir Spike
+          Uptime
         </th>
       </tr>
 
       {/* Level 2 Sub-headers */}
       <tr className="border-b border-slate-200/80 dark:border-slate-800/80 text-[11px] font-semibold">
         {/* Under CPU (Blue Sub-headers) */}
-        <th className="py-2 px-2.5 text-center text-blue-900 dark:text-blue-200 bg-[#f4f8ff] dark:bg-[#08152b] border-r border-blue-200/60 dark:border-blue-900/50">Rata-rata</th>
-        <th className="py-2 px-2.5 text-center text-blue-900 dark:text-blue-200 bg-[#f4f8ff] dark:bg-[#08152b] border-r border-blue-200/60 dark:border-blue-900/50">Puncak</th>
+        <th className="py-2 px-2.5 text-center text-blue-900 dark:text-blue-200 bg-[#f4f8ff] dark:bg-[#08152b] border-r border-blue-200/60 dark:border-blue-900/50">Average</th>
+        <th className="py-2 px-2.5 text-center text-blue-900 dark:text-blue-200 bg-[#f4f8ff] dark:bg-[#08152b] border-r border-blue-200/60 dark:border-blue-900/50">Peak</th>
         <th className="py-2 px-2.5 text-center text-blue-900 dark:text-blue-200 bg-[#f4f8ff] dark:bg-[#08152b] border-r-2 border-r-blue-300 dark:border-r-blue-700">
           Throttle
         </th>
 
         {/* Under RAM (Teal Sub-headers) */}
-        <th className="py-2 px-2.5 text-center text-teal-900 dark:text-teal-200 bg-[#effcf8] dark:bg-[#041a18] border-r border-teal-200/60 dark:border-teal-900/50">Rata-rata</th>
-        <th className="py-2 px-2.5 text-center text-teal-900 dark:text-teal-200 bg-[#effcf8] dark:bg-[#041a18] border-r border-teal-200/60 dark:border-teal-900/50">Puncak</th>
+        <th className="py-2 px-2.5 text-center text-teal-900 dark:text-teal-200 bg-[#effcf8] dark:bg-[#041a18] border-r border-teal-200/60 dark:border-teal-900/50">Average</th>
+        <th className="py-2 px-2.5 text-center text-teal-900 dark:text-teal-200 bg-[#effcf8] dark:bg-[#041a18] border-r border-teal-200/60 dark:border-teal-900/50">Peak</th>
         <th className="py-2 px-2.5 text-center text-teal-900 dark:text-teal-200 bg-[#effcf8] dark:bg-[#041a18] border-r-2 border-r-teal-300 dark:border-r-teal-700">
           OOM
         </th>
 
         {/* Under SD Card Usage (Amber Sub-headers) */}
-        <th className="py-2 px-2.5 text-center text-amber-900 dark:text-amber-200 bg-[#fffdf5] dark:bg-[#1a0f02] border-r border-amber-200/60 dark:border-amber-900/50">Rata-rata</th>
-        <th className="py-2 px-2.5 text-center text-amber-900 dark:text-amber-200 bg-[#fffdf5] dark:bg-[#1a0f02] border-r border-amber-200/60 dark:border-amber-900/50">Puncak</th>
+        <th className="py-2 px-2.5 text-center text-amber-900 dark:text-amber-200 bg-[#fffdf5] dark:bg-[#1a0f02] border-r border-amber-200/60 dark:border-amber-900/50">Average</th>
+        <th className="py-2 px-2.5 text-center text-amber-900 dark:text-amber-200 bg-[#fffdf5] dark:bg-[#1a0f02] border-r border-amber-200/60 dark:border-amber-900/50">Peak</th>
         <th className="py-2 px-2.5 text-center text-amber-900 dark:text-amber-200 bg-[#fffdf5] dark:bg-[#1a0f02] border-r-2 border-r-amber-300 dark:border-r-amber-700">
           Free Space
         </th>
@@ -532,8 +534,8 @@ export default function ReportHealthPage() {
           Status
         </th>
 
-        {/* Under Suhu Sistem (Rose Sub-headers) */}
-        <th className="py-2 px-2.5 text-center text-rose-900 dark:text-rose-200 bg-[#fff5f5] dark:bg-[#1f0a0d] border-r border-rose-200/60 dark:border-rose-900/50">Rata-rata</th>
+        {/* Under System Temperature (Rose Sub-headers) */}
+        <th className="py-2 px-2.5 text-center text-rose-900 dark:text-rose-200 bg-[#fff5f5] dark:bg-[#1f0a0d] border-r border-rose-200/60 dark:border-rose-900/50">Average</th>
         <th className="py-2 px-2.5 text-center text-rose-900 dark:text-rose-200 bg-[#fff5f5] dark:bg-[#1f0a0d] border-r-2 border-r-rose-300 dark:border-r-rose-700">
           Puncak
         </th>
@@ -549,9 +551,10 @@ export default function ReportHealthPage() {
           inline
           search={filters.search || ""}
           onSearchChange={(val) => handleFilterChange("search", val)}
-          searchPlaceholder="Cari Gateway ID / Lokasi..."
+          searchPlaceholder="Search Gateway ID / Location..."
           filters={filterConfigs}
-          timeframe={filters.date_range || "01 Oct 2026 - 31 Oct 2026"}
+          timeframe={filters.date_range || getCurrentMonthPeriodStr()}
+
           onTimeframeClick={() => {}}
           onExportClick={handleExport}
         />

@@ -20,6 +20,8 @@ import {
   IDVRReportGatewayDetail,
 } from "@/store/api/monitoring";
 import { SmartBoxIsometricIllustration } from "@/components/ui/SmartBoxIllustration";
+import { parseReportPeriod } from "@/lib/reportPeriodUtils";
+
 
 interface DVRReportDetailCardProps {
   gatewayId: string | null;
@@ -39,20 +41,21 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
     dayNumStr: string;
     dateKey: string;
     fullDate: string;
-    gwStatus: "online" | "offline" | "degraded";
-    cellStatus: "online" | "offline" | "degraded";
-    dvrStatus: "online" | "offline" | "degraded";
+    gwStatus: "online" | "offline" | "degraded" | "future";
+    cellStatus: "online" | "offline" | "degraded" | "future";
+    dvrStatus: "online" | "offline" | "degraded" | "future";
     eventsCount: number;
     isToday: boolean;
+    isFuture?: boolean;
   } | null>(null);
 
-  // Generate 31 daily status points for Gateway, Cellular, and DVR
-  const dailyMultiTrack = useMemo(() => {
-    const daysInMonth = 31;
-    const monthStr = "Oct";
-    const yearStr = "2026";
-    const todayDay = 31;
+  const periodInfo = useMemo(() => {
+    return parseReportPeriod(data?.period || dateRange);
+  }, [data?.period, dateRange]);
 
+  // Generate dynamic daily status points for Gateway, Cellular, and DVR based on active report month (full month, status only up to today)
+  const dailyMultiTrack = useMemo(() => {
+    const { daysInMonth, monthStr, yearStr, todayDay, isCurrentMonth } = periodInfo;
     const events = data?.trouble_events || [];
 
     const list = [];
@@ -61,34 +64,40 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
       const dateKey = `${dayNumStr} ${monthStr}`;
       const fullDate = `${dayNumStr} ${monthStr} ${yearStr}`;
 
-      const dayEvents = events.filter((ev) => {
-        const trimmed = (ev.start_time || "").trim();
-        return trimmed.startsWith(dateKey) || trimmed.startsWith(`${day} ${monthStr}`);
-      });
+      const isFuture = Boolean(isCurrentMonth && todayDay && day > todayDay);
+
+      const dayEvents = isFuture
+        ? []
+        : events.filter((ev) => {
+            const trimmed = (ev.start_time || "").trim();
+            return trimmed.startsWith(dateKey) || trimmed.startsWith(`${day} ${monthStr}`);
+          });
 
       // Status per track
-      let gwStatus: "online" | "offline" | "degraded" = "online";
-      let cellStatus: "online" | "offline" | "degraded" = "online";
-      let dvrStatus: "online" | "offline" | "degraded" = "online";
+      let gwStatus: "online" | "offline" | "future" = isFuture ? "future" : "online";
+      let cellStatus: "online" | "offline" | "future" = isFuture ? "future" : "online";
+      let dvrStatus: "online" | "offline" | "future" = isFuture ? "future" : "online";
 
-      for (const ev of dayEvents) {
-        const cat = (ev.category || "").toLowerCase();
-        const desc = (ev.description || "").toLowerCase();
-        if (cat.includes("gateway") || desc.includes("gateway") || desc.includes("power")) {
-          gwStatus = "offline";
+      if (!isFuture) {
+        for (const ev of dayEvents) {
+          const cat = (ev.category || "").toLowerCase();
+          const desc = (ev.description || "").toLowerCase();
+          if (cat.includes("gateway") || desc.includes("gateway") || desc.includes("power")) {
+            gwStatus = "offline";
+          }
+          if (cat.includes("cellular") || desc.includes("sim") || desc.includes("modem")) {
+            cellStatus = "offline";
+          }
+          if (cat.includes("dvr") || cat.includes("camera") || desc.includes("recording") || desc.includes("nvr")) {
+            dvrStatus = "offline";
+          }
         }
-        if (cat.includes("cellular") || desc.includes("sim") || desc.includes("modem")) {
+
+        // If gateway is down, all downstream are impacted
+        if (gwStatus === "offline") {
           cellStatus = "offline";
-        }
-        if (cat.includes("dvr") || cat.includes("camera") || desc.includes("recording") || desc.includes("nvr")) {
           dvrStatus = "offline";
         }
-      }
-
-      // If gateway is down, all downstream are impacted
-      if (gwStatus === "offline") {
-        cellStatus = "offline";
-        dvrStatus = "offline";
       }
 
       list.push({
@@ -101,11 +110,13 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
         dvrStatus,
         eventsCount: dayEvents.length,
         isToday: day === todayDay,
+        isFuture,
       });
     }
 
     return list;
-  }, [data?.trouble_events]);
+  }, [data?.trouble_events, periodInfo]);
+
 
   // Unique dates for trouble event filter dropdown
   const uniqueDates = useMemo(() => {
@@ -144,7 +155,7 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
   if (!data) {
     return (
       <div className="bg-white dark:bg-[#070e1d] rounded-2xl border border-slate-200 dark:border-slate-800/90 shadow-xl p-6 text-center text-slate-500 dark:text-slate-400 text-sm">
-        Data performa DVR untuk gateway {gatewayId} tidak ditemukan.
+        DVR performance data for gateway {gatewayId} not found.
       </div>
     );
   }
@@ -172,7 +183,7 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
           <button
             onClick={onClose}
             className="text-slate-400 hover:text-slate-700 dark:hover:text-white p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-colors cursor-pointer"
-            title="Tutup Detail"
+            title="Close Details"
           >
             <X className="size-4" />
           </button>
@@ -197,7 +208,7 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
 
             <div className="space-y-1.5 text-xs text-slate-600 dark:text-slate-300 font-normal pt-1">
               <div className="grid grid-cols-[100px_1fr] items-center">
-                <span className="text-slate-500 dark:text-slate-400 text-[11px]">Tipe</span>
+                <span className="text-slate-500 dark:text-slate-400 text-[11px]">Type</span>
                 <span className="text-slate-800 dark:text-slate-200 text-[11px] font-medium truncate">: {d.type}</span>
               </div>
               <div className="grid grid-cols-[100px_1fr] items-center">
@@ -205,15 +216,15 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
                 <span className="text-slate-800 dark:text-slate-200 text-[11px] font-medium truncate">: {d.dvr_model}</span>
               </div>
               <div className="grid grid-cols-[100px_1fr] items-center">
-                <span className="text-slate-500 dark:text-slate-400 text-[11px]">Jumlah Kamera</span>
+                <span className="text-slate-500 dark:text-slate-400 text-[11px]">Camera Count</span>
                 <span className="text-slate-800 dark:text-slate-200 text-[11px] font-medium">: {d.kamera_channels}</span>
               </div>
               <div className="grid grid-cols-[100px_1fr] items-center">
-                <span className="text-slate-500 dark:text-slate-400 text-[11px]">Kapasitas HDD</span>
+                <span className="text-slate-500 dark:text-slate-400 text-[11px]">HDD Capacity</span>
                 <span className="text-slate-800 dark:text-slate-200 text-[11px] font-medium">: {d.storage_capacity}</span>
               </div>
               <div className="grid grid-cols-[100px_1fr] items-start">
-                <span className="text-slate-500 dark:text-slate-400 text-[11px]">Lokasi</span>
+                <span className="text-slate-500 dark:text-slate-400 text-[11px]">Location</span>
                 <span className="text-slate-800 dark:text-slate-200 text-[11px] font-medium truncate">: {d.location}</span>
               </div>
             </div>
@@ -227,11 +238,11 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
               <div className="size-6 rounded-md bg-slate-200/80 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300">
                 <Calendar className="size-3.5" />
               </div>
-              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Periode</span>
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Period</span>
             </div>
             <div className="mt-2.5">
               <div className="text-xs font-bold text-slate-900 dark:text-white leading-tight">
-                {d.period}
+                {periodInfo.effectivePeriodStr}
               </div>
               <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
                 {d.period_hours}
@@ -293,17 +304,17 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
             </div>
           </div>
 
-          {/* Card 5: Total Gangguan */}
+          {/* Card 5: Total Incidents */}
           <div className="bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-3 flex flex-col justify-between shadow-xs">
             <div className="flex items-center gap-2">
               <div className="size-6 rounded-md bg-amber-500/15 flex items-center justify-center text-[#f59e0b]">
                 <AlertCircle className="size-3.5" />
               </div>
-              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate">Total Gangguan</span>
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate">Total Incidents</span>
             </div>
             <div className="mt-2.5">
               <div className="text-sm font-bold text-[#f59e0b] leading-tight">
-                {d.trouble_events?.length || 0} event
+                {d.trouble_events?.length || 0} events
               </div>
             </div>
           </div>
@@ -326,13 +337,13 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
             </div>
           </div>
 
-          {/* Card 7: Tidak Merekam */}
+          {/* Card 7: Not Recording */}
           <div className="bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-3 flex flex-col justify-between shadow-xs">
             <div className="flex items-center gap-2">
               <div className="size-6 rounded-md bg-amber-500/15 flex items-center justify-center text-[#f59e0b]">
                 <Pause className="size-3.5" />
               </div>
-              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate">Tidak Merekam</span>
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate">Not Recording</span>
             </div>
             <div className="mt-2.5">
               <div className="text-sm font-bold text-[#f59e0b] leading-tight">
@@ -394,7 +405,7 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
               <div className="size-6 rounded-md bg-cyan-500/15 flex items-center justify-center text-[#00d2ff]">
                 <Video className="size-3.5" />
               </div>
-              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate">Kamera</span>
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate">Camera</span>
             </div>
             <div className="mt-2">
               <div className="flex items-center justify-between gap-1">
@@ -429,7 +440,7 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
         </div>
       </div>
 
-      {/* 3. Bottom Section: Multi-Track Timeline Status & Riwayat Gangguan */}
+      {/* 3. Bottom Section: Multi-Track Timeline Status & Incident History */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
         {/* Left Column (lg:col-span-6): Multi-Track Timeline (Gateway, Cellular, DVR) with All 31 Days */}
         <div className="lg:col-span-6 bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 flex flex-col justify-between shadow-xs">
@@ -438,10 +449,10 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
             <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200 dark:border-slate-800/60">
               <div className="flex items-center gap-2">
                 <h4 className="text-xs font-bold text-slate-900 dark:text-white">
-                  Timeline Status ({d.period})
+                  Timeline Status ({periodInfo.effectivePeriodStr})
                 </h4>
                 <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 bg-slate-200/60 dark:bg-slate-800 px-2 py-0.5 rounded-full">
-                  31 Hari
+                  {dailyMultiTrack.length} Days
                 </span>
               </div>
               <div className="flex items-center gap-3 text-[11px] text-slate-600 dark:text-slate-300">
@@ -455,33 +466,37 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
                 </span>
                 <span className="flex items-center gap-1.5">
                   <span className="size-2 rounded-full bg-blue-500" />
-                  Hari Ini
+                  Today
                 </span>
               </div>
             </div>
 
-            {/* 31-Day Multi-Track Timeline Matrix Card */}
+            {/* Dynamic Multi-Track Timeline Matrix Card */}
             <div className="mt-3.5 p-3.5 rounded-xl bg-white dark:bg-[#070e1d] border border-slate-200/90 dark:border-slate-800/80 shadow-xs space-y-2">
               {/* RULER / HEADER TANGGAL DI ATAS */}
               <div className="flex items-center gap-2">
                 <div className="w-16 shrink-0 text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
                   Track
                 </div>
-                <div className="flex-1 grid grid-cols-31 gap-0.5 sm:gap-1">
+                <div
+                  className="flex-1 grid gap-0.5 sm:gap-1"
+                  style={{ gridTemplateColumns: `repeat(${dailyMultiTrack.length}, minmax(0, 1fr))` }}
+                >
                   {dailyMultiTrack.map((item) => (
                     <div
                       key={item.day}
                       onClick={() => {
+                        if (item.isFuture) return;
                         if (selectedEventDate === item.dateKey) {
                           setSelectedEventDate("ALL");
                         } else {
                           setSelectedEventDate(item.dateKey);
                         }
                       }}
-                      onMouseEnter={() => setHoveredDay(item)}
+                      onMouseEnter={() => !item.isFuture && setHoveredDay(item)}
                       onMouseLeave={() => setHoveredDay(null)}
-                      className="text-center cursor-pointer select-none"
-                      title={item.fullDate}
+                      className={`text-center select-none ${item.isFuture ? "cursor-default" : "cursor-pointer"}`}
+                      title={item.isFuture ? `${item.fullDate}` : item.fullDate}
                     >
                       <span
                         className={`text-[9px] font-mono block leading-none transition-all ${
@@ -489,6 +504,8 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
                             ? "font-extrabold text-blue-600 dark:text-blue-400 bg-blue-500/20 px-0.5 py-0.5 rounded ring-1 ring-blue-500/50 scale-110 shadow-xs"
                             : selectedEventDate === item.dateKey
                             ? "font-bold text-amber-500 dark:text-amber-400"
+                            : item.isFuture
+                            ? "text-slate-400 dark:text-slate-600 opacity-60"
                             : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
                         }`}
                       >
@@ -504,33 +521,39 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
                 <div className="w-16 shrink-0 text-[11px] font-semibold text-slate-700 dark:text-slate-300 truncate">
                   Gateway
                 </div>
-                <div className="flex-1 grid grid-cols-31 gap-0.5 sm:gap-1">
+                <div
+                  className="flex-1 grid gap-0.5 sm:gap-1"
+                  style={{ gridTemplateColumns: `repeat(${dailyMultiTrack.length}, minmax(0, 1fr))` }}
+                >
                   {dailyMultiTrack.map((item) => (
                     <div
                       key={item.day}
                       onClick={() => {
+                        if (item.isFuture) return;
                         if (selectedEventDate === item.dateKey) {
                           setSelectedEventDate("ALL");
                         } else {
                           setSelectedEventDate(item.dateKey);
                         }
                       }}
-                      onMouseEnter={() => setHoveredDay(item)}
+                      onMouseEnter={() => !item.isFuture && setHoveredDay(item)}
                       onMouseLeave={() => setHoveredDay(null)}
-                      className={`h-5.5 rounded-xs cursor-pointer transition-all ${
-                        item.gwStatus === "offline"
-                          ? "bg-[#e2445c] hover:bg-[#ff4d6d]"
-                          : "bg-[#00c875] hover:bg-[#05e287]"
+                      className={`h-5.5 rounded-xs transition-all ${
+                        item.isFuture
+                          ? "bg-slate-200/30 dark:bg-slate-800/30 cursor-default"
+                          : item.gwStatus === "offline"
+                          ? "bg-[#e2445c] hover:bg-[#ff4d6d] cursor-pointer"
+                          : "bg-[#00c875] hover:bg-[#05e287] cursor-pointer"
                       } ${
-                        item.isToday
+                        item.isToday && !item.isFuture
                           ? "ring-1.5 ring-blue-500 shadow-xs"
                           : ""
                       } ${
                         selectedEventDate === item.dateKey
                           ? "ring-2 ring-amber-400 scale-105"
-                          : "hover:scale-105"
+                          : !item.isFuture ? "hover:scale-105" : ""
                       }`}
-                      title={`Gateway ${item.dayNumStr} Oct: ${item.gwStatus === "offline" ? "Offline" : "Online"}`}
+                      title={item.isFuture ? `${item.fullDate}` : `Gateway ${item.dayNumStr} ${periodInfo.monthStr}: ${item.gwStatus === "offline" ? "Offline" : "Online"}`}
                     />
                   ))}
                 </div>
@@ -541,33 +564,39 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
                 <div className="w-16 shrink-0 text-[11px] font-semibold text-slate-700 dark:text-slate-300 truncate">
                   Cellular
                 </div>
-                <div className="flex-1 grid grid-cols-31 gap-0.5 sm:gap-1">
+                <div
+                  className="flex-1 grid gap-0.5 sm:gap-1"
+                  style={{ gridTemplateColumns: `repeat(${dailyMultiTrack.length}, minmax(0, 1fr))` }}
+                >
                   {dailyMultiTrack.map((item) => (
                     <div
                       key={item.day}
                       onClick={() => {
+                        if (item.isFuture) return;
                         if (selectedEventDate === item.dateKey) {
                           setSelectedEventDate("ALL");
                         } else {
                           setSelectedEventDate(item.dateKey);
                         }
                       }}
-                      onMouseEnter={() => setHoveredDay(item)}
+                      onMouseEnter={() => !item.isFuture && setHoveredDay(item)}
                       onMouseLeave={() => setHoveredDay(null)}
-                      className={`h-5.5 rounded-xs cursor-pointer transition-all ${
-                        item.cellStatus === "offline"
-                          ? "bg-[#e2445c] hover:bg-[#ff4d6d]"
-                          : "bg-[#00c875] hover:bg-[#05e287]"
+                      className={`h-5.5 rounded-xs transition-all ${
+                        item.isFuture
+                          ? "bg-slate-200/30 dark:bg-slate-800/30 cursor-default"
+                          : item.cellStatus === "offline"
+                          ? "bg-[#e2445c] hover:bg-[#ff4d6d] cursor-pointer"
+                          : "bg-[#00c875] hover:bg-[#05e287] cursor-pointer"
                       } ${
-                        item.isToday
+                        item.isToday && !item.isFuture
                           ? "ring-1.5 ring-blue-500 shadow-xs"
                           : ""
                       } ${
                         selectedEventDate === item.dateKey
                           ? "ring-2 ring-amber-400 scale-105"
-                          : "hover:scale-105"
+                          : !item.isFuture ? "hover:scale-105" : ""
                       }`}
-                      title={`Cellular ${item.dayNumStr} Oct: ${item.cellStatus === "offline" ? "Offline" : "Online"}`}
+                      title={item.isFuture ? `${item.fullDate}` : `Cellular ${item.dayNumStr} ${periodInfo.monthStr}: ${item.cellStatus === "offline" ? "Offline" : "Online"}`}
                     />
                   ))}
                 </div>
@@ -578,33 +607,39 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
                 <div className="w-16 shrink-0 text-[11px] font-semibold text-slate-700 dark:text-slate-300 truncate">
                   DVR
                 </div>
-                <div className="flex-1 grid grid-cols-31 gap-0.5 sm:gap-1">
+                <div
+                  className="flex-1 grid gap-0.5 sm:gap-1"
+                  style={{ gridTemplateColumns: `repeat(${dailyMultiTrack.length}, minmax(0, 1fr))` }}
+                >
                   {dailyMultiTrack.map((item) => (
                     <div
                       key={item.day}
                       onClick={() => {
+                        if (item.isFuture) return;
                         if (selectedEventDate === item.dateKey) {
                           setSelectedEventDate("ALL");
                         } else {
                           setSelectedEventDate(item.dateKey);
                         }
                       }}
-                      onMouseEnter={() => setHoveredDay(item)}
+                      onMouseEnter={() => !item.isFuture && setHoveredDay(item)}
                       onMouseLeave={() => setHoveredDay(null)}
-                      className={`h-5.5 rounded-xs cursor-pointer transition-all ${
-                        item.dvrStatus === "offline"
-                          ? "bg-[#e2445c] hover:bg-[#ff4d6d]"
-                          : "bg-[#00c875] hover:bg-[#05e287]"
+                      className={`h-5.5 rounded-xs transition-all ${
+                        item.isFuture
+                          ? "bg-slate-200/30 dark:bg-slate-800/30 cursor-default"
+                          : item.dvrStatus === "offline"
+                          ? "bg-[#e2445c] hover:bg-[#ff4d6d] cursor-pointer"
+                          : "bg-[#00c875] hover:bg-[#05e287] cursor-pointer"
                       } ${
-                        item.isToday
+                        item.isToday && !item.isFuture
                           ? "ring-1.5 ring-blue-500 shadow-xs"
                           : ""
                       } ${
                         selectedEventDate === item.dateKey
                           ? "ring-2 ring-amber-400 scale-105"
-                          : "hover:scale-105"
+                          : !item.isFuture ? "hover:scale-105" : ""
                       }`}
-                      title={`DVR ${item.dayNumStr} Oct: ${item.dvrStatus === "offline" ? "Offline" : "Online"}`}
+                      title={item.isFuture ? `${item.fullDate}` : `DVR ${item.dayNumStr} ${periodInfo.monthStr}: ${item.dvrStatus === "offline" ? "Offline" : "Online"}`}
                     />
                   ))}
                 </div>
@@ -618,7 +653,7 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
                       {hoveredDay.fullDate}
                       {hoveredDay.isToday && (
                         <span className="ml-1.5 px-1.5 py-0.2 rounded text-[10px] font-bold bg-blue-500/20 text-blue-500">
-                          Hari Ini
+                          Today
                         </span>
                       )}
                       :
@@ -638,12 +673,13 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
                       <strong className={hoveredDay.dvrStatus === "offline" ? "text-[#e2445c]" : "text-[#00c875]"}>
                         {hoveredDay.dvrStatus === "offline" ? "Offline" : "Online"}
                       </strong>
-                      {hoveredDay.eventsCount > 0 && ` (${hoveredDay.eventsCount} event gangguan)`}
+                      {hoveredDay.eventsCount > 0 && ` (${hoveredDay.eventsCount} incident events)`}
                     </span>
                   </div>
                 ) : (
                   <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between w-full">
-                    <span>Arahkan kursor atau klik tanggal (01 - 31) untuk memfilter detail gangguan.</span>
+                    <span>Hover or click a date (01 - {dailyMultiTrack.length}) to filter incident details.</span>
+
                     {selectedEventDate !== "ALL" && (
                       <button
                         onClick={() => setSelectedEventDate("ALL")}
@@ -659,13 +695,13 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
           </div>
         </div>
 
-        {/* Right Column (lg:col-span-6): Riwayat Gangguan Table with Date Selector & Scrollable 10 Rows */}
+        {/* Right Column (lg:col-span-6): Incident History Table with Date Selector & Scrollable 10 Rows */}
         <div className="lg:col-span-6 bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 flex flex-col justify-between shadow-xs">
           <div>
             <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200 dark:border-slate-800/60">
               <div className="flex items-center gap-2">
                 <h4 className="text-xs font-bold text-slate-900 dark:text-white">
-                  Riwayat Gangguan
+                  Incident History
                 </h4>
                 <span className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-500/10 dark:bg-amber-500/20 px-2 py-0.5 rounded-full border border-amber-500/30">
                   {filteredEvents.length} event
@@ -674,18 +710,18 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
 
               {/* Date Selector Dropdown for Daily Filtering */}
               <div className="flex items-center gap-1.5">
-                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Filter Tanggal:</span>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Filter Date:</span>
                 <select
                   value={selectedEventDate}
                   onChange={(e) => setSelectedEventDate(e.target.value)}
                   className="text-xs font-medium bg-white dark:bg-[#070e1d] border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer shadow-xs"
                 >
-                  <option value="ALL">Semua Tanggal ({(d.trouble_events || []).length})</option>
+                  <option value="ALL">All Dates ({(d.trouble_events || []).length})</option>
                   {uniqueDates.map((dateStr) => {
                     const count = (d.trouble_events || []).filter((e) => e.start_time.startsWith(dateStr)).length;
                     return (
                       <option key={dateStr} value={dateStr}>
-                        {dateStr} ({count} event)
+                        {dateStr} ({count} events)
                       </option>
                     );
                   })}
@@ -693,49 +729,59 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
               </div>
             </div>
 
-            {/* Scrollable Compact Table (max 10 rows visible) */}
+            {/* Scrollable Compact Table */}
             <div className="overflow-x-auto mt-2 max-h-87.5 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700">
               <table className="w-full text-left text-xs border-collapse">
                 <thead className="sticky top-0 z-10 bg-slate-100 dark:bg-[#0a1224] shadow-xs">
                   <tr className="text-[11px] text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800/60 font-semibold">
-                    <th className="py-2 px-2 text-center w-8">No.</th>
-                    <th className="py-2 px-3">Mulai</th>
-                    <th className="py-2 px-3">Selesai</th>
-                    <th className="py-2 px-3 text-center">Durasi</th>
-                    <th className="py-2 px-3">Kategori</th>
-                    <th className="py-2 px-3">Keterangan</th>
+                    <th className="py-2.5 px-2 text-center w-8">No.</th>
+                    <th className="py-2.5 px-3">Incident Time</th>
+                    <th className="py-2.5 px-3">Incident / Issue</th>
+                    <th className="py-2.5 px-3 text-center">Duration</th>
+                    <th className="py-2.5 px-3 text-center">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 dark:divide-slate-800/40 text-[11px]">
-                  {filteredEvents.map((event, idx) => (
-                    <tr
-                      key={event.no || idx}
-                      className="hover:bg-slate-100/80 dark:hover:bg-slate-800/30 transition-colors"
-                    >
-                      <td className="py-2 px-2 text-center text-slate-500 dark:text-slate-400 font-mono">
-                        {idx + 1}
-                      </td>
-                      <td className="py-2 px-3 text-slate-700 dark:text-slate-300 font-mono whitespace-nowrap">
-                        {event.start_time}
-                      </td>
-                      <td className="py-2 px-3 text-slate-700 dark:text-slate-300 font-mono whitespace-nowrap">
-                        {event.end_time}
-                      </td>
-                      <td className="py-2 px-3 text-center font-bold text-[#f59e0b] whitespace-nowrap">
-                        {event.duration}
-                      </td>
-                      <td className="py-2 px-3 text-slate-800 dark:text-slate-200 font-medium whitespace-nowrap">
-                        {event.category}
-                      </td>
-                      <td className="py-2 px-3 text-slate-700 dark:text-slate-300 truncate max-w-42.5" title={event.description}>
-                        {event.description}
-                      </td>
-                    </tr>
-                  ))}
+                  {filteredEvents.map((event, idx) => {
+                    const isStillActive = event.end_time === "-" || event.end_time?.toLowerCase().includes("sekarang");
+                    return (
+                      <tr
+                        key={event.no || idx}
+                        className="hover:bg-slate-100/80 dark:hover:bg-slate-800/30 transition-colors"
+                      >
+                        <td className="py-2.5 px-2 text-center text-slate-500 dark:text-slate-400 font-mono">
+                          {idx + 1}
+                        </td>
+                        <td className="py-2.5 px-3 text-slate-700 dark:text-slate-300 font-mono whitespace-nowrap">
+                          <div>{event.start_time}</div>
+                          <div className="text-[10px] text-slate-500 dark:text-slate-400">to {event.end_time}</div>
+                        </td>
+                        <td className="py-2.5 px-3 font-semibold text-slate-900 dark:text-slate-100">
+                          {event.title || event.description || event.cause}
+                        </td>
+                        <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md font-bold text-xs bg-amber-500/10 dark:bg-amber-500/20 text-[#f59e0b] border border-amber-500/30">
+                            {event.duration}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                          {isStillActive ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/15 text-[#e2445c] border border-rose-500/30 animate-pulse">
+                              Active
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-[#00c875] border border-emerald-500/30">
+                              Resolved
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                   {filteredEvents.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="py-6 text-center text-slate-500 dark:text-slate-400 text-xs">
-                        Tidak ada riwayat gangguan pada tanggal yang dipilih.
+                      <td colSpan={5} className="py-6 text-center text-slate-500 dark:text-slate-400 text-xs">
+                        No incident history found for the selected date.
                       </td>
                     </tr>
                   )}

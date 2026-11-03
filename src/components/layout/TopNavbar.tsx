@@ -35,9 +35,9 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({ title, onOpenMobile }) => 
   const handleRefresh = async () => {
     try {
       await triggerMutation.mutateAsync();
-      toast.success("Diagnosa hardware SmartBox berhasil diperbarui!");
+      toast.success("SmartBox hardware diagnostics refreshed successfully!");
     } catch {
-      toast.error("Gagal melakukan diagnosa hardware.");
+      toast.error("Failed to refresh hardware diagnostics.");
     }
   };
 
@@ -70,7 +70,7 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({ title, onOpenMobile }) => 
             </div>
           </div>
           <p className="text-[11px] text-slate-500 hidden md:block">
-            SmartBox Hitam & Putih Diagnostics • MQTT Realtime
+            SmartBox Black & White Diagnostics • Realtime MQTT
           </p>
         </div>
       </div>

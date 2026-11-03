@@ -36,7 +36,6 @@ interface DVRDeviceDetailCardProps {
   onClose?: () => void;
 }
 
-// Mini Circular Donut Gauge Component
 const CircularGauge = ({
   percent,
   strokeColor,
@@ -55,7 +54,6 @@ const CircularGauge = ({
   return (
     <div className="relative w-18 h-18 flex items-center justify-center shrink-0">
       <svg className="w-18 h-18 -rotate-90 transform" viewBox="0 0 76 76">
-        {/* Background Track */}
         <circle
           cx="38"
           cy="38"
@@ -64,7 +62,6 @@ const CircularGauge = ({
           strokeWidth={strokeWidth}
           fill="transparent"
         />
-        {/* Progress Stroke */}
         <circle
           cx="38"
           cy="38"
@@ -85,7 +82,6 @@ const CircularGauge = ({
   );
 };
 
-// Mini Sparkline Wave Chart Component
 const SparklineWave = ({
   data,
   color,
@@ -155,7 +151,6 @@ const SparklineWave = ({
   );
 };
 
-// Isometric Realistic 3D SVG of the SmartBox Gateway Device (Hitam or Putih)
 const SmartBoxIllustration = ({ isWhite }: { isWhite?: boolean }) => {
   const topColor = isWhite ? "#e2e8f0" : "#253248";
   const bevelColor = isWhite ? "#cbd5e1" : "#1e293b";
@@ -204,7 +199,6 @@ const SmartBoxIllustration = ({ isWhite }: { isWhite?: boolean }) => {
       />
       <path d="M20 42 L78 14 L142 42 L84 72 Z" fill={bevelColor} />
 
-      {/* Ports */}
       <path
         d="M25 54 L32 58 L32 65 L25 61 Z"
         fill="#090d16"
@@ -265,7 +259,6 @@ const SmartBoxIllustration = ({ isWhite }: { isWhite?: boolean }) => {
   );
 };
 
-// Realistic CCTV Stream Viewport Component
 const CCTVViewport = ({
   camera,
   onExpand,
@@ -277,11 +270,9 @@ const CCTVViewport = ({
 
   return (
     <div className="relative group bg-[#060a14] border border-slate-800 rounded-lg overflow-hidden shadow-md flex flex-col justify-between aspect-video transition-all hover:border-slate-700">
-      {/* CCTV Screen Texture / Simulation Background */}
       <div className="absolute inset-0 bg-linear-to-br from-slate-900 via-[#0a1122] to-[#040812] opacity-90" />
       <div className="absolute inset-0 bg-[radial-gradient(#1e293b_1px,transparent_1px)] bg-size-[16px_16px] opacity-25" />
 
-      {/* Top Header Overlay: Camera Name & REC badge */}
       <div className="relative z-10 p-2 flex items-center justify-between text-[10px] text-white bg-linear-to-b from-black/80 via-black/40 to-transparent">
         <div className="flex items-center gap-1.5 font-bold tracking-tight">
           <span className="px-1.5 py-0.5 rounded-xs bg-slate-800/90 text-cyan-400 font-mono text-[9px] border border-slate-700">
@@ -306,7 +297,6 @@ const CCTVViewport = ({
         )}
       </div>
 
-      {/* Center Simulated Perspective Wireframe & Room Marker */}
       <div className="relative z-0 flex-1 flex flex-col items-center justify-center pointer-events-none opacity-40">
         <svg
           viewBox="0 0 100 60"
@@ -331,7 +321,6 @@ const CCTVViewport = ({
         </span>
       </div>
 
-      {/* Hover Control Buttons Overlay */}
       <div className="absolute inset-0 z-20 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
         <button
           onClick={() => setIsPlaying(!isPlaying)}
@@ -353,7 +342,6 @@ const CCTVViewport = ({
         </button>
       </div>
 
-      {/* Bottom Footer Overlay: Timecode & Stream Specs */}
       <div className="relative z-10 px-2 py-1.5 flex items-center justify-between text-[9px] font-mono text-slate-300 bg-linear-to-t from-black/90 via-black/40 to-transparent">
         <span className="drop-shadow-xs">{formatToWIB(camera.timestamp)}</span>
         <span className="text-slate-400">{camera.resolution}</span>
@@ -367,21 +355,19 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
   onClose,
 }) => {
   const [activeTab, setActiveTab] = useState<
-    | "Ringkasan"
+    | "Overview"
     | "CPU – DVR"
-    | "Kamera"
+    | "Cameras"
     | "Recording & Storage"
     | "Event Log"
     | "DVR/NVR Info"
-  >("Ringkasan");
+  >("Overview");
 
   const [activeCamModal, setActiveCamModal] =
     useState<ICameraChannelPreview | null>(null);
 
-  // Carousel slide state: 4 cameras per slide so it fits in ONE page without tall scrolling
   const [currentSlide, setCurrentSlide] = useState(0);
 
-  // Fetch telemetry detail for selected gateway from FastAPI
   const { data, isLoading } = useDVRGatewayDetail(gatewayId);
 
   if (!gatewayId) return null;
@@ -400,7 +386,7 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
   if (!data) {
     return (
       <div className="bg-white dark:bg-[#070e1d] rounded-2xl border border-slate-200 dark:border-slate-800/90 shadow-xl p-6 text-center text-slate-500 dark:text-slate-400 text-sm">
-        Data DVR untuk gateway {gatewayId} tidak ditemukan.
+        DVR data for gateway {gatewayId} not found.
       </div>
     );
   }
@@ -408,22 +394,21 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
   const d: IDVRGatewayDetailData = data;
 
   const tabs: Array<
-    | "Ringkasan"
+    | "Overview"
     | "CPU – DVR"
-    | "Kamera"
+    | "Cameras"
     | "Recording & Storage"
     | "Event Log"
     | "DVR/NVR Info"
   > = [
-    "Ringkasan",
+    "Overview",
     "CPU – DVR",
-    "Kamera",
+    "Cameras",
     "Recording & Storage",
     "Event Log",
     "DVR/NVR Info",
   ];
 
-  // Carousel calculation: 4 cameras per slide
   const camsPerSlide = 4;
   const totalSlides = Math.max(1, Math.ceil(d.cameras.length / camsPerSlide));
   const currentCameras = d.cameras.slice(
@@ -433,7 +418,6 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
 
   const isWhiteDevice = d.type.includes("Putih");
 
-  // Helper for CPU - DVR Status badge styling & icon
   const isCpuConnected = d.cpu_dvr.status === "Connected";
   const cpuStatusColor = isCpuConnected
     ? "text-emerald-400"
@@ -446,7 +430,6 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
       ? AlertTriangle
       : AlertCircle;
 
-  // Helper for Health Status styling & icon
   const isHealthGood = d.dvr_health.status === "Good";
   const healthColor = isHealthGood
     ? "text-emerald-400"
@@ -461,9 +444,7 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
 
   return (
     <div className="bg-white dark:bg-[#070e1d] text-slate-800 dark:text-slate-100 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden transition-all duration-300">
-      {/* Top Header Bar */}
       <div className="px-5 py-3.5 border-b border-slate-200 dark:border-slate-800/90 flex flex-wrap items-center justify-between gap-3 bg-slate-50/80 dark:bg-[#0a1224]">
-        {/* Left: Device Title & Status Badge */}
         <div className="flex items-center gap-3">
           <div className="size-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-600 dark:text-blue-400">
             <Server className="size-4" />
@@ -484,7 +465,6 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
           </div>
         </div>
 
-        {/* Center: Navigation Tabs */}
         <div className="flex flex-wrap items-center gap-1 bg-slate-100 dark:bg-[#070e1c] p-1 rounded-lg border border-slate-200 dark:border-slate-800/80">
           {tabs.map((tab) => {
             const isActive = activeTab === tab;
@@ -504,7 +484,6 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
           })}
         </div>
 
-        {/* Right: Remote Action Menu & Close */}
         <div className="flex items-center gap-2">
           <button className="bg-[#0073ea] hover:bg-blue-600 active:scale-95 text-white text-xs font-semibold px-3.5 py-1.5 rounded-lg flex items-center gap-1.5 transition-all shadow-xs cursor-pointer">
             <span>Remote Action</span>
@@ -514,7 +493,7 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
             <button
               onClick={onClose}
               className="text-slate-400 hover:text-slate-700 dark:hover:text-white p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-              title="Tutup Detail"
+              title="Close Details"
             >
               <X className="size-4" />
             </button>
@@ -522,19 +501,12 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
         </div>
       </div>
 
-      {/* Main Body */}
       <div className="p-4 sm:p-5 space-y-4">
-        {/* ========================================================= */}
-        {/* TAB 1: RINGKASAN */}
-        {/* ========================================================= */}
-        {activeTab === "Ringkasan" && (
+        {activeTab === "Overview" && (
           <div className="space-y-4 animate-in fade-in duration-200">
-            {/* BARIS 1: 2 Kolom (9 Kolom Profile & Specs + 3 Kolom CPU-DVR Communication) */}
             <div className="grid grid-cols-1 xl:grid-cols-12 gap-3.5 items-stretch">
-              {/* Kolom 1 (9 col): Device & DVR Profile (Spacious & Clean, No Text Overflow!) */}
               <div className="xl:col-span-9 col-span-12 bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 flex flex-col justify-between shadow-xs">
                 <div className="flex flex-col md:flex-row gap-5 items-center md:items-start">
-                  {/* 3D SmartBox Illustration */}
                   <div className="flex flex-col items-center shrink-0">
                     <SmartBoxIllustration isWhite={isWhiteDevice} />
                     <div className="mt-2 text-center">
@@ -551,7 +523,6 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                     </div>
                   </div>
 
-                  {/* Title & Specs Grid (2 Wide Columns so nothing clips!) */}
                   <div className="flex-1 min-w-0 space-y-3 w-full">
                     <div>
                       <h3
@@ -565,7 +536,6 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                       </p>
                     </div>
 
-                    {/* 2-Column Specs Layout */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-xs font-mono text-slate-700 dark:text-slate-300">
                       <div className="space-y-2">
                         <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1">
@@ -640,7 +610,6 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                 </div>
               </div>
 
-              {/* Kolom 2 (3 col): CPU – DVR Communication Card */}
               <div className="xl:col-span-3 col-span-12 bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 flex flex-col justify-between shadow-xs">
                 <div>
                   <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300 font-medium text-xs">
@@ -702,16 +671,12 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
               </div>
             </div>
 
-            {/* ========================================================= */}
-            {/* BARIS 2: 3 Kolom Rata Semua (Status Kamera, Recording & Storage, Kesehatan DVR) */}
-            {/* ========================================================= */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 items-stretch">
-              {/* Kolom 1 dari 3: Status Kamera */}
               <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 flex flex-col justify-between shadow-xs">
                 <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300 font-medium text-xs">
                   <Video className="size-3.5 text-emerald-500 dark:text-emerald-400" />
                   <span className="font-semibold text-slate-800 dark:text-slate-200">
-                    Status Kamera
+                    Camera Status
                   </span>
                 </div>
 
@@ -762,7 +727,6 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                 </div>
               </div>
 
-              {/* Kolom 2 dari 3: Recording & Storage */}
               <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 flex flex-col justify-between shadow-xs">
                 <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300 font-medium text-xs">
                   <HardDrive className="size-3.5 text-[#0073ea]" />
@@ -804,7 +768,7 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-slate-500 dark:text-slate-400 font-sans">
-                        Terpakai:
+                        Used:
                       </span>
                       <span className="text-slate-800 dark:text-slate-200">
                         {d.recording_storage.used_tb} TB /{" "}
@@ -816,7 +780,7 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                         Retention:
                       </span>
                       <span className="text-slate-800 dark:text-slate-200 font-sans">
-                        {d.recording_storage.retention_days} Hari
+                        {d.recording_storage.retention_days} Days
                       </span>
                     </div>
                   </div>
@@ -831,12 +795,11 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                 </div>
               </div>
 
-              {/* Kolom 3 dari 3: Kesehatan DVR */}
               <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 flex flex-col justify-between shadow-xs">
                 <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300 font-medium text-xs">
                   <ShieldCheck className="size-3.5 text-emerald-500 dark:text-emerald-400" />
                   <span className="font-semibold text-slate-800 dark:text-slate-200">
-                    Kesehatan DVR
+                    DVR Health
                   </span>
                 </div>
 
@@ -870,7 +833,7 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-slate-500 dark:text-slate-400">
-                      Suhu DVR:
+                      DVR Temperature:
                     </span>
                     <span className="font-mono text-slate-800 dark:text-slate-200">
                       {d.dvr_health.temperature}
@@ -878,7 +841,7 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-slate-500 dark:text-slate-400">
-                      Kipas Pendingin:
+                      Cooling Fan:
                     </span>
                     <span className="text-slate-800 dark:text-slate-200">
                       {d.dvr_health.fan_status}
@@ -896,11 +859,7 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
               </div>
             </div>
 
-            {/* ========================================================= */}
-            {/* BARIS 3: Preview Rekaman DVR (Compact 1-Page with Carousel Slider) */}
-            {/* ========================================================= */}
             <div className="bg-white dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-3 shadow-xs">
-              {/* Header of Preview Row with Slider Navigation */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800/70 pb-3">
                 <div className="flex items-center gap-2.5">
                   <div className="size-7 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-[#00a862] dark:text-emerald-400">
@@ -908,25 +867,23 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                   </div>
                   <div>
                     <h4 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
-                      <span>Preview Rekaman CCTV & DVR</span>
+                      <span>CCTV & DVR Recording Preview</span>
                       <span className="text-xs font-normal text-slate-500 dark:text-slate-400">
-                        ({d.dvr_model} — Total {d.cameras.length} Kamera)
+                        ({d.dvr_model} — Total {d.cameras.length} Cameras)
                       </span>
                     </h4>
                     <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                      Tampilan 1 halaman dengan slide navigator untuk{" "}
-                      {d.cameras.length} kamera
+                      1-page view with slide navigator for{" "}
+                      {d.cameras.length} cameras
                     </p>
                   </div>
                 </div>
 
-                {/* Slider Controls: Page Indicator & Arrow Buttons */}
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-slate-500 dark:text-slate-400 font-mono mr-1">
                     Slide {currentSlide + 1} / {totalSlides}
                   </span>
 
-                  {/* Jump Pills for Quick Navigation */}
                   <div className="hidden md:flex items-center gap-1">
                     {Array.from({ length: totalSlides }).map((_, idx) => (
                       <button
@@ -944,7 +901,6 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                     ))}
                   </div>
 
-                  {/* Prev / Next Slide Arrows */}
                   <div className="flex items-center gap-1 border-l border-slate-200 dark:border-slate-800 pl-2">
                     <button
                       disabled={currentSlide === 0}
@@ -952,7 +908,7 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                         setCurrentSlide((prev) => Math.max(0, prev - 1))
                       }
                       className="size-7 rounded-md bg-slate-100 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition-colors cursor-pointer shadow-2xs"
-                      title="Slide Kamera Sebelumnya"
+                      title="Previous Camera Slide"
                     >
                       <ChevronLeft className="size-4" />
                     </button>
@@ -964,7 +920,7 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                         )
                       }
                       className="size-7 rounded-md bg-slate-100 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition-colors cursor-pointer shadow-2xs"
-                      title="Slide Kamera Berikutnya"
+                      title="Next Camera Slide"
                     >
                       <ChevronRight className="size-4" />
                     </button>
@@ -980,7 +936,6 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                 </div>
               </div>
 
-              {/* Current Slide Cameras Grid (Exact 4 Viewports per slide: fits in 1 screen view!) */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 animate-in fade-in duration-200">
                 {currentCameras.map((cam) => (
                   <CCTVViewport
@@ -994,21 +949,18 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
           </div>
         )}
 
-        {/* ========================================================= */}
-        {/* TAB 2: CPU – DVR */}
-        {/* ========================================================= */}
         {activeTab === "CPU – DVR" && (
           <div className="space-y-4 animate-in fade-in duration-200">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-3">
                 <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-sm">
                   <Terminal className="size-4 text-[#0073ea]" />
-                  <span>Protokol & Endpoint Komunikasi DVR</span>
+                  <span>DVR Communication Protocol & Endpoint</span>
                 </div>
                 <div className="space-y-2 text-xs">
                   <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1.5">
                     <span className="text-slate-500 dark:text-slate-400">
-                      Status Komunikasi
+                      Communication Status
                     </span>
                     <span className="font-semibold text-emerald-500 flex items-center gap-1">
                       <CheckCircle2 className="size-3.5" /> {d.cpu_dvr.status}
@@ -1024,7 +976,7 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                   </div>
                   <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1.5">
                     <span className="text-slate-500 dark:text-slate-400">
-                      Port Layanan ISAPI
+                      ISAPI Service Port
                     </span>
                     <span className="font-mono text-slate-800 dark:text-slate-200">
                       {d.cpu_dvr.port}
@@ -1032,7 +984,7 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                   </div>
                   <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1.5">
                     <span className="text-slate-500 dark:text-slate-400">
-                      Waktu Respon (Ping)
+                      Response Time (Ping)
                     </span>
                     <span className="font-mono text-slate-800 dark:text-slate-200">
                       {d.cpu_dvr.response_time}
@@ -1060,7 +1012,7 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
               <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-3">
                 <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-sm">
                   <Activity className="size-4 text-emerald-500" />
-                  <span>Diagnostik Konektivitas ISAPI/SDK</span>
+                  <span>ISAPI/SDK Connectivity Diagnostics</span>
                 </div>
                 <div className="bg-slate-900 text-slate-200 font-mono text-[11px] p-3 rounded-lg space-y-1.5">
                   <div className="text-slate-400">
@@ -1094,13 +1046,13 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
 
             <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-2">
               <div className="text-xs font-bold text-slate-900 dark:text-white">
-                Daftar Port Terbuka NVR
+                NVR Open Ports List
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px]">
                 <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800">
                   <div className="text-slate-400 font-mono">Port 80 (HTTP)</div>
                   <div className="font-semibold text-emerald-500">
-                    ISAPI REST API (Aktif)
+                    ISAPI REST API (Active)
                   </div>
                 </div>
                 <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800">
@@ -1124,15 +1076,12 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
           </div>
         )}
 
-        {/* ========================================================= */}
-        {/* TAB 3: KAMERA */}
-        {/* ========================================================= */}
-        {activeTab === "Kamera" && (
+        {activeTab === "Cameras" && (
           <div className="space-y-4 animate-in fade-in duration-200">
             <div className="flex items-center justify-between">
               <div>
                 <h4 className="text-sm font-bold text-slate-900 dark:text-white">
-                  Seluruh Channel Kamera NVR ({d.cameras.length} Channel)
+                  All NVR Camera Channels ({d.cameras.length} Channels)
                 </h4>
                 <p className="text-xs text-slate-500">
                   {d.camera_status.online} Online • {d.camera_status.no_video}{" "}
@@ -1144,7 +1093,7 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                 className="px-3 py-1.5 rounded-lg bg-[#0073ea] hover:bg-blue-600 text-xs text-white font-medium flex items-center gap-1.5 cursor-pointer shadow-xs"
               >
                 <Maximize2 className="size-3.5" />
-                <span>Buka Live Playback Center</span>
+                <span>Open Live Playback Center</span>
               </button>
             </div>
 
@@ -1160,45 +1109,42 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
           </div>
         )}
 
-        {/* ========================================================= */}
-        {/* TAB 4: RECORDING & STORAGE */}
-        {/* ========================================================= */}
         {activeTab === "Recording & Storage" && (
           <div className="space-y-4 animate-in fade-in duration-200">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
               <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-2">
                 <span className="text-xs text-slate-500 font-medium">
-                  Status Perekaman NVR
+                  NVR Recording Status
                 </span>
                 <div className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
                   <span className="size-3 rounded-full bg-emerald-500 animate-pulse" />
                   <span>{d.recording_storage.status}</span>
                 </div>
                 <div className="text-xs text-emerald-500 font-semibold">
-                  Mode Kontinu (CMR 24/7)
+                  Continuous Mode (CMR 24/7)
                 </div>
               </div>
               <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-2">
                 <span className="text-xs text-slate-500 font-medium">
-                  Kapasitas Terpakai
+                  Used Capacity
                 </span>
                 <div className="text-2xl font-bold text-slate-900 dark:text-white font-mono">
                   {d.recording_storage.used_tb} / {d.recording_storage.total_tb}{" "}
                   TB
                 </div>
                 <div className="text-xs text-slate-500">
-                  {d.recording_storage.percent}% Digunakan
+                  {d.recording_storage.percent}% Used
                 </div>
               </div>
               <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-2">
                 <span className="text-xs text-slate-500 font-medium">
-                  Estimasi Retensi Video
+                  Estimated Video Retention
                 </span>
                 <div className="text-2xl font-bold text-slate-900 dark:text-white">
-                  {d.recording_storage.retention_days} Hari
+                  {d.recording_storage.retention_days} Days
                 </div>
                 <div className="text-xs text-slate-500">
-                  Auto-overwrite FIFO aktif
+                  Auto-overwrite FIFO active
                 </div>
               </div>
             </div>
@@ -1206,7 +1152,7 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
             <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-3">
               <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-sm">
                 <HardDrive className="size-4 text-[#0073ea]" />
-                <span>Kondisi Hard Disk (HDD Surveillance)</span>
+                <span>Hard Drive Condition (Surveillance HDD)</span>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                 <div className="p-3 rounded-lg bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 space-y-1">
@@ -1216,7 +1162,7 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                   </div>
                 </div>
                 <div className="p-3 rounded-lg bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 space-y-1">
-                  <div className="text-slate-400">Suhu Hard Disk</div>
+                  <div className="text-slate-400">Hard Drive Temperature</div>
                   <div className="font-semibold text-slate-800 dark:text-slate-200">
                     {d.dvr_health.temperature} (Normal)
                   </div>
@@ -1232,18 +1178,15 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
           </div>
         )}
 
-        {/* ========================================================= */}
-        {/* TAB 5: EVENT LOG */}
-        {/* ========================================================= */}
         {activeTab === "Event Log" && (
           <div className="space-y-4 animate-in fade-in duration-200">
             <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="text-xs font-bold text-slate-900 dark:text-white">
-                  Riwayat Kejadian & Aktivitas DVR
+                  DVR Event History & Activity
                 </div>
                 <span className="text-[11px] text-slate-400">
-                  Total {(d.events && d.events.length) || 0} Log Terakhir
+                  Total {(d.events && d.events.length) || 0} Recent Logs
                 </span>
               </div>
               <div className="divide-y divide-slate-200 dark:divide-slate-800/60 text-xs">
@@ -1276,7 +1219,7 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                   ))
                 ) : (
                   <div className="py-4 text-center text-slate-400 text-xs">
-                    Belum ada log telemetri DVR tercatat untuk gateway ini.
+                    No DVR telemetry logs recorded for this gateway yet.
                   </div>
                 )}
               </div>
@@ -1284,21 +1227,18 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
           </div>
         )}
 
-        {/* ========================================================= */}
-        {/* TAB 6: DVR/NVR INFO */}
-        {/* ========================================================= */}
         {activeTab === "DVR/NVR Info" && (
           <div className="space-y-4 animate-in fade-in duration-200">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-3">
                 <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-sm">
                   <Info className="size-4 text-[#0073ea]" />
-                  <span>Informasi Spesifikasi NVR Hardware</span>
+                  <span>NVR Hardware Specifications</span>
                 </div>
                 <div className="space-y-2 text-xs">
                   <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1.5">
                     <span className="text-slate-500 dark:text-slate-400">
-                      Model DVR / NVR
+                      DVR / NVR Model
                     </span>
                     <span className="font-bold text-slate-900 dark:text-white">
                       {d.dvr_model}
@@ -1315,7 +1255,7 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                   {d.serial_number && (
                     <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1.5">
                       <span className="text-slate-500 dark:text-slate-400">
-                        Nomor Seri (Serial)
+                        Serial Number
                       </span>
                       <span className="font-mono text-slate-800 dark:text-slate-200 font-semibold text-[11px] truncate max-w-48" title={d.serial_number}>
                         {d.serial_number}
@@ -1324,7 +1264,7 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                   )}
                   <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1.5">
                     <span className="text-slate-500 dark:text-slate-400">
-                      Tipe Perangkat
+                      Device Type
                     </span>
                     <span className="font-medium text-slate-800 dark:text-slate-200">
                       {d.device_type || "Surveillance NVR / IPC Hub"}
@@ -1332,7 +1272,7 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                   </div>
                   <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1.5">
                     <span className="text-slate-500 dark:text-slate-400">
-                      Total Channel Didukung
+                      Supported Channels
                     </span>
                     <span className="font-medium text-slate-800 dark:text-slate-200">
                       {d.camera_status.total} Channel Input
@@ -1340,7 +1280,7 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-slate-500 dark:text-slate-400">
-                      Status Operasi
+                      Operation Status
                     </span>
                     <span className="font-semibold text-emerald-500">
                       {d.service_status}
@@ -1352,12 +1292,12 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
               <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-3">
                 <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-sm">
                   <Wifi className="size-4 text-emerald-500" />
-                  <span>Jaringan & Konfigurasi Host</span>
+                  <span>Network & Host Configuration</span>
                 </div>
                 <div className="space-y-2 text-xs">
                   <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1.5">
                     <span className="text-slate-500 dark:text-slate-400">
-                      Alamat IP Host NVR
+                      NVR Host IP Address
                     </span>
                     <span className="font-mono text-slate-800 dark:text-slate-200 font-semibold">
                       {d.ip_address}
@@ -1381,7 +1321,7 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                   </div>
                   <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1.5">
                     <span className="text-slate-500 dark:text-slate-400">
-                      Lokasi / Site
+                      Location / Site
                     </span>
                     <span className="font-medium text-slate-800 dark:text-slate-200">
                       {d.location}
@@ -1402,11 +1342,9 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
         )}
       </div>
 
-      {/* Interactive Modal: Camera Playback & Timeline Scrubber */}
       {activeCamModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="bg-[#0b1329] border border-slate-700 rounded-2xl max-w-4xl w-full overflow-hidden shadow-2xl flex flex-col">
-            {/* Modal Header */}
             <div className="px-5 py-3.5 border-b border-slate-800 flex items-center justify-between bg-[#0e1730]">
               <div className="flex items-center gap-2.5">
                 <Video className="size-4 text-emerald-400" />
@@ -1425,7 +1363,6 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
               </button>
             </div>
 
-            {/* Modal Video Player Viewport */}
             <div className="relative aspect-video bg-black flex items-center justify-center overflow-hidden">
               <div className="absolute inset-0 bg-[radial-gradient(#1e293b_1px,transparent_1px)] bg-size-[20px_20px] opacity-30" />
               <div className="text-center space-y-2 relative z-10">
@@ -1441,7 +1378,6 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                 </div>
               </div>
 
-              {/* Watermark overlay */}
               <div className="absolute top-4 left-4 text-xs font-mono text-white/80 bg-black/50 px-2 py-1 rounded-xs">
                 {activeCamModal.name}
               </div>
@@ -1451,7 +1387,6 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
               </div>
             </div>
 
-            {/* Playback Timeline Scrubber */}
             <div className="p-4 bg-[#0a1122] border-t border-slate-800 space-y-3">
               <div className="flex items-center justify-between text-xs text-slate-300">
                 <div className="flex items-center gap-2">
@@ -1461,7 +1396,7 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                 <div className="flex items-center gap-3">
                   <span className="flex items-center gap-1 text-[11px] text-emerald-400">
                     <span className="size-2 bg-emerald-400 rounded-xs" />{" "}
-                    Merekam Normal
+                    Normal Recording
                   </span>
                   <span className="flex items-center gap-1 text-[11px] text-amber-400">
                     <span className="size-2 bg-amber-400 rounded-xs" /> Motion
@@ -1470,7 +1405,6 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                 </div>
               </div>
 
-              {/* 24-Hour Timeline Bar */}
               <div className="relative w-full h-6 bg-slate-900 rounded-md overflow-hidden border border-slate-800 flex items-center">
                 <div className="absolute inset-y-0 left-0 w-[65%] bg-emerald-600/40 border-r border-emerald-400" />
                 <div className="absolute inset-y-0 left-[60%] w-0.5 bg-rose-500 z-10 shadow-[0_0_8px_rgba(244,63,94,1)]">

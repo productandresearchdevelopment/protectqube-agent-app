@@ -154,7 +154,7 @@ const CustomMetricTooltip = ({ active, payload, label, unit, color }: any) => {
 // Tipe data device yang sedang trouble
 interface TroubleDevice {
   id: string;
-  model: "SmartBox Hitam" | "SmartBox Putih";
+  model: "SmartBox Black" | "SmartBox White";
   location: string;
   category: "cellular" | "dvr" | "system";
   severity: "critical" | "warning";
@@ -343,8 +343,8 @@ export default function OverviewPage() {
     percent: s.percent,
     color: s.color,
   })) || [
-    { name: "Merekam", value: 1765, percent: 88.3, color: "#00c875" },
-    { name: "Tidak Merekam", value: 140, percent: 7.0, color: "#fdab3d" },
+    { name: "Recording", value: 1765, percent: 88.3, color: "#00c875" },
+    { name: "Not Recording", value: 140, percent: 7.0, color: "#fdab3d" },
     { name: "Error/Corrupt", value: 95, percent: 4.7, color: "#e2445c" },
   ];
 
@@ -399,158 +399,158 @@ export default function OverviewPage() {
   const troubleDevices: TroubleDevice[] = [
     {
       id: "gw-dccdec07",
-      model: "SmartBox Hitam",
+      model: "SmartBox Black",
       location: "SmartBox Store 01",
       category: "cellular",
       severity: "critical",
-      alertTitle: "Sinyal Drop Ekstrem & Intermittent",
-      alertDetail: "RSRP drop ke -110 dBm (Telkomsel), komunikasi paket telemetri terputus-putus.",
+      alertTitle: "Extreme Signal Drop & Intermittent",
+      alertDetail: "RSRP dropped to -110 dBm (Telkomsel), telemetry communication intermittent.",
       metric: "RSRP: -110 dBm",
       duration: "02:14:30",
-      lastUpdated: "5 mnt lalu",
+      lastUpdated: "5 mins ago",
       reportHref: "/reports/cellular",
     },
     {
       id: "gw-3a53d2ff",
-      model: "SmartBox Putih",
+      model: "SmartBox White",
       location: "RO KALIBATA",
       category: "dvr",
       severity: "warning",
-      alertTitle: "Storage HDD Mendekati Penuh",
-      alertDetail: "Kapasitas terpakai 3.41 TB / 3.72 TB (92%). Kamera 3 & 4 No Video.",
+      alertTitle: "HDD Storage Nearing Capacity",
+      alertDetail: "Used capacity 3.41 TB / 3.72 TB (92%). Camera 3 & 4 No Video.",
       metric: "HDD: 92% (3.41 TB)",
       duration: "04:45:12",
-      lastUpdated: "12 mnt lalu",
+      lastUpdated: "12 mins ago",
       reportHref: "/reports/dvr",
     },
     {
       id: "697D",
-      model: "SmartBox Hitam",
+      model: "SmartBox Black",
       location: "Alfa Ahmad Dahlan III",
       category: "dvr",
       severity: "critical",
-      alertTitle: "DVR Komunikasi Terputus (No Ping)",
-      alertDetail: "Hikvision DS-7616NI tidak merespon RTSP / ping port 8000 via switch lokal.",
+      alertTitle: "DVR Communication Disconnected (No Ping)",
+      alertDetail: "Hikvision DS-7616NI not responding to RTSP / ping port 8000 via local switch.",
       metric: "DVR: Offline",
       duration: "05:12:00",
-      lastUpdated: "18 mnt lalu",
+      lastUpdated: "18 mins ago",
       reportHref: "/reports/dvr",
     },
     {
       id: "ZR4R",
-      model: "SmartBox Putih",
+      model: "SmartBox White",
       location: "Alfa Ruko Metland",
       category: "dvr",
       severity: "warning",
-      alertTitle: "Kamera Channel 3 No Video",
-      alertDetail: "Stream kamera kasir terputus (RTSP timeout), 3 channel lain beroperasi normal.",
-      metric: "Kamera: 3/4 Live",
+      alertTitle: "Camera Channel 3 No Video",
+      alertDetail: "Cashier camera stream lost (RTSP timeout), other 3 channels normal.",
+      metric: "Camera: 3/4 Live",
       duration: "06:20:15",
-      lastUpdated: "25 mnt lalu",
+      lastUpdated: "25 mins ago",
       reportHref: "/reports/dvr",
     },
     {
       id: "ZJ2B",
-      model: "SmartBox Hitam",
+      model: "SmartBox Black",
       location: "IDM Griya Mustikasari",
       category: "system",
       severity: "warning",
-      alertTitle: "Beban CPU Tinggi Berkelanjutan",
-      alertDetail: "CPU Load 92% selama >30 menit akibat proses edge visual tracking.",
+      alertTitle: "Sustained High CPU Load",
+      alertDetail: "CPU Load 92% for >30 minutes due to edge visual tracking process.",
       metric: "CPU: 92% Spike",
       duration: "01:35:40",
-      lastUpdated: "30 mnt lalu",
+      lastUpdated: "30 mins ago",
       reportHref: "/reports/health",
     },
     {
       id: "ZQ81",
-      model: "SmartBox Hitam",
+      model: "SmartBox Black",
       location: "Alfa Raya Hankam Pondok Gede",
       category: "system",
       severity: "critical",
-      alertTitle: "Suhu SBC Kritis (Thermal Throttling)",
-      alertDetail: "Suhu prosesor mencapai 76°C (Batas aman: 70°C). Kipas pendingin perlu dicek.",
-      metric: "Suhu: 76°C",
+      alertTitle: "Critical SBC Temperature (Thermal Throttling)",
+      alertDetail: "Processor temp reached 76°C (Safe limit: 70°C). Check cooling fan.",
+      metric: "Temp: 76°C",
       duration: "03:10:05",
-      lastUpdated: "40 mnt lalu",
+      lastUpdated: "40 mins ago",
       reportHref: "/reports/health",
     },
     {
       id: "ZX33",
-      model: "SmartBox Putih",
+      model: "SmartBox White",
       location: "IDM Ciledug Raya No. 45",
       category: "cellular",
       severity: "warning",
       alertTitle: "SIM Card Network Flapping",
-      alertDetail: "Modem Quectel EC25 sering fallback ke 3G/2G akibat fluktuasi BTS lokal.",
+      alertDetail: "Quectel EC25 modem frequently falls back to 3G/2G due to local tower fluctuations.",
       metric: "Band: 3G Fallback",
       duration: "07:50:00",
-      lastUpdated: "1 jam lalu",
+      lastUpdated: "1 hour ago",
       reportHref: "/reports/cellular",
     },
     {
       id: "ZP19",
-      model: "SmartBox Hitam",
+      model: "SmartBox Black",
       location: "Alfa Boulevard Kelapa Gading",
       category: "system",
       severity: "warning",
-      alertTitle: "SD Card Endurance Degradasi",
-      alertDetail: "Sisa umur kartu memori SD (Wear-out life) tersisa 14%. Rekomendasi pergantian.",
+      alertTitle: "SD Card Endurance Degradation",
+      alertDetail: "Remaining SD card wear-out life at 14%. Replacement recommended.",
       metric: "SD Life: 14%",
       duration: "12:00:00",
-      lastUpdated: "2 jam lalu",
+      lastUpdated: "2 hours ago",
       reportHref: "/reports/health",
     },
     {
       id: "ZB55",
-      model: "SmartBox Putih",
+      model: "SmartBox White",
       location: "IDM Daan Mogot KM 12",
       category: "dvr",
       severity: "critical",
-      alertTitle: "Bad Sector HDD Terdeteksi",
-      alertDetail: "SMART status melaporkan 128 reallocated sectors pada hard disk rekaman.",
+      alertTitle: "HDD Bad Sectors Detected",
+      alertDetail: "SMART status reports 128 reallocated sectors on recording hard drive.",
       metric: "SMART: Bad Sector",
       duration: "08:15:30",
-      lastUpdated: "2 jam lalu",
+      lastUpdated: "2 hours ago",
       reportHref: "/reports/dvr",
     },
     {
       id: "ZL04",
-      model: "SmartBox Hitam",
+      model: "SmartBox Black",
       location: "Alfa Veteran Bintaro",
       category: "cellular",
       severity: "critical",
-      alertTitle: "Modem Tidak Merespon AT Command",
-      alertDetail: "Komunikasi serial USB-to-Modem timeout, koneksi data terputus total.",
+      alertTitle: "Modem Not Responding to AT Commands",
+      alertDetail: "Serial USB-to-Modem communication timed out, data connection lost.",
       metric: "Port: USB Timeout",
       duration: "09:40:10",
-      lastUpdated: "3 jam lalu",
+      lastUpdated: "3 hours ago",
       reportHref: "/reports/cellular",
     },
     {
       id: "ZM11",
-      model: "SmartBox Putih",
+      model: "SmartBox White",
       location: "IDM Margonda Raya Depok",
       category: "cellular",
       severity: "warning",
-      alertTitle: "Latency Seluler RTT Sangat Tinggi",
-      alertDetail: "Round-trip time mencapai 1,420 ms (Normal: <250 ms), paket telemetri delay.",
+      alertTitle: "Very High Cellular RTT Latency",
+      alertDetail: "Round-trip time reached 1,420 ms (Normal: <250 ms), telemetry packets delayed.",
       metric: "RTT: 1,420 ms",
       duration: "01:10:20",
-      lastUpdated: "3 jam lalu",
+      lastUpdated: "3 hours ago",
       reportHref: "/reports/cellular",
     },
     {
       id: "ZK88",
-      model: "SmartBox Hitam",
+      model: "SmartBox Black",
       location: "Alfa Cinere Raya",
       category: "dvr",
       severity: "warning",
-      alertTitle: "Kamera Channel 2 Frame Drop",
-      alertDetail: "FPS video turun ke 4 fps (Target: 25 fps), kualitas rekaman kasir terdegradasi.",
+      alertTitle: "Camera Channel 2 Frame Drop",
+      alertDetail: "Video FPS dropped to 4 fps (Target: 25 fps), cashier recording quality degraded.",
       metric: "FPS: 4 fps (Drop)",
       duration: "03:40:00",
-      lastUpdated: "4 jam lalu",
+      lastUpdated: "4 hours ago",
       reportHref: "/reports/dvr",
     },
   ];
@@ -602,7 +602,7 @@ export default function OverviewPage() {
             className="bg-[#0073ea] hover:bg-blue-600 active:scale-95 text-white text-xs font-semibold px-3 py-1.5 rounded-xl flex items-center gap-1.5 shadow-xs transition-all"
           >
             <FileSpreadsheet className="size-3.5" />
-            <span>Buka Reports</span>
+            <span>Open Reports</span>
           </Link>
         </div>
       }
@@ -664,7 +664,7 @@ export default function OverviewPage() {
             </div>
 
             <div className="pt-3 border-t border-slate-100 dark:border-slate-800/60 mt-3 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
-              <span>Hitam: 1,240 • Putih: 760</span>
+              <span>Black: 1,240 • White: 760</span>
               <span className="text-[#00c875] font-semibold">{onlinePct}% Uptime</span>
             </div>
           </div>
@@ -695,7 +695,7 @@ export default function OverviewPage() {
               {/* 2x2 Metric Grid */}
               <div className="grid grid-cols-2 gap-2.5 py-3">
                 <div className="space-y-0.5">
-                  <div className="text-[10px] text-slate-500 dark:text-slate-400">Rata-rata CPU</div>
+                  <div className="text-[10px] text-slate-500 dark:text-slate-400">Average CPU</div>
                   <div className="text-base font-extrabold text-slate-900 dark:text-white">
                     {systemDashboard?.charts?.cpu?.avg ? `${systemDashboard.charts.cpu.avg}%` : "32%"}
                     <span className="text-[10px] text-slate-500 dark:text-slate-400 font-normal ml-1.5">
@@ -704,7 +704,7 @@ export default function OverviewPage() {
                   </div>
                 </div>
                 <div className="space-y-0.5">
-                  <div className="text-[10px] text-slate-500 dark:text-slate-400">Rata-rata RAM</div>
+                  <div className="text-[10px] text-slate-500 dark:text-slate-400">Average RAM</div>
                   <div className="text-base font-extrabold text-[#00c875]">
                     {systemDashboard?.charts?.ram?.avg ? `${systemDashboard.charts.ram.avg}%` : "43%"}
                     <span className="text-[10px] text-slate-500 dark:text-slate-400 font-normal ml-1.5">
@@ -719,7 +719,7 @@ export default function OverviewPage() {
                   </div>
                 </div>
                 <div className="space-y-0.5 pt-1 border-t border-slate-100 dark:border-slate-800/50">
-                  <div className="text-[10px] text-slate-500 dark:text-slate-400">Suhu Sistem</div>
+                  <div className="text-[10px] text-slate-500 dark:text-slate-400">System Temp</div>
                   <div className="text-xs font-bold text-slate-800 dark:text-slate-200">
                     45°C (Max 62°C)
                   </div>
@@ -894,7 +894,7 @@ export default function OverviewPage() {
                     Fleet SLA & Diagnostic Trends
                   </h3>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Analisis fluktuasi metrik historis 24 jam di seluruh armada
+                    Fleet-wide 24-hour historical metric fluctuation analysis
                   </p>
                 </div>
 
@@ -1007,10 +1007,10 @@ export default function OverviewPage() {
                         activeTrendTab === "cellular"
                           ? "Signal (RSRP)"
                           : activeTrendTab === "dvr"
-                          ? "Storage Terpakai"
+                          ? "Used Storage"
                           : activeTrendTab === "uptime"
                           ? "Fleet Uptime"
-                          : "Load Rata-rata"
+                          : "Average Load"
                       }
                       dataKey="value"
                       stroke={
@@ -1128,14 +1128,14 @@ export default function OverviewPage() {
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between">
                     <div>
-                      <div className="font-bold text-slate-900 dark:text-white">SmartBox Hitam</div>
+                      <div className="font-bold text-slate-900 dark:text-white">SmartBox Black</div>
                       <div className="text-[10px] text-slate-500 dark:text-slate-400">RPi 3B+ / RK3328</div>
                     </div>
                     <span className="text-sm font-extrabold text-blue-500 dark:text-blue-400">1,240</span>
                   </div>
                   <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between">
                     <div>
-                      <div className="font-bold text-slate-900 dark:text-white">SmartBox Putih</div>
+                      <div className="font-bold text-slate-900 dark:text-white">SmartBox White</div>
                       <div className="text-[10px] text-slate-500 dark:text-slate-400">Quectel EC25 Model</div>
                     </div>
                     <span className="text-sm font-extrabold text-slate-700 dark:text-slate-300">760</span>
@@ -1180,7 +1180,7 @@ export default function OverviewPage() {
                 }`}
               >
                 <Layers className="size-3.5" />
-                Semua Domain (12)
+                All Domains (12)
               </button>
               <button
                 type="button"
@@ -1235,7 +1235,7 @@ export default function OverviewPage() {
                   href="/cellular-connectivity"
                   className="text-[11px] font-semibold text-[#0073ea] hover:underline flex items-center gap-1"
                 >
-                  Buka Halaman Seluler <ChevronRight className="size-3" />
+                  Go to Cellular Page <ChevronRight className="size-3" />
                 </Link>
               </div>
 
@@ -1340,8 +1340,8 @@ export default function OverviewPage() {
 
                 {/* Cell Chart 3: Signal RSRP Trend */}
                 <ChartCard
-                  title="Kekuatan Sinyal (RSRP)"
-                  subtitle="Rata-rata 24 Jam"
+                  title="Signal Strength (RSRP)"
+                  subtitle="24-Hour Average"
                   icon={Signal}
                 >
                   <div className="flex items-stretch gap-1.5 h-40">
@@ -1376,8 +1376,8 @@ export default function OverviewPage() {
 
                 {/* Cell Chart 4: Modem Temperature Trend */}
                 <ChartCard
-                  title="Temperatur Modem"
-                  subtitle="Rata-rata 24 Jam"
+                  title="Modem Temperature"
+                  subtitle="24-Hour Average"
                   icon={Thermometer}
                 >
                   <div className="flex items-stretch gap-1.5 h-40">
@@ -1388,7 +1388,7 @@ export default function OverviewPage() {
                             <XAxis dataKey="time" tick={{ fontSize: 9, fill: "#94a3b8" }} axisLine={{ stroke: "#334155", strokeWidth: 0.5 }} tickLine={false} />
                             <YAxis width={28} domain={[0, 100]} ticks={[0, 50, 100]} tick={{ fontSize: 9, fill: "#94a3b8" }} tickFormatter={(v) => `${v}°C`} axisLine={false} tickLine={false} />
                             <Tooltip content={<CustomLineTooltip unit="°C" />} />
-                            <Line type="monotone" name="Suhu" dataKey="value" stroke="#e2445c" strokeWidth={2} dot={{ r: 2, fill: "#e2445c" }} activeDot={{ r: 4 }} />
+                            <Line type="monotone" name="Temperature" dataKey="value" stroke="#e2445c" strokeWidth={2} dot={{ r: 2, fill: "#e2445c" }} activeDot={{ r: 4 }} />
                           </LineChart>
                         </ResponsiveContainer>
                       )}
@@ -1427,7 +1427,7 @@ export default function OverviewPage() {
                   href="/dvr-recording"
                   className="text-[11px] font-semibold text-[#0073ea] hover:underline flex items-center gap-1"
                 >
-                  Buka Halaman DVR <ChevronRight className="size-3" />
+                  Go to DVR Page <ChevronRight className="size-3" />
                 </Link>
               </div>
 
@@ -1483,8 +1483,8 @@ export default function OverviewPage() {
 
                 {/* DVR Chart 2: Status Kamera Donut */}
                 <ChartCard
-                  title="Status Kamera"
-                  subtitle="Distribusi Channel CCTV"
+                  title="Camera Status"
+                  subtitle="CCTV Channel Distribution"
                   icon={Video}
                 >
                   <div className="flex items-center gap-2 h-40">
@@ -1562,7 +1562,7 @@ export default function OverviewPage() {
                         <span className="text-sm font-black text-slate-900 dark:text-white leading-none">
                           88.3%
                         </span>
-                        <span className="text-[9px] text-slate-400">Merekam</span>
+                        <span className="text-[9px] text-slate-400">Recording</span>
                       </div>
                     </div>
                     <div className="flex-1 space-y-1.5 text-xs">
@@ -1581,8 +1581,8 @@ export default function OverviewPage() {
 
                 {/* DVR Chart 4: Storage Usage Trend AreaChart */}
                 <ChartCard
-                  title="Tren Penggunaan Storage"
-                  subtitle="Kapasitas 24 Jam"
+                  title="Storage Usage Trend"
+                  subtitle="24-Hour Capacity"
                   icon={HardDrive}
                 >
                   <div className="flex items-stretch gap-1.5 h-40">
@@ -1638,7 +1638,7 @@ export default function OverviewPage() {
                   href="/system-health"
                   className="text-[11px] font-semibold text-[#0073ea] hover:underline flex items-center gap-1"
                 >
-                  Buka Halaman System Health <ChevronRight className="size-3" />
+                  Go to System Health Page <ChevronRight className="size-3" />
                 </Link>
               </div>
 
@@ -1646,7 +1646,7 @@ export default function OverviewPage() {
                 {/* Sys Chart 1: CPU Usage */}
                 <ChartCard
                   title="CPU Usage"
-                  subtitle="Rata-rata Semua Unit"
+                  subtitle="All Units Average"
                   icon={Cpu}
                 >
                   <div className="flex items-stretch gap-1.5 h-40">
@@ -1688,7 +1688,7 @@ export default function OverviewPage() {
                 {/* Sys Chart 2: RAM Usage */}
                 <ChartCard
                   title="RAM Usage"
-                  subtitle="Rata-rata Semua Unit"
+                  subtitle="All Units Average"
                   icon={Cpu}
                 >
                   <div className="flex items-stretch gap-1.5 h-40">
@@ -1730,7 +1730,7 @@ export default function OverviewPage() {
                 {/* Sys Chart 3: SD Card Storage */}
                 <ChartCard
                   title="SD Card Storage"
-                  subtitle="Rata-rata Kapasitas"
+                  subtitle="Average Capacity"
                   icon={HardDrive}
                 >
                   <div className="flex items-stretch gap-1.5 h-40">
@@ -1772,7 +1772,7 @@ export default function OverviewPage() {
                 {/* Sys Chart 4: Uptime Trend */}
                 <ChartCard
                   title="Uptime Trend"
-                  subtitle="Rata-rata Ketersediaan"
+                  subtitle="Average Availability"
                   icon={Clock}
                 >
                   <div className="flex items-stretch gap-1.5 h-40">
@@ -1824,17 +1824,17 @@ export default function OverviewPage() {
               <div className="flex items-center gap-2">
                 <Flame className="size-5 text-rose-500 animate-pulse" />
                 <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
-                  Daftar Device Bermasalah & Alert Aktif
+                  Troubled Devices & Active Alerts
                 </h2>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Daftar semua unit SmartBox yang sedang mengalami gangguan seluler, DVR/kamera, atau beban sistem kritis.
+                List of all SmartBox units experiencing cellular issues, DVR/camera alerts, or critical system loads.
               </p>
             </div>
 
             <div className="flex items-center gap-2 text-xs font-semibold">
               <span className="px-2.5 py-1 rounded-lg bg-rose-500/15 text-rose-400 border border-rose-500/30">
-                {offlineCount} Kritis / Offline
+                {offlineCount} Critical / Offline
               </span>
               <span className="px-2.5 py-1 rounded-lg bg-amber-500/15 text-amber-400 border border-amber-500/30">
                 {degradedCount} Warning
@@ -1855,7 +1855,7 @@ export default function OverviewPage() {
                       : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
                   }`}
                 >
-                  Semua Trouble ({countAllTrouble})
+                  All Issues ({countAllTrouble})
                 </button>
                 <button
                   onClick={() => setActiveTroubleCategory("critical")}
@@ -1866,7 +1866,7 @@ export default function OverviewPage() {
                   }`}
                 >
                   <XCircle className="size-3.5" />
-                  Kritis ({countCritical})
+                  Critical ({countCritical})
                 </button>
                 <button
                   onClick={() => setActiveTroubleCategory("warning")}
@@ -1888,7 +1888,7 @@ export default function OverviewPage() {
                   }`}
                 >
                   <Radio className="size-3.5" />
-                  Seluler ({countCellular})
+                  Cellular ({countCellular})
                 </button>
                 <button
                   onClick={() => setActiveTroubleCategory("dvr")}
@@ -1919,7 +1919,7 @@ export default function OverviewPage() {
                 <Search className="absolute left-3 top-2.5 size-4 text-slate-400" />
                 <input
                   type="text"
-                  placeholder="Cari Device ID, lokasi, jenis isu..."
+                  placeholder="Search Device ID, location, issue type..."
                   value={troubleSearchQuery}
                   onChange={(e) => setTroubleSearchQuery(e.target.value)}
                   className="w-full pl-9 pr-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-[#060c18] border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-hidden focus:border-blue-500"
@@ -2024,7 +2024,7 @@ export default function OverviewPage() {
                   <div className="flex flex-wrap sm:flex-nowrap items-center justify-between md:justify-end gap-5 shrink-0 pt-3 md:pt-0 border-t md:border-t-0 border-slate-100 dark:border-slate-800">
                     <div className="text-left md:text-right">
                       <div className="text-[10px] text-slate-400 uppercase font-semibold">
-                        Telemetri Alert
+                        Telemetry Alert
                       </div>
                       <div
                         className={`text-sm font-extrabold font-mono mt-0.5 ${
@@ -2035,7 +2035,7 @@ export default function OverviewPage() {
                       </div>
                       <div className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1 md:justify-end">
                         <Clock className="size-3 text-slate-500" />
-                        <span>Durasi: {device.duration}</span>
+                        <span>Duration: {device.duration}</span>
                       </div>
                     </div>
 
@@ -2043,7 +2043,7 @@ export default function OverviewPage() {
                       href={device.reportHref}
                       className="bg-slate-900 hover:bg-[#0073ea] dark:bg-slate-800 dark:hover:bg-[#0073ea] text-white text-xs font-semibold px-4 py-2 rounded-xl flex items-center gap-1.5 shadow-sm transition-all duration-200 cursor-pointer shrink-0"
                     >
-                      <span>Buka Report</span>
+                      <span>View Report</span>
                       <ArrowUpRight className="size-3.5" />
                     </Link>
                   </div>
@@ -2055,10 +2055,10 @@ export default function OverviewPage() {
               <div className="bg-white dark:bg-[#0a1224] rounded-2xl p-12 text-center border border-slate-200 dark:border-slate-800">
                 <CheckCircle2 className="size-10 text-[#00c875] mx-auto mb-3" />
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                  Tidak Ada Device Yang Mengalami Gangguan
+                  No Devices with Active Incidents
                 </h3>
                 <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
-                  Semua device dalam filter ini beroperasi normal atau tidak ada device yang cocok dengan kata kunci pencarian.
+                  All devices in this filter are operating normally or no devices match the search keyword.
                 </p>
                 <button
                   onClick={() => {
@@ -2081,10 +2081,10 @@ export default function OverviewPage() {
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
-                Pusat Report Detail Telemetri
+                Telemetry Reports Hub
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Akses report komprehensif bulanan lengkap dengan detail performa gateway, multi-track timeline, dan riwayat gangguan.
+                Access comprehensive monthly reports with detailed gateway performance, multi-track timelines, and incident history.
               </p>
             </div>
           </div>
@@ -2110,12 +2110,12 @@ export default function OverviewPage() {
                     <ArrowUpRight className="size-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
                   </h4>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                    Uptime komunikasi CPU-Modem, koneksi jaringan, analisis sinyal RSRP, temperatur modem, dan timeline gangguan bulanan.
+                    CPU-Modem communication uptime, network connectivity, RSRP signal analysis, modem temperature, and monthly incident timeline.
                   </p>
                 </div>
               </div>
               <div className="pt-4 border-t border-slate-100 dark:border-slate-800/60 mt-4 flex items-center justify-between text-xs text-slate-700 dark:text-slate-300 font-semibold">
-                <span>Buka Report & Export CSV</span>
+                <span>Open Report & Export CSV</span>
                 <ChevronRight className="size-4 text-[#00d2ff] group-hover:translate-x-1 transition-transform" />
               </div>
             </Link>
@@ -2140,12 +2140,12 @@ export default function OverviewPage() {
                     <ArrowUpRight className="size-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
                   </h4>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                    SLA komunikasi CPU-DVR, retensi storage HDD, 3-track timeline (CPU-DVR, Recording, Kamera), dan riwayat event rekaman.
+                    CPU-DVR communication SLA, HDD storage retention, 3-track timeline (CPU-DVR, Recording, Camera), and recording event history.
                   </p>
                 </div>
               </div>
               <div className="pt-4 border-t border-slate-100 dark:border-slate-800/60 mt-4 flex items-center justify-between text-xs text-slate-700 dark:text-slate-300 font-semibold">
-                <span>Buka Report & Export CSV</span>
+                <span>Open Report & Export CSV</span>
                 <ChevronRight className="size-4 text-[#fdab3d] group-hover:translate-x-1 transition-transform" />
               </div>
             </Link>
@@ -2170,12 +2170,12 @@ export default function OverviewPage() {
                     <ArrowUpRight className="size-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
                   </h4>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                    Beban rata-rata dan puncak CPU/RAM/SD, wear-out life SD card, grafik tren 24 jam, dan 4-track timeline lonjakan beban.
+                    Average and peak CPU/RAM/SD loads, SD card wear-out life, 24-hour trend charts, and 4-track load spike timeline.
                   </p>
                 </div>
               </div>
               <div className="pt-4 border-t border-slate-100 dark:border-slate-800/60 mt-4 flex items-center justify-between text-xs text-slate-700 dark:text-slate-300 font-semibold">
-                <span>Buka Report & Export CSV</span>
+                <span>Open Report & Export CSV</span>
                 <ChevronRight className="size-4 text-[#00c875] group-hover:translate-x-1 transition-transform" />
               </div>
             </Link>

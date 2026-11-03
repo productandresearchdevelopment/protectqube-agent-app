@@ -38,10 +38,10 @@ interface FilterHeaderProps {
 export const FilterHeader: React.FC<FilterHeaderProps> = ({
   search,
   onSearchChange,
-  searchPlaceholder = "Cari gateway ID, lokasi...",
+  searchPlaceholder = "Search Gateway ID, location...",
   filters = [],
   actions,
-  timeframe = "24 Jam Terakhir",
+  timeframe = "Last 24 Hours",
   onTimeframeClick,
   onExportClick,
   exportLoading = false,

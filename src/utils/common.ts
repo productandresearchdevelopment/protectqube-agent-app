@@ -190,7 +190,7 @@ export const DEFAULT_DATETIME_FORMAT: Intl.DateTimeFormatOptions = {
 export const formatDate = (
   date?: string | Date | null,
   userFormat?: Intl.DateTimeFormatOptions,
-  locale = "id-ID",
+  locale = "en-US",
 ) => {
   if (!date) return "-";
 

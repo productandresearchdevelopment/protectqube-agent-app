@@ -144,8 +144,8 @@ export const fetchSystemHealthDashboard = async (
 
   const params = new URLSearchParams();
   if (filters?.search) params.append("search", filters.search);
-  if (filters?.type && filters.type !== "Semua Tipe") params.append("gateway_type", filters.type);
-  if (filters?.status && filters.status !== "Semua Status") params.append("status", filters.status);
+  if (filters?.type && !filters.type.startsWith("Semua") && !filters.type.startsWith("All")) params.append("gateway_type", filters.type);
+  if (filters?.status && !filters.status.startsWith("Semua") && !filters.status.startsWith("All")) params.append("status", filters.status);
   if (filters?.page) params.append("page", String(filters.page));
   if (filters?.pageSize) params.append("page_size", String(filters.pageSize));
 
@@ -264,8 +264,8 @@ export const fetchCellularDashboard = async (
 
   const params = new URLSearchParams();
   if (filters?.search) params.append("search", filters.search);
-  if (filters?.type && filters.type !== "Semua Tipe") params.append("gateway_type", filters.type);
-  if (filters?.provider && filters.provider !== "Semua Provider") params.append("provider", filters.provider);
+  if (filters?.type && !filters.type.startsWith("Semua") && !filters.type.startsWith("All")) params.append("gateway_type", filters.type);
+  if (filters?.provider && !filters.provider.startsWith("Semua") && !filters.provider.startsWith("All")) params.append("provider", filters.provider);
   if (filters?.page) params.append("page", String(filters.page));
   if (filters?.pageSize) params.append("page_size", String(filters.pageSize));
 
@@ -361,8 +361,8 @@ export const fetchDVRDashboard = async (
 
   const params = new URLSearchParams();
   if (filters?.search) params.append("search", filters.search);
-  if (filters?.type && filters.type !== "Semua Tipe") params.append("gateway_type", filters.type);
-  if (filters?.status && filters.status !== "Semua Status") params.append("status", filters.status);
+  if (filters?.type && !filters.type.startsWith("Semua") && !filters.type.startsWith("All")) params.append("gateway_type", filters.type);
+  if (filters?.status && !filters.status.startsWith("Semua") && !filters.status.startsWith("All")) params.append("status", filters.status);
   if (filters?.page) params.append("page", String(filters.page));
   if (filters?.pageSize) params.append("page_size", String(filters.pageSize));
 
@@ -440,9 +440,9 @@ export const fetchCellularReport = async (
 
   const params = new URLSearchParams();
   if (filters?.search) params.append("search", filters.search);
-  if (filters?.type && filters.type !== "Semua Tipe") params.append("gateway_type", filters.type);
-  if (filters?.provider && filters.provider !== "Semua Provider") params.append("provider", filters.provider);
-  if (filters?.location && filters.location !== "Semua Lokasi") params.append("location", filters.location);
+  if (filters?.type && !filters.type.startsWith("Semua") && !filters.type.startsWith("All")) params.append("gateway_type", filters.type);
+  if (filters?.provider && !filters.provider.startsWith("Semua") && !filters.provider.startsWith("All")) params.append("provider", filters.provider);
+  if (filters?.location && !filters.location.startsWith("Semua") && !filters.location.startsWith("All")) params.append("location", filters.location);
   if (filters?.date_range) params.append("date_range", filters.date_range);
   if (filters?.page) params.append("page", String(filters.page));
   if (filters?.pageSize) params.append("page_size", String(filters.pageSize));
@@ -469,9 +469,9 @@ export const useCellularReport = (filters?: ICellularReportFilters) => {
 export const exportCellularReportCsvUrl = (filters?: ICellularReportFilters) => {
   const params = new URLSearchParams();
   if (filters?.search) params.append("search", filters.search);
-  if (filters?.type && filters.type !== "Semua Tipe") params.append("gateway_type", filters.type);
-  if (filters?.provider && filters.provider !== "Semua Provider") params.append("provider", filters.provider);
-  if (filters?.location && filters.location !== "Semua Lokasi") params.append("location", filters.location);
+  if (filters?.type && !filters.type.startsWith("Semua") && !filters.type.startsWith("All")) params.append("gateway_type", filters.type);
+  if (filters?.provider && !filters.provider.startsWith("Semua") && !filters.provider.startsWith("All")) params.append("provider", filters.provider);
+  if (filters?.location && !filters.location.startsWith("Semua") && !filters.location.startsWith("All")) params.append("location", filters.location);
   return `${API_BASE_URL}/monitoring/reports/cellular/export?${params.toString()}`;
 };
 
@@ -481,6 +481,10 @@ export interface ITroubleEventItem {
   end_time: string;
   duration: string;
   cause: string;
+  title?: string;
+  description?: string;
+  category?: string;
+  recommendation?: string;
 }
 
 export interface ITimelineSegment {
@@ -501,6 +505,8 @@ export interface ICellularReportGatewayDetail {
   sim_number: string;
   sim_status: string;
   ip_address: string;
+  quota_main_gb?: number | null;
+  quota_info?: string;
   period: string;
   period_hours: string;
   cpu_modem_uptime: string;
@@ -613,8 +619,8 @@ export const fetchDVRReport = async (
   const params = new URLSearchParams();
   if (filters?.search) params.append("search", filters.search);
   if (filters?.type && filters.type !== "Semua Tipe") params.append("gateway_type", filters.type);
-  if (filters?.dvr_brand && filters.dvr_brand !== "Semua Merek DVR") params.append("dvr_brand", filters.dvr_brand);
-  if (filters?.location && filters.location !== "Semua Lokasi") params.append("location", filters.location);
+  if (filters?.dvr_brand && !filters.dvr_brand.startsWith("Semua") && !filters.dvr_brand.startsWith("All")) params.append("dvr_brand", filters.dvr_brand);
+  if (filters?.location && !filters.location.startsWith("Semua") && !filters.location.startsWith("All")) params.append("location", filters.location);
   if (filters?.date_range) params.append("date_range", filters.date_range);
   if (filters?.page) params.append("page", String(filters.page));
   if (filters?.pageSize) params.append("page_size", String(filters.pageSize));
@@ -642,8 +648,8 @@ export const exportDVRReportCsvUrl = (filters?: IDVRReportFilters) => {
   const params = new URLSearchParams();
   if (filters?.search) params.append("search", filters.search);
   if (filters?.type && filters.type !== "Semua Tipe") params.append("gateway_type", filters.type);
-  if (filters?.dvr_brand && filters.dvr_brand !== "Semua Merek DVR") params.append("dvr_brand", filters.dvr_brand);
-  if (filters?.location && filters.location !== "Semua Lokasi") params.append("location", filters.location);
+  if (filters?.dvr_brand && !filters.dvr_brand.startsWith("Semua") && !filters.dvr_brand.startsWith("All")) params.append("dvr_brand", filters.dvr_brand);
+  if (filters?.location && !filters.location.startsWith("Semua") && !filters.location.startsWith("All")) params.append("location", filters.location);
   return `${API_BASE_URL}/monitoring/reports/dvr/export?${params.toString()}`;
 };
 
@@ -654,6 +660,9 @@ export interface IDVRTroubleEventItem {
   duration: string;
   category: string;
   description: string;
+  title?: string;
+  cause?: string;
+  recommendation?: string;
 }
 
 export interface IDVRTimelineSegment {
@@ -790,7 +799,7 @@ export const fetchHealthReport = async (
   const params = new URLSearchParams();
   if (filters?.search) params.append("search", filters.search);
   if (filters?.type && filters.type !== "Semua Tipe") params.append("gateway_type", filters.type);
-  if (filters?.location && filters.location !== "Semua Lokasi") params.append("location", filters.location);
+  if (filters?.location && !filters.location.startsWith("Semua") && !filters.location.startsWith("All")) params.append("location", filters.location);
   if (filters?.date_range) params.append("date_range", filters.date_range);
   if (filters?.page) params.append("page", String(filters.page));
   if (filters?.pageSize) params.append("page_size", String(filters.pageSize));
@@ -818,7 +827,7 @@ export const exportHealthReportCsvUrl = (filters?: IHealthReportFilters) => {
   const params = new URLSearchParams();
   if (filters?.search) params.append("search", filters.search);
   if (filters?.type && filters.type !== "Semua Tipe") params.append("gateway_type", filters.type);
-  if (filters?.location && filters.location !== "Semua Lokasi") params.append("location", filters.location);
+  if (filters?.location && !filters.location.startsWith("Semua") && !filters.location.startsWith("All")) params.append("location", filters.location);
   return `${API_BASE_URL}/monitoring/reports/health/export?${params.toString()}`;
 };
 
@@ -835,6 +844,9 @@ export interface IHealthReportEvent {
   category: string;
   value: string;
   description: string;
+  title?: string;
+  cause?: string;
+  recommendation?: string;
 }
 
 export interface IHealthTimelineSegment {
@@ -1078,6 +1090,16 @@ export interface ICellularGatewayDetailData {
   network_sim: INetworkSIMDetail;
   modem_temperature: IModemTempDetail;
   events?: ICellularEventItem[];
+  last_incident?: {
+    title: string;
+    code: string;
+    duration: string;
+    message: string;
+    recommendation?: string;
+    time_wib: string;
+    status: string;
+    severity?: string;
+  } | null;
 }
 
 export const fetchCellularGatewayDetail = async (

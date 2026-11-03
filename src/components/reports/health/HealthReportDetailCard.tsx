@@ -27,6 +27,8 @@ import {
   IHealthReportGatewayDetail,
 } from "@/store/api/monitoring";
 import { SmartBoxIsometricIllustration } from "@/components/ui/SmartBoxIllustration";
+import { parseReportPeriod } from "@/lib/reportPeriodUtils";
+
 
 interface HealthReportDetailCardProps {
   gatewayId: string | null;
@@ -60,24 +62,25 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
     dayNumStr: string;
     dateKey: string;
     fullDate: string;
-    gwStatus: "online" | "offline";
-    cellStatus: "online" | "offline";
-    dvrStatus: "online" | "offline";
+    gwStatus: "online" | "offline" | "future";
+    cellStatus: "online" | "offline" | "future";
+    dvrStatus: "online" | "offline" | "future";
     eventsCount: number;
     isToday: boolean;
+    isFuture?: boolean;
   } | null>(null);
   const [activeEventTab, setActiveEventTab] = useState<"all" | "downtime">("all");
   const [selectedEventDate, setSelectedEventDate] = useState<string>("ALL");
 
   const rawEvents = data?.events || [];
 
-  // Generate 31 daily status points for Gateway, Cellular, and DVR (like DVR report)
-  const dailyMultiTrack = useMemo(() => {
-    const daysInMonth = 31;
-    const monthStr = "Oct";
-    const yearStr = "2026";
-    const todayDay = 31;
+  const periodInfo = useMemo(() => {
+    return parseReportPeriod(data?.period || dateRange);
+  }, [data?.period, dateRange]);
 
+  // Generate dynamic daily status points for Gateway, Cellular, and DVR based on active report month (full month, status only up to today)
+  const dailyMultiTrack = useMemo(() => {
+    const { daysInMonth, monthStr, yearStr, todayDay, isCurrentMonth } = periodInfo;
     const events = rawEvents;
 
     const list = [];
@@ -86,34 +89,40 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
       const dateKey = `${dayNumStr} ${monthStr}`;
       const fullDate = `${dayNumStr} ${monthStr} ${yearStr}`;
 
-      const dayEvents = events.filter((ev: any) => {
-        const trimmed = (ev.start_time || "").trim();
-        return trimmed.startsWith(dateKey) || trimmed.startsWith(`${day} ${monthStr}`);
-      });
+      const isFuture = Boolean(isCurrentMonth && todayDay && day > todayDay);
+
+      const dayEvents = isFuture
+        ? []
+        : events.filter((ev: any) => {
+            const trimmed = (ev.start_time || "").trim();
+            return trimmed.startsWith(dateKey) || trimmed.startsWith(`${day} ${monthStr}`);
+          });
 
       // Status per track
-      let gwStatus: "online" | "offline" = "online";
-      let cellStatus: "online" | "offline" = "online";
-      let dvrStatus: "online" | "offline" = "online";
+      let gwStatus: "online" | "offline" | "future" = isFuture ? "future" : "online";
+      let cellStatus: "online" | "offline" | "future" = isFuture ? "future" : "online";
+      let dvrStatus: "online" | "offline" | "future" = isFuture ? "future" : "online";
 
-      for (const ev of dayEvents) {
-        const cat = (ev.category || "").toLowerCase();
-        const desc = (ev.description || "").toLowerCase();
-        if (cat.includes("gateway") || desc.includes("gateway") || desc.includes("power") || desc.includes("loss")) {
-          gwStatus = "offline";
+      if (!isFuture) {
+        for (const ev of dayEvents) {
+          const cat = (ev.category || "").toLowerCase();
+          const desc = (ev.description || "").toLowerCase();
+          if (cat.includes("gateway") || desc.includes("gateway") || desc.includes("power") || desc.includes("loss")) {
+            gwStatus = "offline";
+          }
+          if (cat.includes("cellular") || desc.includes("sim") || desc.includes("modem")) {
+            cellStatus = "offline";
+          }
+          if (cat.includes("dvr") || cat.includes("camera") || desc.includes("recording") || desc.includes("nvr")) {
+            dvrStatus = "offline";
+          }
         }
-        if (cat.includes("cellular") || desc.includes("sim") || desc.includes("modem")) {
+
+        // If gateway is down, all downstream are impacted
+        if (gwStatus === "offline") {
           cellStatus = "offline";
-        }
-        if (cat.includes("dvr") || cat.includes("camera") || desc.includes("recording") || desc.includes("nvr")) {
           dvrStatus = "offline";
         }
-      }
-
-      // If gateway is down, all downstream are impacted
-      if (gwStatus === "offline") {
-        cellStatus = "offline";
-        dvrStatus = "offline";
       }
 
       list.push({
@@ -126,11 +135,13 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
         dvrStatus,
         eventsCount: dayEvents.length,
         isToday: day === todayDay,
+        isFuture,
       });
     }
 
     return list;
-  }, [rawEvents]);
+  }, [rawEvents, periodInfo]);
+
 
   // Extract unique dates for dropdown (top-level hook)
   const uniqueDates = useMemo(() => {
@@ -190,7 +201,7 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
   if (!data) {
     return (
       <div className="bg-white dark:bg-[#070e1d] rounded-2xl border border-slate-200 dark:border-slate-800/90 shadow-xl p-6 text-center text-slate-500 dark:text-slate-400 text-sm">
-        Data performa kesehatan untuk gateway {gatewayId} tidak ditemukan.
+        Health performance data for gateway {gatewayId} not found.
       </div>
     );
   }
@@ -224,8 +235,8 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
 
   const downtimeDiffHours = downtimeHoursCalculated - slaMaxDowntimeHours;
   const downtimeDiffText = downtimeDiffHours > 0
-    ? `Mati melebihi batas toleransi ${formatHoursMinutes(downtimeDiffHours)}`
-    : `Downtime dalam batas toleransi (${formatHoursMinutes(Math.abs(downtimeDiffHours))} sisa)`;
+    ? `Downtime exceeded tolerance limit by ${formatHoursMinutes(downtimeDiffHours)}`
+    : `Downtime within tolerance limit (${formatHoursMinutes(Math.abs(downtimeDiffHours))} remaining)`;
 
   const getCategoryColor = (cat: string) => {
     if (cat.includes("CPU")) return "text-[#f59e0b]";
@@ -255,7 +266,7 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
           <button
             onClick={onClose}
             className="text-slate-400 hover:text-slate-800 dark:hover:text-white p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-colors cursor-pointer"
-            title="Tutup Detail"
+            title="Close Details"
           >
             <X className="size-4" />
           </button>
@@ -282,7 +293,7 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
 
             <div className="space-y-1 text-xs text-slate-600 dark:text-slate-300 font-normal pt-1">
               <div className="grid grid-cols-[70px_1fr] items-center">
-                <span className="text-slate-500 dark:text-slate-400 text-[11px]">Tipe</span>
+                <span className="text-slate-500 dark:text-slate-400 text-[11px]">Type</span>
                 <span className="text-slate-800 dark:text-slate-200 text-[11px] font-medium truncate">: {d.type}</span>
               </div>
               <div className="grid grid-cols-[70px_1fr] items-center">
@@ -306,7 +317,7 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
                 <span className="text-slate-800 dark:text-slate-200 text-[11px] font-medium truncate">: {d.provider_spec}</span>
               </div>
               <div className="grid grid-cols-[70px_1fr] items-start">
-                <span className="text-slate-500 dark:text-slate-400 text-[11px]">Lokasi</span>
+                <span className="text-slate-500 dark:text-slate-400 text-[11px]">Location</span>
                 <span className="text-slate-800 dark:text-slate-200 text-[11px] font-medium truncate">: {d.location}</span>
               </div>
             </div>
@@ -323,25 +334,25 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
                 <div className="size-5 rounded bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-slate-700 dark:text-slate-300">
                   <Calendar className="size-3" />
                 </div>
-                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate">Periode</span>
+                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate">Period</span>
               </div>
               <div className="mt-2">
                 <div className="text-[11px] font-bold text-slate-900 dark:text-white leading-tight truncate">
-                  {d.period}
+                  {periodInfo.effectivePeriodStr}
                 </div>
                 <div className="text-[9px] text-blue-600 dark:text-blue-400 font-semibold mt-0.5">
-                  Total {periodHoursNum} Jam
+                  Total {periodHoursNum} Hours
                 </div>
               </div>
             </div>
 
-            {/* Card 2: Akumulasi Nyala (Uptime) */}
+            {/* Card 2: Accumulated Uptime */}
             <div className="bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-2.5 flex flex-col justify-between shadow-xs">
               <div className="flex items-center gap-1.5">
                 <div className="size-5 rounded bg-emerald-500/15 flex items-center justify-center text-[#00a862] dark:text-[#00c875]">
                   <CheckCircle2 className="size-3" />
                 </div>
-                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate">Akumulasi Nyala</span>
+                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate">Accumulated Uptime</span>
               </div>
               <div className="mt-2">
                 <div className="text-xs font-bold text-[#00a862] dark:text-[#00c875] leading-tight font-mono">
@@ -353,13 +364,13 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
               </div>
             </div>
 
-            {/* Card 3: Akumulasi Mati (Downtime) */}
+            {/* Card 3: Accumulated Downtime */}
             <div className="bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-2.5 flex flex-col justify-between shadow-xs">
               <div className="flex items-center gap-1.5">
                 <div className="size-5 rounded bg-rose-500/15 flex items-center justify-center text-[#e2445c]">
                   <Clock className="size-3" />
                 </div>
-                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate">Akumulasi Mati</span>
+                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate">Accumulated Downtime</span>
               </div>
               <div className="mt-2">
                 <div className="text-xs font-bold text-[#e2445c] leading-tight font-mono">
@@ -393,13 +404,13 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
               </div>
             </div>
 
-            {/* Card 5: Rata-rata CPU */}
+            {/* Card 5: Average CPU */}
             <div className="bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-2.5 flex flex-col justify-between shadow-xs">
               <div className="flex items-center gap-1.5">
                 <div className="size-5 rounded bg-rose-500/15 flex items-center justify-center text-[#e2445c]">
                   <BarChart2 className="size-3" />
                 </div>
-                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate">Rata-rata CPU</span>
+                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate">Average CPU</span>
               </div>
               <div className="mt-2">
                 <div className="text-xs font-bold text-[#e2445c] leading-tight">
@@ -411,13 +422,13 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
               </div>
             </div>
 
-            {/* Card 6: Rata-rata RAM */}
+            {/* Card 6: Average RAM */}
             <div className="bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-2.5 flex flex-col justify-between shadow-xs">
               <div className="flex items-center gap-1.5">
                 <div className="size-5 rounded bg-emerald-500/15 flex items-center justify-center text-[#00a862] dark:text-[#00c875]">
                   <BarChart2 className="size-3" />
                 </div>
-                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate">Rata-rata RAM</span>
+                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate">Average RAM</span>
               </div>
               <div className="mt-2">
                 <div className="text-xs font-bold text-[#00a862] dark:text-[#00c875] leading-tight">
@@ -429,13 +440,13 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
               </div>
             </div>
 
-            {/* Card 7: Rata-rata SD */}
+            {/* Card 7: Average SD */}
             <div className="bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-2.5 flex flex-col justify-between shadow-xs">
               <div className="flex items-center gap-1.5">
                 <div className="size-5 rounded bg-amber-500/15 flex items-center justify-center text-amber-600 dark:text-[#f59e0b]">
                   <TrendingUp className="size-3" />
                 </div>
-                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate">Rata-rata SD</span>
+                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate">Average SD</span>
               </div>
               <div className="mt-2">
                 <div className="text-xs font-bold text-amber-600 dark:text-[#f59e0b] leading-tight">
@@ -453,7 +464,7 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
                 <div className="size-5 rounded bg-blue-500/15 flex items-center justify-center text-blue-600 dark:text-[#00d2ff]">
                   <Thermometer className="size-3" />
                 </div>
-                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate">Health & Suhu</span>
+                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate">Health & Temp</span>
               </div>
               <div className="mt-2">
                 <div className="text-xs font-bold text-[#00a862] dark:text-[#00c875] leading-tight">
@@ -478,9 +489,9 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
                 </div>
                 <div>
                   <h4 className="text-xs font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
-                    Akumulasi Waktu Operasional & Pencapaian SLA 99.5%
+                    Accumulated Operational Uptime & 99.5% SLA Performance
                     <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400 hidden sm:inline">
-                      (Periode 1 Bulan: 31 Hari &times; 24 Jam = {periodHoursNum} Jam)
+                      (1 Month Period: 31 Days &times; 24 Hours = {periodHoursNum} Hours)
                     </span>
                   </h4>
                 </div>
@@ -494,7 +505,7 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
                     : "bg-[#e2445c]/15 text-rose-600 dark:text-[#e2445c] border-[#e2445c]/30"
                 }`}>
                   <span className={`size-1.5 rounded-full ${isSLAMet ? "bg-[#00c875]" : "bg-[#e2445c] animate-pulse"}`} />
-                  {isSLAMet ? `SLA 99.5% Tercapai (+${slaDiffPct}%)` : `SLA 99.5% Breach (${slaDiffPct}%)`}
+                  {isSLAMet ? `SLA 99.5% Achieved (+${slaDiffPct}%)` : `SLA 99.5% Breach (${slaDiffPct}%)`}
                 </span>
               </div>
             </div>
@@ -506,13 +517,13 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
                 <div 
                   style={{ width: `${uptimePctNum}%` }} 
                   className="h-full bg-linear-to-r from-emerald-600 to-[#00c875] transition-all duration-500"
-                  title={`Nyala (Uptime): ${uptimeDurationText} (${uptimePctNum}%)`}
+                  title={`Uptime: ${uptimeDurationText} (${uptimePctNum}%)`}
                 />
                 {/* Downtime Red Segment */}
                 <div 
                   style={{ width: `${downtimePctNum}%` }} 
                   className="h-full bg-linear-to-r from-rose-500 to-[#e2445c] transition-all duration-500"
-                  title={`Mati (Downtime): ${downtimeDurationText} (${downtimePctNum}%)`}
+                  title={`Downtime: ${downtimeDurationText} (${downtimePctNum}%)`}
                 />
                 {/* SLA 99.5% Target Marker */}
                 <div 
@@ -527,16 +538,16 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
                 <div className="flex items-center gap-3">
                   <span className="flex items-center gap-1">
                     <span className="size-2 rounded-full bg-[#00c875]" />
-                    Total Nyala: <strong className="text-slate-900 dark:text-emerald-400 font-mono">{uptimeDurationText}</strong> ({uptimePctNum}%)
+                    Total Uptime: <strong className="text-slate-900 dark:text-emerald-400 font-mono">{uptimeDurationText}</strong> ({uptimePctNum}%)
                   </span>
                   <span className="flex items-center gap-1">
                     <span className="size-2 rounded-full bg-[#e2445c]" />
-                    Total Mati: <strong className="text-slate-900 dark:text-rose-400 font-mono">{downtimeDurationText}</strong> ({downtimePctNum}%)
+                    Total Downtime: <strong className="text-slate-900 dark:text-rose-400 font-mono">{downtimeDurationText}</strong> ({downtimePctNum}%)
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5 text-amber-600 dark:text-yellow-400 font-medium">
                   <span className="w-2.5 h-0.5 bg-yellow-400 inline-block" />
-                  Target SLA: 99.5% (Min. {slaTargetHoursText} &bull; Toleransi Mati maks. {slaDowntimeAllowedText})
+                  Target SLA: 99.5% (Min. {slaTargetHoursText} &bull; Max Downtime Tolerance {slaDowntimeAllowedText})
                 </div>
               </div>
             </div>
@@ -544,13 +555,13 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
             {/* 4 Detail Metric Pills */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 border-t border-slate-200 dark:border-slate-800/60">
               <div className="bg-white dark:bg-[#070e1c] p-2.5 rounded-lg border border-slate-200 dark:border-slate-800/80 shadow-2xs">
-                <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-medium">Total Periode Kalender</span>
-                <span className="text-xs font-bold text-slate-900 dark:text-white font-mono mt-0.5 block">{periodHoursNum} Jam (1 Bulan)</span>
-                <span className="text-[9px] text-slate-500 dark:text-slate-400">31 hari kalender &times; 24 jam</span>
+                <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-medium">Total Calendar Period</span>
+                <span className="text-xs font-bold text-slate-900 dark:text-white font-mono mt-0.5 block">{periodHoursNum} Hours (1 Month)</span>
+                <span className="text-[9px] text-slate-500 dark:text-slate-400">31 calendar days &times; 24 hours</span>
               </div>
 
               <div className="bg-white dark:bg-[#070e1c] p-2.5 rounded-lg border border-slate-200 dark:border-slate-800/80 shadow-2xs">
-                <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-medium">Akumulasi Nyala (Uptime)</span>
+                <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-medium">Accumulated Uptime</span>
                 <span className="text-xs font-bold text-[#00a862] dark:text-[#00c875] font-mono mt-0.5 block">
                   {uptimeDurationText} ({uptimePctNum}%)
                 </span>
@@ -558,17 +569,17 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
               </div>
 
               <div className="bg-white dark:bg-[#070e1c] p-2.5 rounded-lg border border-slate-200 dark:border-slate-800/80 shadow-2xs">
-                <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-medium">Akumulasi Mati (Downtime)</span>
+                <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-medium">Accumulated Downtime</span>
                 <span className={`text-xs font-bold font-mono mt-0.5 block ${isSLAMet ? "text-slate-700 dark:text-slate-300" : "text-[#e2445c]"}`}>
                   {downtimeDurationText} ({downtimePctNum}%)
                 </span>
-                <span className="text-[9px] text-slate-500 dark:text-slate-400">Batas Maks: {slaDowntimeAllowedText}</span>
+                <span className="text-[9px] text-slate-500 dark:text-slate-400">Max Limit: {slaDowntimeAllowedText}</span>
               </div>
 
               <div className="bg-white dark:bg-[#070e1c] p-2.5 rounded-lg border border-slate-200 dark:border-slate-800/80 shadow-2xs">
-                <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-medium">Status & Toleransi SLA</span>
+                <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-medium">SLA Status & Tolerance</span>
                 <span className={`text-xs font-bold font-mono mt-0.5 block ${isSLAMet ? "text-[#00a862] dark:text-[#00c875]" : "text-[#e2445c]"}`}>
-                  {isSLAMet ? `Tercapai (+${slaDiffPct}%)` : `Defisit ${slaDiffPct}%`}
+                  {isSLAMet ? `Achieved (+${slaDiffPct}%)` : `Deficit ${slaDiffPct}%`}
                 </span>
                 <span className="text-[9px] text-slate-500 dark:text-slate-400 truncate block" title={downtimeDiffText}>
                   {downtimeDiffText}
@@ -584,7 +595,7 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
               <div className="flex items-center justify-between pb-1 text-[11px]">
                 <span className="font-bold text-slate-900 dark:text-white">CPU Usage (%)</span>
                 <span className="text-slate-500 dark:text-slate-400 text-[10px]">
-                  Rata-rata: <strong className="text-slate-900 dark:text-white">{d.cpu_avg}%</strong> | Max: {d.cpu_max}%
+                  Average: <strong className="text-slate-900 dark:text-white">{d.cpu_avg}%</strong> | Max: {d.cpu_max}%
                 </span>
               </div>
               <div className="h-24 w-full mt-1">
@@ -604,7 +615,7 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
               <div className="flex items-center justify-between pb-1 text-[11px]">
                 <span className="font-bold text-slate-900 dark:text-white">RAM Usage (%)</span>
                 <span className="text-slate-500 dark:text-slate-400 text-[10px]">
-                  Rata-rata: <strong className="text-[#00a862] dark:text-[#00c875]">{d.ram_avg}%</strong> | Max: {d.ram_max}%
+                  Average: <strong className="text-[#00a862] dark:text-[#00c875]">{d.ram_avg}%</strong> | Max: {d.ram_max}%
                 </span>
               </div>
               <div className="h-24 w-full mt-1">
@@ -624,7 +635,7 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
               <div className="flex items-center justify-between pb-1 text-[11px]">
                 <span className="font-bold text-slate-900 dark:text-white">SD Card Usage (%)</span>
                 <span className="text-slate-500 dark:text-slate-400 text-[10px]">
-                  Rata-rata: <strong className="text-[#0073ea] dark:text-[#38bdf8]">{d.sd_avg}%</strong> | Max: {d.sd_max}%
+                  Average: <strong className="text-[#0073ea] dark:text-[#38bdf8]">{d.sd_avg}%</strong> | Max: {d.sd_max}%
                 </span>
               </div>
               <div className="h-24 w-full mt-1">
@@ -651,10 +662,10 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
             <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200 dark:border-slate-800/60">
               <div className="flex items-center gap-2">
                 <h4 className="text-xs font-bold text-slate-900 dark:text-white">
-                  Timeline Status ({d.period})
+                  Timeline Status ({periodInfo.effectivePeriodStr})
                 </h4>
                 <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 bg-slate-200/60 dark:bg-slate-800 px-2 py-0.5 rounded-full">
-                  31 Hari
+                  {dailyMultiTrack.length} Days
                 </span>
               </div>
               <div className="flex items-center gap-3 text-[11px] text-slate-600 dark:text-slate-300">
@@ -668,33 +679,37 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
                 </span>
                 <span className="flex items-center gap-1.5">
                   <span className="size-2 rounded-full bg-blue-500" />
-                  Hari Ini
+                  Today
                 </span>
               </div>
             </div>
 
-            {/* 31-Day Multi-Track Timeline Matrix Card */}
+            {/* Dynamic Multi-Track Timeline Matrix Card */}
             <div className="mt-3.5 p-3.5 rounded-xl bg-white dark:bg-[#070e1d] border border-slate-200/90 dark:border-slate-800/80 shadow-xs space-y-2">
               {/* RULER / HEADER TANGGAL DI ATAS */}
               <div className="flex items-center gap-2">
                 <div className="w-16 shrink-0 text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
                   Track
                 </div>
-                <div className="flex-1 grid grid-cols-31 gap-0.5 sm:gap-1">
+                <div
+                  className="flex-1 grid gap-0.5 sm:gap-1"
+                  style={{ gridTemplateColumns: `repeat(${dailyMultiTrack.length}, minmax(0, 1fr))` }}
+                >
                   {dailyMultiTrack.map((item) => (
                     <div
                       key={item.day}
                       onClick={() => {
+                        if (item.isFuture) return;
                         if (selectedEventDate === item.dateKey) {
                           setSelectedEventDate("ALL");
                         } else {
                           setSelectedEventDate(item.dateKey);
                         }
                       }}
-                      onMouseEnter={() => setHoveredDay(item)}
+                      onMouseEnter={() => !item.isFuture && setHoveredDay(item)}
                       onMouseLeave={() => setHoveredDay(null)}
-                      className="text-center cursor-pointer select-none"
-                      title={item.fullDate}
+                      className={`text-center select-none ${item.isFuture ? "cursor-default" : "cursor-pointer"}`}
+                      title={item.isFuture ? `${item.fullDate}` : item.fullDate}
                     >
                       <span
                         className={`text-[9px] font-mono block leading-none transition-all ${
@@ -702,6 +717,8 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
                             ? "font-extrabold text-blue-600 dark:text-blue-400 bg-blue-500/20 px-0.5 py-0.5 rounded ring-1 ring-blue-500/50 scale-110 shadow-xs"
                             : selectedEventDate === item.dateKey
                             ? "font-bold text-amber-500 dark:text-amber-400"
+                            : item.isFuture
+                            ? "text-slate-400 dark:text-slate-600 opacity-60"
                             : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
                         }`}
                       >
@@ -717,33 +734,39 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
                 <div className="w-16 shrink-0 text-[11px] font-semibold text-slate-700 dark:text-slate-300 truncate">
                   Gateway
                 </div>
-                <div className="flex-1 grid grid-cols-31 gap-0.5 sm:gap-1">
+                <div
+                  className="flex-1 grid gap-0.5 sm:gap-1"
+                  style={{ gridTemplateColumns: `repeat(${dailyMultiTrack.length}, minmax(0, 1fr))` }}
+                >
                   {dailyMultiTrack.map((item) => (
                     <div
                       key={item.day}
                       onClick={() => {
+                        if (item.isFuture) return;
                         if (selectedEventDate === item.dateKey) {
                           setSelectedEventDate("ALL");
                         } else {
                           setSelectedEventDate(item.dateKey);
                         }
                       }}
-                      onMouseEnter={() => setHoveredDay(item)}
+                      onMouseEnter={() => !item.isFuture && setHoveredDay(item)}
                       onMouseLeave={() => setHoveredDay(null)}
-                      className={`h-5.5 rounded-xs cursor-pointer transition-all ${
-                        item.gwStatus === "offline"
-                          ? "bg-[#e2445c] hover:bg-[#ff4d6d]"
-                          : "bg-[#00c875] hover:bg-[#05e287]"
+                      className={`h-5.5 rounded-xs transition-all ${
+                        item.isFuture
+                          ? "bg-slate-200/30 dark:bg-slate-800/30 cursor-default"
+                          : item.gwStatus === "offline"
+                          ? "bg-[#e2445c] hover:bg-[#ff4d6d] cursor-pointer"
+                          : "bg-[#00c875] hover:bg-[#05e287] cursor-pointer"
                       } ${
-                        item.isToday
+                        item.isToday && !item.isFuture
                           ? "ring-1.5 ring-blue-500 shadow-xs"
                           : ""
                       } ${
                         selectedEventDate === item.dateKey
                           ? "ring-2 ring-amber-400 scale-105"
-                          : "hover:scale-105"
+                          : !item.isFuture ? "hover:scale-105" : ""
                       }`}
-                      title={`Gateway ${item.dayNumStr} Oct: ${item.gwStatus === "offline" ? "Offline" : "Online"}`}
+                      title={item.isFuture ? `${item.fullDate}` : `Gateway ${item.dayNumStr} ${periodInfo.monthStr}: ${item.gwStatus === "offline" ? "Offline" : "Online"}`}
                     />
                   ))}
                 </div>
@@ -754,33 +777,39 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
                 <div className="w-16 shrink-0 text-[11px] font-semibold text-slate-700 dark:text-slate-300 truncate">
                   Cellular
                 </div>
-                <div className="flex-1 grid grid-cols-31 gap-0.5 sm:gap-1">
+                <div
+                  className="flex-1 grid gap-0.5 sm:gap-1"
+                  style={{ gridTemplateColumns: `repeat(${dailyMultiTrack.length}, minmax(0, 1fr))` }}
+                >
                   {dailyMultiTrack.map((item) => (
                     <div
                       key={item.day}
                       onClick={() => {
+                        if (item.isFuture) return;
                         if (selectedEventDate === item.dateKey) {
                           setSelectedEventDate("ALL");
                         } else {
                           setSelectedEventDate(item.dateKey);
                         }
                       }}
-                      onMouseEnter={() => setHoveredDay(item)}
+                      onMouseEnter={() => !item.isFuture && setHoveredDay(item)}
                       onMouseLeave={() => setHoveredDay(null)}
-                      className={`h-5.5 rounded-xs cursor-pointer transition-all ${
-                        item.cellStatus === "offline"
-                          ? "bg-[#e2445c] hover:bg-[#ff4d6d]"
-                          : "bg-[#00c875] hover:bg-[#05e287]"
+                      className={`h-5.5 rounded-xs transition-all ${
+                        item.isFuture
+                          ? "bg-slate-200/30 dark:bg-slate-800/30 cursor-default"
+                          : item.cellStatus === "offline"
+                          ? "bg-[#e2445c] hover:bg-[#ff4d6d] cursor-pointer"
+                          : "bg-[#00c875] hover:bg-[#05e287] cursor-pointer"
                       } ${
-                        item.isToday
+                        item.isToday && !item.isFuture
                           ? "ring-1.5 ring-blue-500 shadow-xs"
                           : ""
                       } ${
                         selectedEventDate === item.dateKey
                           ? "ring-2 ring-amber-400 scale-105"
-                          : "hover:scale-105"
+                          : !item.isFuture ? "hover:scale-105" : ""
                       }`}
-                      title={`Cellular ${item.dayNumStr} Oct: ${item.cellStatus === "offline" ? "Offline" : "Online"}`}
+                      title={item.isFuture ? `${item.fullDate}` : `Cellular ${item.dayNumStr} ${periodInfo.monthStr}: ${item.cellStatus === "offline" ? "Offline" : "Online"}`}
                     />
                   ))}
                 </div>
@@ -791,33 +820,39 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
                 <div className="w-16 shrink-0 text-[11px] font-semibold text-slate-700 dark:text-slate-300 truncate">
                   DVR
                 </div>
-                <div className="flex-1 grid grid-cols-31 gap-0.5 sm:gap-1">
+                <div
+                  className="flex-1 grid gap-0.5 sm:gap-1"
+                  style={{ gridTemplateColumns: `repeat(${dailyMultiTrack.length}, minmax(0, 1fr))` }}
+                >
                   {dailyMultiTrack.map((item) => (
                     <div
                       key={item.day}
                       onClick={() => {
+                        if (item.isFuture) return;
                         if (selectedEventDate === item.dateKey) {
                           setSelectedEventDate("ALL");
                         } else {
                           setSelectedEventDate(item.dateKey);
                         }
                       }}
-                      onMouseEnter={() => setHoveredDay(item)}
+                      onMouseEnter={() => !item.isFuture && setHoveredDay(item)}
                       onMouseLeave={() => setHoveredDay(null)}
-                      className={`h-5.5 rounded-xs cursor-pointer transition-all ${
-                        item.dvrStatus === "offline"
-                          ? "bg-[#e2445c] hover:bg-[#ff4d6d]"
-                          : "bg-[#00c875] hover:bg-[#05e287]"
+                      className={`h-5.5 rounded-xs transition-all ${
+                        item.isFuture
+                          ? "bg-slate-200/30 dark:bg-slate-800/30 cursor-default"
+                          : item.dvrStatus === "offline"
+                          ? "bg-[#e2445c] hover:bg-[#ff4d6d] cursor-pointer"
+                          : "bg-[#00c875] hover:bg-[#05e287] cursor-pointer"
                       } ${
-                        item.isToday
+                        item.isToday && !item.isFuture
                           ? "ring-1.5 ring-blue-500 shadow-xs"
                           : ""
                       } ${
                         selectedEventDate === item.dateKey
                           ? "ring-2 ring-amber-400 scale-105"
-                          : "hover:scale-105"
+                          : !item.isFuture ? "hover:scale-105" : ""
                       }`}
-                      title={`DVR ${item.dayNumStr} Oct: ${item.dvrStatus === "offline" ? "Offline" : "Online"}`}
+                      title={item.isFuture ? `${item.fullDate}` : `DVR ${item.dayNumStr} ${periodInfo.monthStr}: ${item.dvrStatus === "offline" ? "Offline" : "Online"}`}
                     />
                   ))}
                 </div>
@@ -831,7 +866,7 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
                       {hoveredDay.fullDate}
                       {hoveredDay.isToday && (
                         <span className="ml-1.5 px-1.5 py-0.2 rounded text-[10px] font-bold bg-blue-500/20 text-blue-500">
-                          Hari Ini
+                          Today
                         </span>
                       )}
                       :
@@ -851,12 +886,13 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
                       <strong className={hoveredDay.dvrStatus === "offline" ? "text-[#e2445c]" : "text-[#00c875]"}>
                         {hoveredDay.dvrStatus === "offline" ? "Offline" : "Online"}
                       </strong>
-                      {hoveredDay.eventsCount > 0 && ` (${hoveredDay.eventsCount} event gangguan)`}
+                      {hoveredDay.eventsCount > 0 && ` (${hoveredDay.eventsCount} incident events)`}
                     </span>
                   </div>
                 ) : (
                   <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between w-full">
-                    <span>Arahkan kursor atau klik tanggal (01 - 31) untuk memfilter detail gangguan.</span>
+                    <span>Hover or click a date (01 - {dailyMultiTrack.length}) to filter incident details.</span>
+
                     {selectedEventDate !== "ALL" && (
                       <button
                         onClick={() => setSelectedEventDate("ALL")}
@@ -870,7 +906,7 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
               </div>
             </div>
           </div>
-        </div>        {/* Right Column (lg:col-span-6): Riwayat Gangguan Table with Date Selector & Scrollable 10 Rows */}
+        </div>        {/* Right Column (lg:col-span-6): Incident History Table with Date Selector & Scrollable 10 Rows */}
         <div className="lg:col-span-6 bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 flex flex-col justify-between shadow-xs">
           <div>
             <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200 dark:border-slate-800/60">
@@ -884,7 +920,7 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
                       : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
                   }`}
                 >
-                  Semua Gangguan ({rawEvents.length})
+                  All Incidents ({rawEvents.length})
                 </button>
                 <button
                   type="button"
@@ -895,24 +931,24 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
                       : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
                   }`}
                 >
-                  Insiden Offline ({downtimeCount})
+                  Offline Incidents ({downtimeCount})
                 </button>
               </div>
 
               {/* Date Selector Dropdown for Daily Filtering */}
               <div className="flex items-center gap-1.5">
-                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Filter Tanggal:</span>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Filter Date:</span>
                 <select
                   value={selectedEventDate}
                   onChange={(e) => setSelectedEventDate(e.target.value)}
                   className="text-xs font-medium bg-white dark:bg-[#070e1d] border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer shadow-xs"
                 >
-                  <option value="ALL">Semua Tanggal ({rawEvents.length})</option>
+                  <option value="ALL">All Dates ({rawEvents.length})</option>
                   {uniqueDates.map((dateStr) => {
                     const count = rawEvents.filter((e: any) => e.start_time?.startsWith(dateStr)).length;
                     return (
                       <option key={dateStr} value={dateStr}>
-                        {dateStr} ({count} event)
+                        {dateStr} ({count} events)
                       </option>
                     );
                   })}
@@ -925,56 +961,59 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
               <table className="w-full text-left text-xs border-collapse">
                 <thead className="sticky top-0 z-10 bg-slate-100 dark:bg-[#0a1224] shadow-xs">
                   <tr className="text-[11px] text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800/60 font-semibold">
-                    <th className="py-2 px-2 text-center w-8">No.</th>
-                    <th className="py-2 px-2.5">Mulai</th>
-                    <th className="py-2 px-2.5">Selesai</th>
-                    <th className="py-2 px-2 text-center">Durasi</th>
-                    <th className="py-2 px-2.5">Kategori</th>
-                    <th className="py-2 px-2 text-center">Status / Nilai</th>
-                    <th className="py-2 px-2.5">Keterangan</th>
+                    <th className="py-2.5 px-2 text-center w-8">No.</th>
+                    <th className="py-2.5 px-3">Incident Time</th>
+                    <th className="py-2.5 px-3">Incident / Issue</th>
+                    <th className="py-2.5 px-3 text-center">Duration</th>
+                    <th className="py-2.5 px-3 text-center">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 dark:divide-slate-800/40 text-[11px]">
-                  {filteredEvents.map((event: any, idx: number) => (
-                    <tr
-                      key={event.no || idx}
-                      className="hover:bg-slate-100/80 dark:hover:bg-slate-800/30 transition-colors"
-                    >
-                      <td className="py-2 px-2 text-center text-slate-500 dark:text-slate-400 font-mono">
-                        {idx + 1}
-                      </td>
-                      <td className="py-2 px-2.5 text-slate-700 dark:text-slate-300 font-mono whitespace-nowrap">
-                        {event.start_time}
-                      </td>
-                      <td className="py-2 px-2.5 text-slate-700 dark:text-slate-300 font-mono whitespace-nowrap">
-                        {event.end_time}
-                      </td>
-                      <td className="py-2 px-2 text-center font-bold text-[#f59e0b] whitespace-nowrap font-mono">
-                        {event.duration}
-                      </td>
-                      <td className="py-2 px-2.5 whitespace-nowrap">
-                        <span className={`font-semibold ${getCategoryColor(event.category || "")}`}>
-                          {event.category}
-                        </span>
-                      </td>
-                      <td className={`py-2 px-2 text-center font-bold whitespace-nowrap ${
-                        (event.value || "").includes("Loss") || (event.value || "").includes("Offline")
-                          ? "text-[#e2445c]"
-                          : (event.value || "").includes("°C")
-                          ? "text-[#e2445c]"
-                          : "text-slate-700 dark:text-slate-300"
-                      }`}>
-                        {event.value || "-"}
-                      </td>
-                      <td className="py-2 px-2.5 text-slate-700 dark:text-slate-300 truncate max-w-42.5" title={event.description}>
-                        {event.description}
-                      </td>
-                    </tr>
-                  ))}
+                  {filteredEvents.map((event: any, idx: number) => {
+                    const isResolved = (event.status || "").toLowerCase() === "resolved";
+                    const isOngoing = (event.status || "").toLowerCase() === "active" || (event.end_time || "").includes("Active") || event.end_time === "-";
+                    return (
+                      <tr
+                        key={event.no || idx}
+                        className="hover:bg-slate-100/80 dark:hover:bg-slate-800/30 transition-colors"
+                      >
+                        <td className="py-2.5 px-2 text-center text-slate-500 dark:text-slate-400 font-mono">
+                          {idx + 1}
+                        </td>
+                        <td className="py-2.5 px-3 text-slate-700 dark:text-slate-300 font-mono whitespace-nowrap">
+                          <div>{event.start_time}</div>
+                          <div className="text-[10px] text-slate-500 dark:text-slate-400">to {event.end_time}</div>
+                        </td>
+                        <td className="py-2.5 px-3 font-semibold text-slate-900 dark:text-white">
+                          {event.title || event.description || event.cause}
+                        </td>
+                        <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-md font-bold text-xs ${
+                            isOngoing
+                              ? "bg-rose-500/15 text-rose-500 dark:text-rose-400 border border-rose-500/30 animate-pulse"
+                              : "bg-amber-500/10 dark:bg-amber-500/20 text-[#f59e0b] border border-amber-500/30"
+                          }`}>
+                            {event.duration}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                          {isOngoing ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/15 text-[#e2445c] border border-rose-500/30 animate-pulse">
+                              Active
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-[#00c875] border border-emerald-500/30">
+                              Resolved
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                   {filteredEvents.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="py-6 text-center text-slate-500 dark:text-slate-400 text-xs">
-                        Tidak ada riwayat gangguan pada filter yang dipilih.
+                      <td colSpan={5} className="py-6 text-center text-slate-500 dark:text-slate-400 text-xs">
+                        No incident history found for the selected filter.
                       </td>
                     </tr>
                   )}
@@ -982,10 +1021,11 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
                 {activeEventTab === "downtime" && filteredEvents.length > 0 && (
                   <tfoot className="border-t-2 border-slate-300 dark:border-slate-700/80 bg-slate-100 dark:bg-[#081022] font-semibold text-xs text-slate-800 dark:text-slate-200">
                     <tr>
-                      <td colSpan={3} className="py-2 px-2 text-right text-slate-500 dark:text-slate-400">Total Akumulasi Mati:</td>
+                      <td colSpan={2} className="py-2 px-2 text-right text-slate-500 dark:text-slate-400">Total Cumulative Downtime:</td>
+                      <td className="py-2 px-2 text-slate-900 dark:text-white font-medium">-</td>
                       <td className="py-2 px-2 text-center text-[#e2445c] font-bold font-mono">{downtimeDurationText}</td>
-                      <td colSpan={3} className="py-2 px-2 text-slate-600 dark:text-slate-300 font-mono text-[11px]">
-                        Sisa Nyala: <strong className="text-[#00a862] dark:text-[#00c875]">{uptimeDurationText} ({uptimePctNum}%)</strong>
+                      <td className="py-2 px-2 text-slate-600 dark:text-slate-300 font-mono text-[11px] text-center">
+                        Remaining: <strong className="text-[#00a862] dark:text-[#00c875]">{uptimeDurationText} ({uptimePctNum}%)</strong>
                       </td>
                     </tr>
                   </tfoot>

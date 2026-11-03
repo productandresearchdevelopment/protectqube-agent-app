@@ -19,6 +19,8 @@ import {
   ICellularReportGatewayDetail,
 } from "@/store/api/monitoring";
 import { SmartBoxIsometricIllustration } from "@/components/ui/SmartBoxIllustration";
+import { parseReportPeriod } from "@/lib/reportPeriodUtils";
+
 
 interface CellularReportDetailCardProps {
   gatewayId: string | null;
@@ -38,20 +40,21 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
     dayNumStr: string;
     dateKey: string;
     fullDate: string;
-    status: "online" | "offline" | "degraded";
+    status: "online" | "offline" | "degraded" | "future";
     uptimePct: number;
     eventCount: number;
     totalDurationStr: string;
     isToday: boolean;
+    isFuture?: boolean;
   } | null>(null);
 
-  // Generate daily status bar chart items for each day of the month (01 Oct - 31 Oct)
-  const dailyStatusList = useMemo(() => {
-    const daysInMonth = 31;
-    const monthStr = "Oct";
-    const yearStr = "2026";
-    const todayDay = 31;
+  const periodInfo = useMemo(() => {
+    return parseReportPeriod(data?.period || dateRange);
+  }, [data?.period, dateRange]);
 
+  // Generate dynamic daily status bar chart items based on active report month (full days, bars only up to today)
+  const dailyStatusList = useMemo(() => {
+    const { daysInMonth, monthStr, yearStr, todayDay, isCurrentMonth } = periodInfo;
     const events = data?.trouble_events || [];
 
     const list = [];
@@ -60,17 +63,21 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
       const dateKey = `${dayNumStr} ${monthStr}`;
       const fullDate = `${dayNumStr} ${monthStr} ${yearStr}`;
 
-      const dayEvents = events.filter((ev) => {
-        const trimmed = (ev.start_time || "").trim();
-        return trimmed.startsWith(dateKey) || trimmed.startsWith(`${day} ${monthStr}`);
-      });
+      const isFuture = Boolean(isCurrentMonth && todayDay && day > todayDay);
 
-      let status: "online" | "offline" | "degraded" = "online";
-      let uptimePct = 100;
+      const dayEvents = isFuture
+        ? []
+        : events.filter((ev) => {
+            const trimmed = (ev.start_time || "").trim();
+            return trimmed.startsWith(dateKey) || trimmed.startsWith(`${day} ${monthStr}`);
+          });
+
+      let status: "online" | "offline" | "future" = isFuture ? "future" : "online";
+      let uptimePct = isFuture ? 0 : 100;
       let totalDurationStr = "0m";
       const eventCount = dayEvents.length;
 
-      if (eventCount > 0) {
+      if (!isFuture && eventCount > 0) {
         status = "offline";
         uptimePct = Math.max(20, Math.round(100 - eventCount * 4));
         totalDurationStr = dayEvents[0]?.duration || `${eventCount * 5}m`;
@@ -86,11 +93,13 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
         eventCount,
         totalDurationStr,
         isToday: day === todayDay,
+        isFuture,
       });
     }
 
     return list;
-  }, [data?.trouble_events]);
+  }, [data?.trouble_events, periodInfo]);
+
 
   // Extract distinct dates for per-day filter (e.g. "30 Oct")
   const uniqueDates = useMemo(() => {
@@ -129,7 +138,7 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
   if (!data) {
     return (
       <div className="bg-white dark:bg-[#070e1d] rounded-2xl border border-slate-200 dark:border-slate-800/90 shadow-xl p-6 text-center text-slate-500 dark:text-slate-400 text-sm">
-        Data performa untuk gateway {gatewayId} tidak ditemukan.
+        Performance data for gateway {gatewayId} not found.
       </div>
     );
   }
@@ -172,7 +181,7 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
           <button
             onClick={onClose}
             className="text-slate-400 hover:text-slate-700 dark:hover:text-white p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-colors cursor-pointer"
-            title="Tutup Detail"
+            title="Close Details"
           >
             <X className="size-4" />
           </button>
@@ -197,7 +206,7 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
 
             <div className="space-y-1 text-xs text-slate-600 dark:text-slate-300 font-normal pt-1">
               <div className="grid grid-cols-[80px_1fr] items-center">
-                <span className="text-slate-500 dark:text-slate-400 text-[11px]">Tipe</span>
+                <span className="text-slate-500 dark:text-slate-400 text-[11px]">Type</span>
                 <span className="text-slate-800 dark:text-slate-200 text-[11px] font-medium">: {d.type}</span>
               </div>
               <div className="grid grid-cols-[80px_1fr] items-center">
@@ -217,11 +226,17 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
                 <span className="text-[#00c875] text-[11px] font-medium">: {d.sim_status}</span>
               </div>
               <div className="grid grid-cols-[80px_1fr] items-center">
+                <span className="text-slate-500 dark:text-slate-400 text-[11px]">Sisa Kuota</span>
+                <span className="text-slate-800 dark:text-slate-200 text-[11px] font-medium font-mono">
+                  : {d.quota_main_gb !== undefined && d.quota_main_gb !== null ? `${d.quota_main_gb} GB` : "-"}
+                </span>
+              </div>
+              <div className="grid grid-cols-[80px_1fr] items-center">
                 <span className="text-slate-500 dark:text-slate-400 text-[11px]">IP Address</span>
                 <span className="text-slate-800 dark:text-slate-200 text-[11px] font-mono">: {d.ip_address}</span>
               </div>
               <div className="grid grid-cols-[80px_1fr] items-start">
-                <span className="text-slate-500 dark:text-slate-400 text-[11px]">Lokasi</span>
+                <span className="text-slate-500 dark:text-slate-400 text-[11px]">Location</span>
                 <span className="text-slate-800 dark:text-slate-200 text-[11px] font-medium truncate">: {d.location}</span>
               </div>
             </div>
@@ -236,11 +251,11 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
               <div className="size-6 rounded-md bg-slate-200/80 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300">
                 <Calendar className="size-3.5" />
               </div>
-              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Periode</span>
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Period</span>
             </div>
             <div className="mt-2.5">
               <div className="text-xs font-bold text-slate-900 dark:text-white leading-tight">
-                {d.period}
+                {periodInfo.effectivePeriodStr}
               </div>
               <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
                 {d.period_hours}
@@ -386,13 +401,13 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
             </div>
           </div>
 
-          {/* Card 10: Total Gangguan */}
+          {/* Card 10: Total Incidents */}
           <div className="bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-3 flex flex-col justify-between shadow-xs">
             <div className="flex items-center gap-2">
               <div className="size-6 rounded-md bg-amber-500/15 flex items-center justify-center text-[#f59e0b]">
                 <AlertCircle className="size-3.5" />
               </div>
-              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate">Total Gangguan</span>
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate">Total Incidents</span>
             </div>
             <div className="mt-2.5">
               <div className="text-sm font-bold text-[#f59e0b] leading-tight">
@@ -403,7 +418,7 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
         </div>
       </div>
 
-      {/* 3. Bottom Section: Timeline Status & Riwayat Gangguan */}
+      {/* 3. Bottom Section: Timeline Status & Incident History */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
         {/* Left Column (lg:col-span-6): Daily Status Bar Chart (01 Oct - 31 Oct) */}
         <div className="lg:col-span-6 bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 flex flex-col justify-between shadow-xs">
@@ -412,10 +427,10 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
             <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200 dark:border-slate-800/60">
               <div className="flex items-center gap-2">
                 <h4 className="text-xs font-bold text-slate-900 dark:text-white">
-                  Timeline Status Harian ({d.period})
+                  Daily Status Timeline ({periodInfo.effectivePeriodStr})
                 </h4>
                 <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 bg-slate-200/60 dark:bg-slate-800 px-2 py-0.5 rounded-full">
-                  31 Hari
+                  {dailyStatusList.length} Days
                 </span>
               </div>
               <div className="flex items-center gap-3 text-[11px] text-slate-600 dark:text-slate-300">
@@ -425,19 +440,23 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
                 </span>
                 <span className="flex items-center gap-1.5">
                   <span className="size-2 rounded-full bg-[#e2445c]" />
-                  Gangguan / Offline
+                  Incident / Offline
                 </span>
                 <span className="flex items-center gap-1.5">
                   <span className="size-2 rounded-full bg-blue-500" />
-                  Hari Ini
+                  Today
                 </span>
               </div>
             </div>
 
             {/* Daily Bar Chart Card with Date Labels on TOP and Bars on BOTTOM */}
             <div className="mt-3.5 p-3.5 rounded-xl bg-white dark:bg-[#070e1d] border border-slate-200/90 dark:border-slate-800/80 shadow-xs">
-              {/* 31 Columns Grid: Each day has Date Label on TOP and Bar on BOTTOM */}
-              <div className="grid grid-cols-31 gap-1 sm:gap-1.5 items-end pt-1">
+              {/* Dynamic Columns Grid: Each day has Date Label on TOP and Bar on BOTTOM */}
+              <div
+                className="grid gap-1 sm:gap-1.5 items-end pt-1"
+                style={{ gridTemplateColumns: `repeat(${dailyStatusList.length}, minmax(0, 1fr))` }}
+              >
+
                 {dailyStatusList.map((item) => {
                   const isSelected = selectedEventDate === item.dateKey;
                   const barColor =
@@ -451,18 +470,25 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
                     <div
                       key={item.day}
                       onClick={() => {
+                        if (item.isFuture) return;
                         if (selectedEventDate === item.dateKey) {
                           setSelectedEventDate("ALL");
                         } else {
                           setSelectedEventDate(item.dateKey);
                         }
                       }}
-                      onMouseEnter={() => setHoveredDay(item)}
+                      onMouseEnter={() => !item.isFuture && setHoveredDay(item)}
                       onMouseLeave={() => setHoveredDay(null)}
-                      className="flex flex-col items-center gap-2 cursor-pointer group"
-                      title={`${item.fullDate}: ${
-                        item.status === "offline" ? "Gangguan / Offline" : "Online Normal"
+                      className={`flex flex-col items-center gap-2 ${
+                        item.isFuture ? "cursor-default" : "cursor-pointer group"
                       }`}
+                      title={
+                        item.isFuture
+                          ? `${item.fullDate}`
+                          : `${item.fullDate}: ${
+                              item.status === "offline" ? "Incident / Offline" : "Online Normal"
+                            }`
+                      }
                     >
                       {/* 1. LABEL TANGGAL DI ATAS */}
                       <span
@@ -471,26 +497,32 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
                             ? "font-extrabold text-blue-600 dark:text-blue-400 bg-blue-500/20 px-1 py-0.5 rounded ring-1 ring-blue-500/50 scale-110 shadow-xs"
                             : isSelected
                             ? "font-bold text-amber-500 dark:text-amber-400"
+                            : item.isFuture
+                            ? "text-slate-400 dark:text-slate-600 opacity-60"
                             : "text-slate-500 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-slate-200"
                         }`}
                       >
                         {item.dayNumStr}
                       </span>
 
-                      {/* 2. BAR DI BAWAHNYA */}
+                      {/* 2. BAR DI BAWAHNYA (HANYA MUNCUL JIKA SUDAH BERJALAN) */}
                       <div className="w-full h-24 sm:h-28 bg-slate-100 dark:bg-slate-900/60 rounded-md p-0.5 flex flex-col justify-end border border-slate-200/60 dark:border-slate-800/60">
-                        <div
-                          style={{ height: `${item.uptimePct}%` }}
-                          className={`w-full rounded-xs transition-all duration-200 ${barColor} ${
-                            item.isToday
-                              ? "ring-2 ring-blue-500 shadow-md shadow-blue-500/35"
-                              : ""
-                          } ${
-                            isSelected
-                              ? "ring-2 ring-amber-400 scale-105"
-                              : "group-hover:scale-105"
-                          }`}
-                        />
+                        {!item.isFuture ? (
+                          <div
+                            style={{ height: `${item.uptimePct}%` }}
+                            className={`w-full rounded-xs transition-all duration-200 ${barColor} ${
+                              item.isToday
+                                ? "ring-2 ring-blue-500 shadow-md shadow-blue-500/35"
+                                : ""
+                            } ${
+                              isSelected
+                                ? "ring-2 ring-amber-400 scale-105"
+                                : "group-hover:scale-105"
+                            }`}
+                          />
+                        ) : (
+                          <div className="w-full h-1 bg-slate-200/40 dark:bg-slate-800/40 rounded-xs mb-0.5" />
+                        )}
                       </div>
                     </div>
                   );
@@ -505,7 +537,7 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
                       {hoveredDay.fullDate}
                       {hoveredDay.isToday && (
                         <span className="ml-1.5 px-1.5 py-0.2 rounded text-[10px] font-bold bg-blue-500/20 text-blue-500">
-                          Hari Ini
+                          Today
                         </span>
                       )}
                       :
@@ -518,15 +550,16 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
                       }`}
                     >
                       {hoveredDay.status === "offline"
-                        ? `Gangguan Offline (${hoveredDay.eventCount} event, durasi ${hoveredDay.totalDurationStr})`
-                        : `Normal Online (Uptime 100%)`}
+                        ? `Offline Incident (${hoveredDay.eventCount} events, duration ${hoveredDay.totalDurationStr})`
+                        : `Normal Online (100% Uptime)`}
                     </span>
                   </div>
                 ) : (
                   <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between w-full">
                     <span>
-                      Arahkan kursor atau klik tanggal (01 - 31) untuk memfilter detail gangguan.
+                      Hover or click a date (01 - {dailyStatusList.length}) to inspect incident details.
                     </span>
+
                     {selectedEventDate !== "ALL" && (
                       <button
                         onClick={() => setSelectedEventDate("ALL")}
@@ -542,13 +575,13 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
           </div>
         </div>
 
-        {/* Right Column (lg:col-span-6): Riwayat Gangguan Table with Date Selector & Scrollable 10 Rows */}
+        {/* Right Column (lg:col-span-6): Incident History Table with Date Selector & Scrollable 10 Rows */}
         <div className="lg:col-span-6 bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 flex flex-col justify-between shadow-xs">
           <div>
             <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200 dark:border-slate-800/60">
               <div className="flex items-center gap-2">
                 <h4 className="text-xs font-bold text-slate-900 dark:text-white">
-                  Riwayat Gangguan
+                  Incident History
                 </h4>
                 <span className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-500/10 dark:bg-amber-500/20 px-2 py-0.5 rounded-full border border-amber-500/30">
                   {filteredEvents.length} event
@@ -557,18 +590,18 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
 
               {/* Date Selector Dropdown for Daily Filtering */}
               <div className="flex items-center gap-1.5">
-                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Filter Tanggal:</span>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Filter Date:</span>
                 <select
                   value={selectedEventDate}
                   onChange={(e) => setSelectedEventDate(e.target.value)}
                   className="text-xs font-medium bg-white dark:bg-[#070e1d] border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer shadow-xs"
                 >
-                  <option value="ALL">Semua Tanggal ({(d.trouble_events || []).length})</option>
+                  <option value="ALL">All Dates ({(d.trouble_events || []).length})</option>
                   {uniqueDates.map((dateStr) => {
                     const count = (d.trouble_events || []).filter((e) => e.start_time.startsWith(dateStr)).length;
                     return (
                       <option key={dateStr} value={dateStr}>
-                        {dateStr} ({count} event)
+                        {dateStr} ({count} events)
                       </option>
                     );
                   })}
@@ -576,45 +609,59 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
               </div>
             </div>
 
-            {/* Scrollable Compact Table (max 10 rows visible) */}
+            {/* Scrollable Compact Table */}
             <div className="overflow-x-auto mt-2 max-h-87.5 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700">
               <table className="w-full text-left text-xs border-collapse">
                 <thead className="sticky top-0 z-10 bg-slate-100 dark:bg-[#0a1224] shadow-xs">
                   <tr className="text-[11px] text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800/60 font-semibold">
-                    <th className="py-2 px-2 text-center w-8">No.</th>
-                    <th className="py-2 px-3">Mulai</th>
-                    <th className="py-2 px-3">Selesai</th>
-                    <th className="py-2 px-3 text-center">Durasi</th>
-                    <th className="py-2 px-3">Penyebab / Keterangan</th>
+                    <th className="py-2.5 px-2 text-center w-8">No.</th>
+                    <th className="py-2.5 px-3">Incident Time</th>
+                    <th className="py-2.5 px-3">Incident / Issue</th>
+                    <th className="py-2.5 px-3 text-center">Duration</th>
+                    <th className="py-2.5 px-3 text-center">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 dark:divide-slate-800/40 text-[11px]">
-                  {filteredEvents.map((event, idx) => (
-                    <tr
-                      key={event.no || idx}
-                      className="hover:bg-slate-100/80 dark:hover:bg-slate-800/30 transition-colors"
-                    >
-                      <td className="py-2 px-2 text-center text-slate-500 dark:text-slate-400 font-mono">
-                        {idx + 1}
-                      </td>
-                      <td className="py-2 px-3 text-slate-700 dark:text-slate-300 font-mono whitespace-nowrap">
-                        {event.start_time}
-                      </td>
-                      <td className="py-2 px-3 text-slate-700 dark:text-slate-300 font-mono whitespace-nowrap">
-                        {event.end_time}
-                      </td>
-                      <td className="py-2 px-3 text-center font-bold text-[#f59e0b] whitespace-nowrap">
-                        {event.duration}
-                      </td>
-                      <td className="py-2 px-3 text-slate-800 dark:text-slate-200 truncate max-w-50" title={event.cause}>
-                        {event.cause}
-                      </td>
-                    </tr>
-                  ))}
+                  {filteredEvents.map((event, idx) => {
+                    const isStillActive = event.end_time === "-" || event.end_time?.toLowerCase().includes("sekarang");
+                    return (
+                      <tr
+                        key={event.no || idx}
+                        className="hover:bg-slate-100/80 dark:hover:bg-slate-800/30 transition-colors"
+                      >
+                        <td className="py-2.5 px-2 text-center text-slate-500 dark:text-slate-400 font-mono">
+                          {idx + 1}
+                        </td>
+                        <td className="py-2.5 px-3 text-slate-700 dark:text-slate-300 font-mono whitespace-nowrap">
+                          <div>{event.start_time}</div>
+                          <div className="text-[10px] text-slate-500 dark:text-slate-400">to {event.end_time}</div>
+                        </td>
+                        <td className="py-2.5 px-3 font-semibold text-slate-900 dark:text-slate-100">
+                          {event.title || event.description || event.cause}
+                        </td>
+                        <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md font-bold text-xs bg-amber-500/10 dark:bg-amber-500/20 text-[#f59e0b] border border-amber-500/30">
+                            {event.duration}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                          {isStillActive ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/15 text-[#e2445c] border border-rose-500/30 animate-pulse">
+                              Active
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-[#00c875] border border-emerald-500/30">
+                              Resolved
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                   {filteredEvents.length === 0 && (
                     <tr>
                       <td colSpan={5} className="py-6 text-center text-slate-500 dark:text-slate-400 text-xs">
-                        Tidak ada riwayat gangguan pada tanggal yang dipilih.
+                        No incident history found for the selected date.
                       </td>
                     </tr>
                   )}

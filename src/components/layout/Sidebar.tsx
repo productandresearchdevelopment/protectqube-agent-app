@@ -45,7 +45,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const handleLogout = () => {
     removeToken();
-    toast.info("Anda telah logout.");
+    toast.info("You have logged out.");
     router.push("/auth/login");
   };
 
