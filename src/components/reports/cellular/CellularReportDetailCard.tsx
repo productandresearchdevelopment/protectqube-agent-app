@@ -42,6 +42,9 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
     fullDate: string;
     status: "online" | "offline" | "degraded" | "future";
     uptimePct: number;
+    downtimePct: number;
+    visualUpPct?: number;
+    visualDownPct?: number;
     eventCount: number;
     totalDurationStr: string;
     isToday: boolean;
@@ -52,7 +55,7 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
     return parseReportPeriod(data?.period || dateRange);
   }, [data?.period, dateRange]);
 
-  // Synchronized date selection handler across Timeline, Rincian SLA, and Riwayat Gangguan
+  // Synchronized date selection handler across Timeline, Rincian SLA, and Incident History
   const handleSelectDay = (day: number | null, dateKey?: string) => {
     if (day === null || (selectedBarDay === day && (!dateKey || selectedEventDate === dateKey))) {
       setSelectedBarDay(null);
@@ -83,58 +86,80 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
     }
   };
 
-  // Generate dynamic daily status bar chart items: full 30-day month timeline, bars only appear for filtered dates
+  // Generate dynamic daily status bar chart items: full month timeline (1 s/d 30/31+), bars only appear for filtered dates
   const dailyStatusList = useMemo(() => {
     const { daysInMonth, monthStr, yearStr, todayDay, isCurrentMonth } = periodInfo;
     const minDay = periodInfo.startDay;
     const maxDay = periodInfo.endDay;
-    const events = data?.trouble_events || [];
     const breakdown = data?.daily_breakdown || [];
 
+    const totalDays = Math.max(daysInMonth, maxDay);
     const list = [];
-    for (let day = minDay; day <= maxDay; day++) {
+    for (let day = 1; day <= totalDays; day++) {
       const dayNumStr = day < 10 ? `0${day}` : `${day}`;
       const dateKey = `${dayNumStr} ${monthStr}`;
       const fullDate = `${dayNumStr} ${monthStr} ${yearStr}`;
 
-      // Check if day is within filtered range
+      // Bar is filled only if date is within selected filter range and not a future date
       const isInRange = day >= minDay && day <= maxDay;
       const isFutureDate = Boolean(isCurrentMonth && todayDay && day > todayDay);
       const hasBar = isInRange && !isFutureDate;
 
-      const dayEvents = hasBar
-        ? events.filter((ev) => {
-            const trimmed = (ev.start_time || "").trim();
-            return trimmed.startsWith(dateKey) || trimmed.startsWith(`${day} ${monthStr}`);
-          })
-        : [];
-
       const daySla = breakdown.find((r) => r.day === day);
 
       let status: "online" | "offline" | "future" = !hasBar ? "future" : "online";
-      let uptimePct = !hasBar ? 0 : 100;
+      let uptimePct = 100;
+      let downtimePct = 0;
+      let visualDownPct = 0;
+      let visualUpPct = 100;
       let totalDurationStr = "0m";
-      let eventCount = dayEvents.length;
 
       if (hasBar) {
         if (daySla) {
           const isCpu = dailyViewMetric === "cpu_modem";
           const downMin = isCpu ? daySla.cpu_modem_downtime_min : daySla.cellular_downtime_min;
+          const upMin = isCpu ? daySla.cpu_modem_uptime_min : daySla.cellular_uptime_min;
           const sr = isCpu ? daySla.cpu_modem_success_rate : daySla.cellular_success_rate;
-          if (downMin > 0 || dayEvents.length > 0) {
+          
+          const totalObs = upMin + downMin;
+          if (totalObs > 0) {
+            uptimePct = Number(((upMin / totalObs) * 100).toFixed(1));
+            downtimePct = Number(((downMin / totalObs) * 100).toFixed(1));
+          } else {
+            uptimePct = Number(sr.toFixed(1));
+            downtimePct = Number((100 - uptimePct).toFixed(1));
+          }
+
+          if (downMin > 0 || downtimePct > 0) {
             status = "offline";
-            uptimePct = Math.round(sr);
             totalDurationStr = `${Math.round(downMin)}m`;
-            eventCount = Math.max(dayEvents.length, downMin > 0 ? 1 : 0);
+            if (downtimePct <= 0 && downMin > 0) {
+              downtimePct = 0.1;
+              uptimePct = 99.9;
+            }
+            if (uptimePct <= 0) {
+              visualDownPct = 100;
+              visualUpPct = 0;
+            } else {
+              // Ensure visible red height (minimum 6%, maximum 95%) so short downtime is clearly visible
+              visualDownPct = Math.max(6, Math.min(95, downtimePct));
+              visualUpPct = 100 - visualDownPct;
+            }
           } else {
             status = "online";
             uptimePct = 100;
+            downtimePct = 0;
+            visualDownPct = 0;
+            visualUpPct = 100;
             totalDurationStr = "0m";
           }
-        } else if (eventCount > 0) {
-          status = "offline";
-          uptimePct = Math.max(20, Math.round(100 - eventCount * 4));
-          totalDurationStr = dayEvents[0]?.duration || `${eventCount * 5}m`;
+        } else {
+          uptimePct = 100;
+          downtimePct = 0;
+          visualDownPct = 0;
+          visualUpPct = 100;
+          status = "online";
+          totalDurationStr = "0m";
         }
       }
 
@@ -145,7 +170,10 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
         fullDate,
         status,
         uptimePct,
-        eventCount,
+        downtimePct,
+        visualUpPct,
+        visualDownPct,
+        eventCount: (downtimePct > 0 || (daySla && (dailyViewMetric === "cpu_modem" ? daySla.cpu_modem_downtime_min : daySla.cellular_downtime_min) > 0)) ? 1 : 0,
         totalDurationStr,
         isToday: day === todayDay,
         isFuture: !hasBar,
@@ -154,7 +182,7 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
     }
 
     return list;
-  }, [data?.trouble_events, data?.daily_breakdown, periodInfo, dailyViewMetric]);
+  }, [data?.daily_breakdown, periodInfo, dailyViewMetric]);
 
   // 1. Filter trouble events strictly within the active date range & metric
   const rangeFilteredEvents = useMemo(() => {
@@ -164,22 +192,26 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
     const month = periodInfo.monthStr.toLowerCase();
 
     return rawEvents.filter((ev) => {
-      // Metric filter based on active tab [CPU - Modem] vs [Seluler / Network]
-      const m = (ev.metric || ev.category || "").toLowerCase();
+      // Metric filter based on active tab [CPU - Modem] vs [Cellular / Network]
+      const m = (ev.metric || ev.category || ev.cause || ev.description || "").toLowerCase();
       if (dailyViewMetric === "cpu_modem") {
         const isCpu = m === "cpu_modem" || m === "power" || m.includes("modem") || m.includes("power") || m.includes("reboot");
         if (!isCpu) return false;
       } else if (dailyViewMetric === "cellular") {
-        const isCell = m === "cellular" || m === "power" || m === "network" || m.includes("cellular") || m.includes("network") || m.includes("power") || m.includes("reboot");
+        const isCell = m === "cellular" || m === "power" || m === "network" || m.includes("cellular") || m.includes("seluler") || m.includes("network") || m.includes("power") || m.includes("reboot");
         if (!isCell) return false;
       }
 
       const parts = (ev.start_time || "").trim().split(" ");
       if (parts.length >= 2) {
         const dNum = parseInt(parts[0], 10);
-        const mStr = parts[1].toLowerCase();
-        if (!isNaN(dNum) && mStr === month) {
+        const mStr = parts[1].toLowerCase().replace(".", "");
+        const isSameMonth = mStr.startsWith(month.slice(0, 3)) || month.startsWith(mStr.slice(0, 3));
+        if (!isNaN(dNum) && isSameMonth) {
           return dNum >= minDay && dNum <= maxDay;
+        }
+        if (!isNaN(dNum) && !isSameMonth) {
+          return false;
         }
       }
       return true;
@@ -264,7 +296,7 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
       <div className="bg-white dark:bg-[#070e1d] text-slate-800 dark:text-slate-100 rounded-2xl border border-slate-200 dark:border-slate-800/90 shadow-xl p-8 flex items-center justify-center">
         <div className="flex items-center gap-3 text-slate-500 text-sm">
           <div className="size-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-          <span>Memuat data performa gateway...</span>
+          <span>Loading gateway performance data...</span>
         </div>
       </div>
     );
@@ -290,7 +322,7 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
             <FileSpreadsheet className="size-4" />
           </div>
           <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white tracking-tight">
-            Detail Performa Gateway &ndash; {d.location || d.id}
+            Gateway Performance Details &ndash; {d.location || d.id}
           </h2>
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#00c875]/15 dark:bg-[#00c875]/20 text-[#00c875] border border-[#00c875]/30">
             {d.status}
@@ -347,7 +379,7 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
                 <span className="text-[#00c875] text-[11px] font-medium">: {d.sim_status}</span>
               </div>
               <div className="grid grid-cols-[80px_1fr] items-center">
-                <span className="text-slate-500 dark:text-slate-400 text-[11px]">Sisa Kuota</span>
+                <span className="text-slate-500 dark:text-slate-400 text-[11px]">Remaining Quota</span>
                 <span className="text-slate-800 dark:text-slate-200 text-[11px] font-medium font-mono">
                   : {d.quota_main_gb !== undefined && d.quota_main_gb !== null ? `${d.quota_main_gb} GB` : "-"}
                 </span>
@@ -532,16 +564,16 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
             </div>
             <div className="mt-2.5">
               <div className="text-sm font-bold text-[#f59e0b] leading-tight">
-                {d.total_gangguan}
+                {rangeFilteredEvents.length} {rangeFilteredEvents.length === 1 ? "incident" : "incidents"}
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* 3. Bottom Section: Left Column (Timeline + Daily SLA Breakdown) & Right Column (Riwayat Gangguan) */}
+      {/* 3. Bottom Section: Left Column (Timeline + Daily SLA Breakdown) & Right Column (Incident History) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-start">
-        {/* Left Column (lg:col-span-6): Stack of Daily Status Timeline Card & Rincian SLA Harian Table Card */}
+        {/* Left Column (lg:col-span-6): Stack of Daily Status Timeline Card & Daily SLA Breakdown Table Card */}
         <div className="lg:col-span-6 space-y-3.5">
           {/* Top Card: Daily Status Timeline (01 Nov 2026 - 04 Nov 2026) */}
           <div className="bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 shadow-xs">
@@ -609,7 +641,7 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
                             }`
                       }
                     >
-                      {/* 1. LABEL TANGGAL DI ATAS */}
+                      {/* 1. DATE LABELS ON TOP */}
                       <span
                         className={`text-[9px] sm:text-[10px] font-mono block leading-none transition-all select-none ${
                           item.isToday
@@ -624,12 +656,11 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
                         {item.dayNumStr}
                       </span>
 
-                      {/* 2. BAR DI BAWAHNYA (HANYA MUNCUL JIKA SUDAH BERJALAN) */}
+                      {/* 2. BARS UNDERNEATH (FILLED ACCORDING TO DATE FILTER, REMAINING ARE EMPTY) */}
                       <div className="w-full h-20 sm:h-24 bg-slate-100 dark:bg-slate-900/60 rounded-md p-0.5 flex flex-col justify-end border border-slate-200/60 dark:border-slate-800/60">
-                        {!item.isFuture ? (
+                        {!item.isFuture && item.isInRange ? (
                           <div
-                            style={{ height: `${item.uptimePct}%` }}
-                            className={`w-full rounded-xs transition-all duration-200 ${barColor} ${
+                            className={`w-full h-full rounded-xs overflow-hidden flex flex-col justify-end transition-all duration-200 ${
                               item.isToday
                                 ? "ring-2 ring-blue-500 shadow-md shadow-blue-500/35"
                                 : ""
@@ -638,7 +669,24 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
                                 ? "ring-2 ring-amber-400 shadow-md shadow-amber-400/35 scale-105"
                                 : "group-hover:scale-105"
                             }`}
-                          />
+                          >
+                            {/* Downtime (Red segment on top) */}
+                            {item.visualDownPct > 0 && (
+                              <div
+                                style={{ height: `${item.visualDownPct}%` }}
+                                className="w-full bg-[#e2445c] hover:bg-[#ff4d6d] transition-all duration-200 shrink-0 rounded-t-xs"
+                                title={`Downtime: ${item.downtimePct}% (${item.totalDurationStr})`}
+                              />
+                            )}
+                            {/* Uptime (Green segment at bottom) */}
+                            {item.visualUpPct > 0 && (
+                              <div
+                                style={{ height: `${item.visualUpPct}%` }}
+                                className="w-full flex-1 bg-[#00c875] hover:bg-[#05e287] transition-all duration-200 shrink-0"
+                                title={`Uptime: ${item.uptimePct}%`}
+                              />
+                            )}
+                          </div>
                         ) : (
                           <div className="w-full h-1 bg-slate-200/40 dark:bg-slate-800/40 rounded-xs mb-0.5" />
                         )}
@@ -663,13 +711,13 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
                     </span>
                     <span
                       className={`font-medium ${
-                        hoveredDay.status === "offline"
+                        (hoveredDay.downtimePct ?? 0) > 0
                           ? "text-[#e2445c]"
                           : "text-[#00c875]"
                       }`}
                     >
-                      {hoveredDay.status === "offline"
-                        ? `Offline Incident (${hoveredDay.eventCount} events, duration ${hoveredDay.totalDurationStr})`
+                      {(hoveredDay.downtimePct ?? 0) > 0
+                        ? `Uptime ${hoveredDay.uptimePct}% | Downtime ${hoveredDay.downtimePct}% (${hoveredDay.totalDurationStr})`
                         : `Normal Online (100% Uptime)`}
                     </span>
                   </div>
@@ -678,7 +726,7 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
                     <span>
                       {selectedBarDay !== null ? (
                         <span className="text-amber-500 dark:text-amber-400 font-semibold">
-                          Filter aktif: Tanggal {selectedBarDay < 10 ? `0${selectedBarDay}` : selectedBarDay} {periodInfo.monthStr}
+                          Active filter: Date {selectedBarDay < 10 ? `0${selectedBarDay}` : selectedBarDay} {periodInfo.monthStr}
                         </span>
                       ) : (
                         `Hover or click a date (${dailyStatusList[0]?.dayNumStr || "01"} - ${dailyStatusList[dailyStatusList.length - 1]?.dayNumStr || periodInfo.effectiveDays}) to inspect details.`
@@ -699,7 +747,7 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
             </div>
           </div>
 
-          {/* Bottom Card: Rincian SLA Harian Table (Directly underneath the timeline card) */}
+          {/* Bottom Card: Daily SLA Breakdown Table (Directly underneath the timeline card) */}
           <div className="bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 shadow-xs">
             {/* Header: Title, Active Selection Badge & Metric Toggle */}
             <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200 dark:border-slate-800/60">
@@ -708,32 +756,32 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
                   <FileSpreadsheet className="size-3.5" />
                 </div>
                 <h4 className="text-xs font-bold text-slate-900 dark:text-white">
-                  Rincian SLA Harian
+                  Daily SLA Breakdown
                 </h4>
                 {selectedBarDay !== null ? (
                   <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-blue-600 dark:text-blue-400 bg-blue-500/10 dark:bg-blue-500/20 px-2 py-0.5 rounded-full border border-blue-500/30">
-                    <span>Tgl {selectedBarDay < 10 ? `0${selectedBarDay}` : selectedBarDay} {periodInfo.monthStr}</span>
+                    <span>Date {selectedBarDay < 10 ? `0${selectedBarDay}` : selectedBarDay} {periodInfo.monthStr}</span>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         handleSelectDay(null);
                       }}
                       className="text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer"
-                      title="Tampilkan semua hari"
+                      title="Show all days"
                     >
                       <X className="size-3" />
                     </button>
                   </span>
                 ) : (
                   <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 bg-slate-200/60 dark:bg-slate-800 px-2 py-0.5 rounded-full">
-                    {activeDailyBreakdown.length} Hari
+                    {activeDailyBreakdown.length} Days
                   </span>
                 )}
               </div>
 
               {/* Metric Toggle */}
               <div className="flex items-center gap-1 text-[11px]">
-                <span className="text-slate-500 dark:text-slate-400 font-medium mr-1">Metrik:</span>
+                <span className="text-slate-500 dark:text-slate-400 font-medium mr-1">Metric:</span>
                 <button
                   type="button"
                   onClick={() => setDailyViewMetric("cpu_modem")}
@@ -754,21 +802,21 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
                       : "bg-slate-200/60 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700"
                   }`}
                 >
-                  Seluler / Network
+                  Cellular / Network
                 </button>
               </div>
             </div>
 
-            {/* Table (Columns: Tanggal, Uptime (Menit), Downtime (Menit), Success Rate, Status SLA) */}
+            {/* Table (Columns: Date, Uptime (Mins), Downtime (Mins), Success Rate, SLA Status) */}
             <div className="overflow-x-auto mt-2 max-h-72 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700">
               <table className="w-full text-left text-xs border-collapse">
                 <thead className="sticky top-0 z-10 bg-slate-100 dark:bg-[#0a1224] shadow-xs">
                   <tr className="text-[11px] text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800/60 font-semibold">
-                    <th className="py-2 px-3">Tanggal</th>
-                    <th className="py-2 px-3 text-right">Uptime (Menit)</th>
-                    <th className="py-2 px-3 text-right">Downtime (Menit)</th>
+                    <th className="py-2 px-3">Date</th>
+                    <th className="py-2 px-3 text-right">Uptime (Mins)</th>
+                    <th className="py-2 px-3 text-right">Downtime (Mins)</th>
                     <th className="py-2 px-3 text-right">Success Rate</th>
-                    <th className="py-2 px-3 text-center">Status SLA</th>
+                    <th className="py-2 px-3 text-center">SLA Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 dark:divide-slate-800/40 text-[11px]">
@@ -778,7 +826,7 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
                     const downMin = isCpu ? row.cpu_modem_downtime_min : row.cellular_downtime_min;
                     const sr = isCpu ? row.cpu_modem_success_rate : row.cellular_success_rate;
                     const status = isCpu ? row.cpu_modem_status_sla : row.cellular_status_sla;
-                    const isSuccess = status === "Tercapai";
+                    const isSuccess = status === "Tercapai" || status === "Achieved" || sr >= 98.0;
                     const isSelected = selectedBarDay === row.day;
 
                     return (
@@ -790,17 +838,17 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
                             ? "bg-blue-500/10 dark:bg-blue-500/20 font-medium"
                             : "hover:bg-slate-100/80 dark:hover:bg-slate-800/30"
                         }`}
-                        title="Klik untuk memilih tanggal ini"
+                        title="Click to select this date"
                       >
                         <td className="py-2 px-3 text-slate-700 dark:text-slate-300 font-mono whitespace-nowrap">
                           {row.date} ({row.day_name})
                         </td>
                         <td className="py-2 px-3 text-right font-mono text-emerald-600 dark:text-emerald-400 font-semibold">
-                          {upMin.toLocaleString("id-ID")}
+                          {upMin.toLocaleString("en-US")}
                         </td>
                         <td className="py-2 px-3 text-right font-mono font-semibold">
                           {downMin > 0 ? (
-                            <span className="text-rose-600 dark:text-rose-400">{downMin.toLocaleString("id-ID")}</span>
+                            <span className="text-rose-600 dark:text-rose-400">{downMin.toLocaleString("en-US")}</span>
                           ) : (
                             <span className="text-slate-400">0</span>
                           )}
@@ -811,11 +859,11 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
                         <td className="py-2 px-3 text-center whitespace-nowrap">
                           {isSuccess ? (
                             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-emerald-600 dark:text-[#00c875] border border-emerald-500/30">
-                              Tercapai
+                              Achieved
                             </span>
                           ) : (
                             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/15 text-rose-600 dark:text-[#e2445c] border border-rose-500/30">
-                              Tidak Tercapai
+                              Not Achieved
                             </span>
                           )}
                         </td>
@@ -825,7 +873,7 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
                   {displayedBreakdown.length === 0 && (
                     <tr>
                       <td colSpan={5} className="py-6 text-center text-slate-500 dark:text-slate-400 text-xs">
-                        Tidak ada data rincian SLA harian untuk tanggal yang dipilih.
+                        No daily SLA breakdown data available for the selected date.
                       </td>
                     </tr>
                   )}
@@ -835,13 +883,13 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
                     <tr>
                       <td className="py-2 px-3 text-slate-700 dark:text-slate-300 whitespace-nowrap">
                         <span className="text-blue-600 dark:text-blue-400 mr-1.5">Total:</span>
-                        {displayedSummary.count} Hari ({displayedSummary.totalObs.toLocaleString("id-ID")}m)
+                        {displayedSummary.count} Days ({displayedSummary.totalObs.toLocaleString("en-US")}m)
                       </td>
                       <td className="py-2 px-3 text-right font-mono text-emerald-600 dark:text-emerald-400">
-                        {displayedSummary.totalUptime.toLocaleString("id-ID")}
+                        {displayedSummary.totalUptime.toLocaleString("en-US")}
                       </td>
                       <td className="py-2 px-3 text-right font-mono text-rose-600 dark:text-rose-400">
-                        {displayedSummary.totalDowntime.toLocaleString("id-ID")}
+                        {displayedSummary.totalDowntime.toLocaleString("en-US")}
                       </td>
                       <td className="py-2 px-3 text-right font-mono text-slate-900 dark:text-white">
                         {displayedSummary.avgSuccessRate.toFixed(1)}%
@@ -849,11 +897,11 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
                       <td className="py-2 px-3 text-center">
                         {displayedSummary.isSuccess ? (
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-emerald-600 dark:text-[#00c875] border border-emerald-500/30">
-                            Tercapai
+                            Achieved
                           </span>
                         ) : (
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/15 text-rose-600 dark:text-[#e2445c] border border-rose-500/30">
-                            Tidak Tercapai
+                            Not Achieved
                           </span>
                         )}
                       </td>
@@ -865,7 +913,7 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
           </div>
         </div>
 
-        {/* Right Column (lg:col-span-6): Restored Standalone Riwayat Gangguan */}
+        {/* Right Column (lg:col-span-6): Restored Standalone Incident History */}
         <div className="lg:col-span-6 bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 flex flex-col justify-between shadow-xs">
           <div>
             {/* Header: Title, Event Count Badge & Filter Dropdown */}
@@ -875,7 +923,7 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
                   <Clock className="size-3.5" />
                 </div>
                 <h4 className="text-xs font-bold text-slate-900 dark:text-white">
-                  Riwayat Gangguan
+                  Incident History
                 </h4>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
                   {filteredEvents.length}
@@ -883,18 +931,18 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
               </div>
 
               <div className="flex items-center gap-1.5">
-                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Filter Tanggal:</span>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Filter Date:</span>
                 <select
                   value={selectedEventDate}
                   onChange={(e) => handleDropdownDateChange(e.target.value)}
                   className="text-xs font-medium bg-white dark:bg-[#070e1d] border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer shadow-xs"
                 >
-                  <option value="ALL">Semua Tanggal ({rangeFilteredEvents.length})</option>
+                  <option value="ALL">All Dates ({rangeFilteredEvents.length})</option>
                   {uniqueDates.map((dateStr) => {
                     const count = rangeFilteredEvents.filter((e) => e.start_time.startsWith(dateStr)).length;
                     return (
                       <option key={dateStr} value={dateStr}>
-                        {dateStr} ({count} event)
+                        {dateStr} ({count} {count === 1 ? 'incident' : 'incidents'})
                       </option>
                     );
                   })}
@@ -908,9 +956,9 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
                 <thead className="sticky top-0 z-10 bg-slate-100 dark:bg-[#0a1224] shadow-xs">
                   <tr className="text-[11px] text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800/60 font-semibold">
                     <th className="py-2.5 px-2 text-center w-8">No.</th>
-                    <th className="py-2.5 px-3">Waktu Insiden</th>
-                    <th className="py-2.5 px-3">Insiden / Gangguan</th>
-                    <th className="py-2.5 px-3 text-center">Durasi</th>
+                    <th className="py-2.5 px-3">Incident Time</th>
+                    <th className="py-2.5 px-3">Incident / Disturbance</th>
+                    <th className="py-2.5 px-3 text-center">Duration</th>
                     <th className="py-2.5 px-3 text-center">Status</th>
                   </tr>
                 </thead>
@@ -927,7 +975,7 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
                         </td>
                         <td className="py-2.5 px-3 text-slate-700 dark:text-slate-300 font-mono whitespace-nowrap">
                           <div>{event.start_time}</div>
-                          <div className="text-[10px] text-slate-500 dark:text-slate-400">s/d {event.end_time}</div>
+                          <div className="text-[10px] text-slate-500 dark:text-slate-400">to {event.end_time}</div>
                         </td>
                         <td className="py-2.5 px-3 font-semibold text-slate-900 dark:text-slate-100">
                           {event.title || event.description || event.cause}
@@ -954,13 +1002,13 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
                   {filteredEvents.length === 0 && (
                     <tr>
                       <td colSpan={5} className="py-12 text-center text-slate-500 dark:text-slate-400 text-xs">
-                        Tidak ada riwayat gangguan untuk tanggal yang dipilih.
+                        No incident history available for the selected date.
                         {selectedEventDate !== "ALL" && (
                           <button
                             onClick={() => handleSelectDay(null)}
                             className="block mx-auto mt-2 text-blue-500 hover:underline font-semibold cursor-pointer"
                           >
-                            Tampilkan Semua Riwayat Gangguan
+                            Show All Incident History
                           </button>
                         )}
                       </td>

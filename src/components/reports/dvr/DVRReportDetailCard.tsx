@@ -74,8 +74,9 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
     const events = data?.trouble_events || [];
     const breakdown = data?.daily_breakdown || [];
 
+    const totalDays = Math.max(daysInMonth, maxDay);
     const list = [];
-    for (let day = minDay; day <= maxDay; day++) {
+    for (let day = 1; day <= totalDays; day++) {
       const dayNumStr = day < 10 ? `0${day}` : `${day}`;
       const dateKey = `${dayNumStr} ${monthStr}`;
       const fullDate = `${dayNumStr} ${monthStr} ${yearStr}`;
@@ -154,9 +155,13 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
       const parts = (ev.start_time || "").trim().split(" ");
       if (parts.length >= 2) {
         const dNum = parseInt(parts[0], 10);
-        const mStr = parts[1].toLowerCase();
-        if (!isNaN(dNum) && mStr === month) {
+        const mStr = parts[1].toLowerCase().replace(".", "");
+        const isSameMonth = mStr.startsWith(month.slice(0, 3)) || month.startsWith(mStr.slice(0, 3));
+        if (!isNaN(dNum) && isSameMonth) {
           return dNum >= minDay && dNum <= maxDay;
+        }
+        if (!isNaN(dNum) && !isSameMonth) {
+          return false;
         }
       }
       return true;

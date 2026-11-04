@@ -85,8 +85,9 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
     const maxDay = periodInfo.endDay;
     const events = rawEvents;
 
+    const totalDays = Math.max(daysInMonth, maxDay);
     const list = [];
-    for (let day = minDay; day <= maxDay; day++) {
+    for (let day = 1; day <= totalDays; day++) {
       const dayNumStr = day < 10 ? `0${day}` : `${day}`;
       const dateKey = `${dayNumStr} ${monthStr}`;
       const fullDate = `${dayNumStr} ${monthStr} ${yearStr}`;
