@@ -16,11 +16,9 @@ import {
 } from "lucide-react";
 import {
   useCellularReportGatewayDetail,
-  ICellularReportGatewayDetail,
 } from "@/store/api/monitoring";
 import { SmartBoxIsometricIllustration } from "@/components/ui/SmartBoxIllustration";
 import { parseReportPeriod } from "@/lib/reportPeriodUtils";
-
 
 interface CellularReportDetailCardProps {
   gatewayId: string | null;
@@ -34,6 +32,8 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
   onClose,
 }) => {
   const { data, isLoading } = useCellularReportGatewayDetail(gatewayId, dateRange);
+  const [selectedBarDay, setSelectedBarDay] = useState<number | null>(null);
+  const [dailyViewMetric, setDailyViewMetric] = useState<"cpu_modem" | "cellular">("cpu_modem");
   const [selectedEventDate, setSelectedEventDate] = useState<string>("ALL");
   const [hoveredDay, setHoveredDay] = useState<{
     day: number;
@@ -52,35 +52,90 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
     return parseReportPeriod(data?.period || dateRange);
   }, [data?.period, dateRange]);
 
-  // Generate dynamic daily status bar chart items based on active report month (full days, bars only up to today)
+  // Synchronized date selection handler across Timeline, Rincian SLA, and Riwayat Gangguan
+  const handleSelectDay = (day: number | null, dateKey?: string) => {
+    if (day === null || (selectedBarDay === day && (!dateKey || selectedEventDate === dateKey))) {
+      setSelectedBarDay(null);
+      setSelectedEventDate("ALL");
+    } else {
+      setSelectedBarDay(day);
+      if (dateKey) {
+        setSelectedEventDate(dateKey);
+      } else {
+        const dayNumStr = day < 10 ? `0${day}` : `${day}`;
+        setSelectedEventDate(`${dayNumStr} ${periodInfo.monthStr}`);
+      }
+    }
+  };
+
+  const handleDropdownDateChange = (val: string) => {
+    setSelectedEventDate(val);
+    if (val === "ALL") {
+      setSelectedBarDay(null);
+    } else {
+      const parts = val.trim().split(" ");
+      const dNum = parseInt(parts[0], 10);
+      if (!isNaN(dNum)) {
+        setSelectedBarDay(dNum);
+      } else {
+        setSelectedBarDay(null);
+      }
+    }
+  };
+
+  // Generate dynamic daily status bar chart items: full 30-day month timeline, bars only appear for filtered dates
   const dailyStatusList = useMemo(() => {
     const { daysInMonth, monthStr, yearStr, todayDay, isCurrentMonth } = periodInfo;
+    const minDay = periodInfo.startDay;
+    const maxDay = periodInfo.endDay;
     const events = data?.trouble_events || [];
+    const breakdown = data?.daily_breakdown || [];
 
     const list = [];
-    for (let day = 1; day <= daysInMonth; day++) {
+    for (let day = minDay; day <= maxDay; day++) {
       const dayNumStr = day < 10 ? `0${day}` : `${day}`;
       const dateKey = `${dayNumStr} ${monthStr}`;
       const fullDate = `${dayNumStr} ${monthStr} ${yearStr}`;
 
-      const isFuture = Boolean(isCurrentMonth && todayDay && day > todayDay);
+      // Check if day is within filtered range
+      const isInRange = day >= minDay && day <= maxDay;
+      const isFutureDate = Boolean(isCurrentMonth && todayDay && day > todayDay);
+      const hasBar = isInRange && !isFutureDate;
 
-      const dayEvents = isFuture
-        ? []
-        : events.filter((ev) => {
+      const dayEvents = hasBar
+        ? events.filter((ev) => {
             const trimmed = (ev.start_time || "").trim();
             return trimmed.startsWith(dateKey) || trimmed.startsWith(`${day} ${monthStr}`);
-          });
+          })
+        : [];
 
-      let status: "online" | "offline" | "future" = isFuture ? "future" : "online";
-      let uptimePct = isFuture ? 0 : 100;
+      const daySla = breakdown.find((r) => r.day === day);
+
+      let status: "online" | "offline" | "future" = !hasBar ? "future" : "online";
+      let uptimePct = !hasBar ? 0 : 100;
       let totalDurationStr = "0m";
-      const eventCount = dayEvents.length;
+      let eventCount = dayEvents.length;
 
-      if (!isFuture && eventCount > 0) {
-        status = "offline";
-        uptimePct = Math.max(20, Math.round(100 - eventCount * 4));
-        totalDurationStr = dayEvents[0]?.duration || `${eventCount * 5}m`;
+      if (hasBar) {
+        if (daySla) {
+          const isCpu = dailyViewMetric === "cpu_modem";
+          const downMin = isCpu ? daySla.cpu_modem_downtime_min : daySla.cellular_downtime_min;
+          const sr = isCpu ? daySla.cpu_modem_success_rate : daySla.cellular_success_rate;
+          if (downMin > 0 || dayEvents.length > 0) {
+            status = "offline";
+            uptimePct = Math.round(sr);
+            totalDurationStr = `${Math.round(downMin)}m`;
+            eventCount = Math.max(dayEvents.length, downMin > 0 ? 1 : 0);
+          } else {
+            status = "online";
+            uptimePct = 100;
+            totalDurationStr = "0m";
+          }
+        } else if (eventCount > 0) {
+          status = "offline";
+          uptimePct = Math.max(20, Math.round(100 - eventCount * 4));
+          totalDurationStr = dayEvents[0]?.duration || `${eventCount * 5}m`;
+        }
       }
 
       list.push({
@@ -93,34 +148,114 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
         eventCount,
         totalDurationStr,
         isToday: day === todayDay,
-        isFuture,
+        isFuture: !hasBar,
+        isInRange,
       });
     }
 
     return list;
-  }, [data?.trouble_events, periodInfo]);
+  }, [data?.trouble_events, data?.daily_breakdown, periodInfo, dailyViewMetric]);
 
+  // 1. Filter trouble events strictly within the active date range & metric
+  const rangeFilteredEvents = useMemo(() => {
+    const rawEvents = data?.trouble_events || [];
+    const minDay = periodInfo.startDay;
+    const maxDay = periodInfo.endDay || periodInfo.effectiveDays;
+    const month = periodInfo.monthStr.toLowerCase();
 
-  // Extract distinct dates for per-day filter (e.g. "30 Oct")
+    return rawEvents.filter((ev) => {
+      // Metric filter based on active tab [CPU - Modem] vs [Seluler / Network]
+      const m = (ev.metric || ev.category || "").toLowerCase();
+      if (dailyViewMetric === "cpu_modem") {
+        const isCpu = m === "cpu_modem" || m === "power" || m.includes("modem") || m.includes("power") || m.includes("reboot");
+        if (!isCpu) return false;
+      } else if (dailyViewMetric === "cellular") {
+        const isCell = m === "cellular" || m === "power" || m === "network" || m.includes("cellular") || m.includes("network") || m.includes("power") || m.includes("reboot");
+        if (!isCell) return false;
+      }
+
+      const parts = (ev.start_time || "").trim().split(" ");
+      if (parts.length >= 2) {
+        const dNum = parseInt(parts[0], 10);
+        const mStr = parts[1].toLowerCase();
+        if (!isNaN(dNum) && mStr === month) {
+          return dNum >= minDay && dNum <= maxDay;
+        }
+      }
+      return true;
+    });
+  }, [data?.trouble_events, periodInfo.startDay, periodInfo.endDay, periodInfo.effectiveDays, periodInfo.monthStr, dailyViewMetric]);
+
+  // 2. Extract distinct dates from range-filtered events for dropdown
   const uniqueDates = useMemo(() => {
     const set = new Set<string>();
-    (data?.trouble_events || []).forEach((ev) => {
+    rangeFilteredEvents.forEach((ev) => {
       const parts = ev.start_time.trim().split(" ");
       if (parts.length >= 2) {
         set.add(`${parts[0]} ${parts[1]}`);
       }
     });
     return Array.from(set);
-  }, [data?.trouble_events]);
+  }, [rangeFilteredEvents]);
 
-  // Filter trouble events by selected date
+  // 3. Filter trouble events by selected date (timeline bar click or dropdown selection)
   const filteredEvents = useMemo(() => {
-    if (!data?.trouble_events) return [];
-    if (selectedEventDate === "ALL") {
-      return data.trouble_events;
+    if (selectedBarDay !== null) {
+      const dayNumStr = selectedBarDay < 10 ? `0${selectedBarDay}` : `${selectedBarDay}`;
+      const prefix = `${dayNumStr} ${periodInfo.monthStr}`;
+      return rangeFilteredEvents.filter((ev) => {
+        const trimmed = (ev.start_time || "").trim();
+        return trimmed.startsWith(prefix) || trimmed.startsWith(`${selectedBarDay} ${periodInfo.monthStr}`);
+      });
     }
-    return data.trouble_events.filter((ev) => ev.start_time.startsWith(selectedEventDate));
-  }, [data?.trouble_events, selectedEventDate]);
+    if (selectedEventDate === "ALL") {
+      return rangeFilteredEvents;
+    }
+    return rangeFilteredEvents.filter((ev) => ev.start_time.trim().startsWith(selectedEventDate));
+  }, [rangeFilteredEvents, selectedEventDate, selectedBarDay, periodInfo.monthStr]);
+
+  // Filter Rincian SLA to only show active days between startDay and effectiveDays
+  const activeDailyBreakdown = useMemo(() => {
+    const allRows = data?.daily_breakdown || [];
+    const minDay = periodInfo.startDay;
+    const maxDay = periodInfo.effectiveDays;
+    return allRows.filter((row) => row.day >= minDay && row.day <= maxDay);
+  }, [data?.daily_breakdown, periodInfo.startDay, periodInfo.effectiveDays]);
+
+  // When a day bar is clicked, filter Rincian SLA to only that day; otherwise show all active days up to today
+  const displayedBreakdown = useMemo(() => {
+    if (selectedBarDay !== null) {
+      return activeDailyBreakdown.filter((r) => r.day === selectedBarDay);
+    }
+    return activeDailyBreakdown;
+  }, [activeDailyBreakdown, selectedBarDay]);
+
+  // Compute footer summary dynamically for displayed rows
+  const displayedSummary = useMemo(() => {
+    const isCpu = dailyViewMetric === "cpu_modem";
+    const count = displayedBreakdown.length;
+    if (count === 0) return null;
+
+    let totalUptime = 0;
+    let totalDowntime = 0;
+    displayedBreakdown.forEach((r) => {
+      totalUptime += isCpu ? r.cpu_modem_uptime_min : r.cellular_uptime_min;
+      totalDowntime += isCpu ? r.cpu_modem_downtime_min : r.cellular_downtime_min;
+    });
+
+    const totalObs = totalUptime + totalDowntime;
+    const avgSuccessRate = totalObs > 0 ? (totalUptime / totalObs) * 100 : 0;
+    const isSuccess = avgSuccessRate >= 98.0;
+
+    return {
+      count,
+      totalObs,
+      totalUptime,
+      totalDowntime,
+      avgSuccessRate,
+      isSuccess,
+    };
+  }, [displayedBreakdown, dailyViewMetric]);
 
   if (!gatewayId) return null;
 
@@ -146,24 +281,9 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
   const d = data;
   const isWhite = (d.type || "").includes("Putih");
 
-  // Segment background color resolver
-  const getSegmentBg = (status: string) => {
-    switch (status) {
-      case "online":
-        return "bg-[#00c875]";
-      case "degraded":
-        return "bg-[#f59e0b]";
-      case "offline":
-        return "bg-[#e2445c]";
-      case "no_data":
-        return "bg-[#6366f1]";
-      default:
-        return "bg-[#00c875]";
-    }
-  };
-
   return (
     <div className="bg-white dark:bg-[#070e1d] text-slate-800 dark:text-slate-100 rounded-2xl border border-slate-200 dark:border-slate-800/90 shadow-xl p-4 sm:p-5 space-y-4 font-sans transition-all duration-300">
+      {/* 1. Header with Gateway Location & Status */}
       <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800/80">
         <div className="flex items-center gap-2.5">
           <div className="size-7 rounded-lg bg-blue-500/15 border border-blue-500/25 flex items-center justify-center text-blue-600 dark:text-blue-400">
@@ -188,6 +308,7 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
         )}
       </div>
 
+      {/* 2. Top Section: Gateway Isometric Illustration & 10 KPI Metric Cards */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-3.5 items-stretch">
         <div className="xl:col-span-4 bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 flex flex-col sm:flex-row xl:flex-row gap-4 items-center sm:items-start xl:items-start justify-between shadow-xs">
           <div className="flex flex-col items-center justify-center shrink-0 pt-1">
@@ -243,7 +364,7 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
           </div>
         </div>
 
-        {/* Right Column (xl:col-span-8): 10 KPI Metric Cards (2 rows of 5 cards) */}
+        {/* Right Column (xl:col-span-8): 10 KPI Metric Cards */}
         <div className="xl:col-span-8 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5">
           {/* Card 1: Periode */}
           <div className="bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-3 flex flex-col justify-between shadow-xs">
@@ -281,13 +402,13 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
             </div>
           </div>
 
-          {/* Card 3: CPU – Modem Offline */}
+          {/* Card 3: CPU – Modem Downtime */}
           <div className="bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-3 flex flex-col justify-between shadow-xs">
             <div className="flex items-center gap-2">
               <div className="size-6 rounded-md bg-rose-500/15 flex items-center justify-center text-[#e2445c]">
                 <XCircle className="size-3.5" />
               </div>
-              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate">CPU – Modem Offline</span>
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate">CPU – Modem Downtime</span>
             </div>
             <div className="mt-2.5">
               <div className="text-sm font-bold text-[#e2445c] leading-tight">
@@ -350,13 +471,13 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
             </div>
           </div>
 
-          {/* Card 7: Network Offline */}
+          {/* Card 7: Network Downtime */}
           <div className="bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-3 flex flex-col justify-between shadow-xs">
             <div className="flex items-center gap-2">
               <div className="size-6 rounded-md bg-rose-500/15 flex items-center justify-center text-[#e2445c]">
                 <XCircle className="size-3.5" />
               </div>
-              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate">Network Offline</span>
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate">Network Downtime</span>
             </div>
             <div className="mt-2.5">
               <div className="text-sm font-bold text-[#e2445c] leading-tight">
@@ -418,11 +539,12 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
         </div>
       </div>
 
-      {/* 3. Bottom Section: Timeline Status & Incident History */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
-        {/* Left Column (lg:col-span-6): Daily Status Bar Chart (01 Oct - 31 Oct) */}
-        <div className="lg:col-span-6 bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 flex flex-col justify-between shadow-xs">
-          <div>
+      {/* 3. Bottom Section: Left Column (Timeline + Daily SLA Breakdown) & Right Column (Riwayat Gangguan) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-start">
+        {/* Left Column (lg:col-span-6): Stack of Daily Status Timeline Card & Rincian SLA Harian Table Card */}
+        <div className="lg:col-span-6 space-y-3.5">
+          {/* Top Card: Daily Status Timeline (01 Nov 2026 - 04 Nov 2026) */}
+          <div className="bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 shadow-xs">
             {/* Header with Title & Legend */}
             <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200 dark:border-slate-800/60">
               <div className="flex items-center gap-2">
@@ -430,7 +552,7 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
                   Daily Status Timeline ({periodInfo.effectivePeriodStr})
                 </h4>
                 <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 bg-slate-200/60 dark:bg-slate-800 px-2 py-0.5 rounded-full">
-                  {dailyStatusList.length} Days
+                  {periodInfo.endDay - periodInfo.startDay + 1} Days
                 </span>
               </div>
               <div className="flex items-center gap-3 text-[11px] text-slate-600 dark:text-slate-300">
@@ -451,14 +573,15 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
 
             {/* Daily Bar Chart Card with Date Labels on TOP and Bars on BOTTOM */}
             <div className="mt-3.5 p-3.5 rounded-xl bg-white dark:bg-[#070e1d] border border-slate-200/90 dark:border-slate-800/80 shadow-xs">
-              {/* Dynamic Columns Grid: Each day has Date Label on TOP and Bar on BOTTOM */}
+              {/* Dynamic Columns Grid */}
               <div
                 className="grid gap-1 sm:gap-1.5 items-end pt-1"
-                style={{ gridTemplateColumns: `repeat(${dailyStatusList.length}, minmax(0, 1fr))` }}
+                style={{
+                  gridTemplateColumns: `repeat(${dailyStatusList.length}, minmax(0, 1fr))`
+                }}
               >
-
                 {dailyStatusList.map((item) => {
-                  const isSelected = selectedEventDate === item.dateKey;
+                  const isSelected = selectedBarDay === item.day;
                   const barColor =
                     item.status === "offline"
                       ? "bg-[#e2445c] hover:bg-[#ff4d6d]"
@@ -471,11 +594,7 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
                       key={item.day}
                       onClick={() => {
                         if (item.isFuture) return;
-                        if (selectedEventDate === item.dateKey) {
-                          setSelectedEventDate("ALL");
-                        } else {
-                          setSelectedEventDate(item.dateKey);
-                        }
+                        handleSelectDay(item.day, item.dateKey);
                       }}
                       onMouseEnter={() => !item.isFuture && setHoveredDay(item)}
                       onMouseLeave={() => setHoveredDay(null)}
@@ -496,7 +615,7 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
                           item.isToday
                             ? "font-extrabold text-blue-600 dark:text-blue-400 bg-blue-500/20 px-1 py-0.5 rounded ring-1 ring-blue-500/50 scale-110 shadow-xs"
                             : isSelected
-                            ? "font-bold text-amber-500 dark:text-amber-400"
+                            ? "font-bold text-amber-500 dark:text-amber-400 bg-amber-500/20 px-1 py-0.5 rounded ring-1 ring-amber-500/50 scale-110"
                             : item.isFuture
                             ? "text-slate-400 dark:text-slate-600 opacity-60"
                             : "text-slate-500 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-slate-200"
@@ -506,7 +625,7 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
                       </span>
 
                       {/* 2. BAR DI BAWAHNYA (HANYA MUNCUL JIKA SUDAH BERJALAN) */}
-                      <div className="w-full h-24 sm:h-28 bg-slate-100 dark:bg-slate-900/60 rounded-md p-0.5 flex flex-col justify-end border border-slate-200/60 dark:border-slate-800/60">
+                      <div className="w-full h-20 sm:h-24 bg-slate-100 dark:bg-slate-900/60 rounded-md p-0.5 flex flex-col justify-end border border-slate-200/60 dark:border-slate-800/60">
                         {!item.isFuture ? (
                           <div
                             style={{ height: `${item.uptimePct}%` }}
@@ -516,7 +635,7 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
                                 : ""
                             } ${
                               isSelected
-                                ? "ring-2 ring-amber-400 scale-105"
+                                ? "ring-2 ring-amber-400 shadow-md shadow-amber-400/35 scale-105"
                                 : "group-hover:scale-105"
                             }`}
                           />
@@ -557,13 +676,19 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
                 ) : (
                   <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between w-full">
                     <span>
-                      Hover or click a date (01 - {dailyStatusList.length}) to inspect incident details.
+                      {selectedBarDay !== null ? (
+                        <span className="text-amber-500 dark:text-amber-400 font-semibold">
+                          Filter aktif: Tanggal {selectedBarDay < 10 ? `0${selectedBarDay}` : selectedBarDay} {periodInfo.monthStr}
+                        </span>
+                      ) : (
+                        `Hover or click a date (${dailyStatusList[0]?.dayNumStr || "01"} - ${dailyStatusList[dailyStatusList.length - 1]?.dayNumStr || periodInfo.effectiveDays}) to inspect details.`
+                      )}
                     </span>
 
-                    {selectedEventDate !== "ALL" && (
+                    {selectedBarDay !== null && (
                       <button
-                        onClick={() => setSelectedEventDate("ALL")}
-                        className="text-blue-500 hover:underline text-[11px] font-medium cursor-pointer"
+                        onClick={() => handleSelectDay(null)}
+                        className="text-blue-500 hover:underline text-[11px] font-semibold cursor-pointer"
                       >
                         Reset Filter
                       </button>
@@ -573,35 +698,203 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Right Column (lg:col-span-6): Incident History Table with Date Selector & Scrollable 10 Rows */}
-        <div className="lg:col-span-6 bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 flex flex-col justify-between shadow-xs">
-          <div>
+          {/* Bottom Card: Rincian SLA Harian Table (Directly underneath the timeline card) */}
+          <div className="bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 shadow-xs">
+            {/* Header: Title, Active Selection Badge & Metric Toggle */}
             <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200 dark:border-slate-800/60">
               <div className="flex items-center gap-2">
+                <div className="size-6 rounded-md bg-blue-500/15 flex items-center justify-center text-blue-600 dark:text-blue-400">
+                  <FileSpreadsheet className="size-3.5" />
+                </div>
                 <h4 className="text-xs font-bold text-slate-900 dark:text-white">
-                  Incident History
+                  Rincian SLA Harian
                 </h4>
-                <span className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-500/10 dark:bg-amber-500/20 px-2 py-0.5 rounded-full border border-amber-500/30">
-                  {filteredEvents.length} event
+                {selectedBarDay !== null ? (
+                  <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-blue-600 dark:text-blue-400 bg-blue-500/10 dark:bg-blue-500/20 px-2 py-0.5 rounded-full border border-blue-500/30">
+                    <span>Tgl {selectedBarDay < 10 ? `0${selectedBarDay}` : selectedBarDay} {periodInfo.monthStr}</span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSelectDay(null);
+                      }}
+                      className="text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer"
+                      title="Tampilkan semua hari"
+                    >
+                      <X className="size-3" />
+                    </button>
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 bg-slate-200/60 dark:bg-slate-800 px-2 py-0.5 rounded-full">
+                    {activeDailyBreakdown.length} Hari
+                  </span>
+                )}
+              </div>
+
+              {/* Metric Toggle */}
+              <div className="flex items-center gap-1 text-[11px]">
+                <span className="text-slate-500 dark:text-slate-400 font-medium mr-1">Metrik:</span>
+                <button
+                  type="button"
+                  onClick={() => setDailyViewMetric("cpu_modem")}
+                  className={`px-2 py-0.5 rounded text-[11px] font-semibold transition-all cursor-pointer ${
+                    dailyViewMetric === "cpu_modem"
+                      ? "bg-blue-600 text-white shadow-xs"
+                      : "bg-slate-200/60 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700"
+                  }`}
+                >
+                  CPU – Modem
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDailyViewMetric("cellular")}
+                  className={`px-2 py-0.5 rounded text-[11px] font-semibold transition-all cursor-pointer ${
+                    dailyViewMetric === "cellular"
+                      ? "bg-blue-600 text-white shadow-xs"
+                      : "bg-slate-200/60 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700"
+                  }`}
+                >
+                  Seluler / Network
+                </button>
+              </div>
+            </div>
+
+            {/* Table (Columns: Tanggal, Uptime (Menit), Downtime (Menit), Success Rate, Status SLA) */}
+            <div className="overflow-x-auto mt-2 max-h-72 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="sticky top-0 z-10 bg-slate-100 dark:bg-[#0a1224] shadow-xs">
+                  <tr className="text-[11px] text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800/60 font-semibold">
+                    <th className="py-2 px-3">Tanggal</th>
+                    <th className="py-2 px-3 text-right">Uptime (Menit)</th>
+                    <th className="py-2 px-3 text-right">Downtime (Menit)</th>
+                    <th className="py-2 px-3 text-right">Success Rate</th>
+                    <th className="py-2 px-3 text-center">Status SLA</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 dark:divide-slate-800/40 text-[11px]">
+                  {displayedBreakdown.map((row) => {
+                    const isCpu = dailyViewMetric === "cpu_modem";
+                    const upMin = isCpu ? row.cpu_modem_uptime_min : row.cellular_uptime_min;
+                    const downMin = isCpu ? row.cpu_modem_downtime_min : row.cellular_downtime_min;
+                    const sr = isCpu ? row.cpu_modem_success_rate : row.cellular_success_rate;
+                    const status = isCpu ? row.cpu_modem_status_sla : row.cellular_status_sla;
+                    const isSuccess = status === "Tercapai";
+                    const isSelected = selectedBarDay === row.day;
+
+                    return (
+                      <tr
+                        key={row.day}
+                        onClick={() => handleSelectDay(row.day, `${row.day < 10 ? `0${row.day}` : row.day} ${periodInfo.monthStr}`)}
+                        className={`transition-colors cursor-pointer ${
+                          isSelected
+                            ? "bg-blue-500/10 dark:bg-blue-500/20 font-medium"
+                            : "hover:bg-slate-100/80 dark:hover:bg-slate-800/30"
+                        }`}
+                        title="Klik untuk memilih tanggal ini"
+                      >
+                        <td className="py-2 px-3 text-slate-700 dark:text-slate-300 font-mono whitespace-nowrap">
+                          {row.date} ({row.day_name})
+                        </td>
+                        <td className="py-2 px-3 text-right font-mono text-emerald-600 dark:text-emerald-400 font-semibold">
+                          {upMin.toLocaleString("id-ID")}
+                        </td>
+                        <td className="py-2 px-3 text-right font-mono font-semibold">
+                          {downMin > 0 ? (
+                            <span className="text-rose-600 dark:text-rose-400">{downMin.toLocaleString("id-ID")}</span>
+                          ) : (
+                            <span className="text-slate-400">0</span>
+                          )}
+                        </td>
+                        <td className="py-2 px-3 text-right font-mono font-bold text-slate-900 dark:text-white">
+                          {sr.toFixed(1)}%
+                        </td>
+                        <td className="py-2 px-3 text-center whitespace-nowrap">
+                          {isSuccess ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-emerald-600 dark:text-[#00c875] border border-emerald-500/30">
+                              Tercapai
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/15 text-rose-600 dark:text-[#e2445c] border border-rose-500/30">
+                              Tidak Tercapai
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {displayedBreakdown.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="py-6 text-center text-slate-500 dark:text-slate-400 text-xs">
+                        Tidak ada data rincian SLA harian untuk tanggal yang dipilih.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+                {displayedSummary && (
+                  <tfoot className="sticky bottom-0 z-10 bg-slate-200/90 dark:bg-[#070e1d] font-bold text-[11px] border-t-2 border-slate-300 dark:border-slate-700 shadow-md">
+                    <tr>
+                      <td className="py-2 px-3 text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                        <span className="text-blue-600 dark:text-blue-400 mr-1.5">Total:</span>
+                        {displayedSummary.count} Hari ({displayedSummary.totalObs.toLocaleString("id-ID")}m)
+                      </td>
+                      <td className="py-2 px-3 text-right font-mono text-emerald-600 dark:text-emerald-400">
+                        {displayedSummary.totalUptime.toLocaleString("id-ID")}
+                      </td>
+                      <td className="py-2 px-3 text-right font-mono text-rose-600 dark:text-rose-400">
+                        {displayedSummary.totalDowntime.toLocaleString("id-ID")}
+                      </td>
+                      <td className="py-2 px-3 text-right font-mono text-slate-900 dark:text-white">
+                        {displayedSummary.avgSuccessRate.toFixed(1)}%
+                      </td>
+                      <td className="py-2 px-3 text-center">
+                        {displayedSummary.isSuccess ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-emerald-600 dark:text-[#00c875] border border-emerald-500/30">
+                            Tercapai
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/15 text-rose-600 dark:text-[#e2445c] border border-rose-500/30">
+                            Tidak Tercapai
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  </tfoot>
+                )}
+              </table>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column (lg:col-span-6): Restored Standalone Riwayat Gangguan */}
+        <div className="lg:col-span-6 bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 flex flex-col justify-between shadow-xs">
+          <div>
+            {/* Header: Title, Event Count Badge & Filter Dropdown */}
+            <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200 dark:border-slate-800/60">
+              <div className="flex items-center gap-2">
+                <div className="size-6 rounded-md bg-amber-500/15 flex items-center justify-center text-[#f59e0b]">
+                  <Clock className="size-3.5" />
+                </div>
+                <h4 className="text-xs font-bold text-slate-900 dark:text-white">
+                  Riwayat Gangguan
+                </h4>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                  {filteredEvents.length}
                 </span>
               </div>
 
-              {/* Date Selector Dropdown for Daily Filtering */}
               <div className="flex items-center gap-1.5">
-                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Filter Date:</span>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Filter Tanggal:</span>
                 <select
                   value={selectedEventDate}
-                  onChange={(e) => setSelectedEventDate(e.target.value)}
+                  onChange={(e) => handleDropdownDateChange(e.target.value)}
                   className="text-xs font-medium bg-white dark:bg-[#070e1d] border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer shadow-xs"
                 >
-                  <option value="ALL">All Dates ({(d.trouble_events || []).length})</option>
+                  <option value="ALL">Semua Tanggal ({rangeFilteredEvents.length})</option>
                   {uniqueDates.map((dateStr) => {
-                    const count = (d.trouble_events || []).filter((e) => e.start_time.startsWith(dateStr)).length;
+                    const count = rangeFilteredEvents.filter((e) => e.start_time.startsWith(dateStr)).length;
                     return (
                       <option key={dateStr} value={dateStr}>
-                        {dateStr} ({count} events)
+                        {dateStr} ({count} event)
                       </option>
                     );
                   })}
@@ -609,15 +902,15 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
               </div>
             </div>
 
-            {/* Scrollable Compact Table */}
-            <div className="overflow-x-auto mt-2 max-h-87.5 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700">
+            {/* Table */}
+            <div className="overflow-x-auto mt-2 max-h-[460px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700">
               <table className="w-full text-left text-xs border-collapse">
                 <thead className="sticky top-0 z-10 bg-slate-100 dark:bg-[#0a1224] shadow-xs">
                   <tr className="text-[11px] text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800/60 font-semibold">
                     <th className="py-2.5 px-2 text-center w-8">No.</th>
-                    <th className="py-2.5 px-3">Incident Time</th>
-                    <th className="py-2.5 px-3">Incident / Issue</th>
-                    <th className="py-2.5 px-3 text-center">Duration</th>
+                    <th className="py-2.5 px-3">Waktu Insiden</th>
+                    <th className="py-2.5 px-3">Insiden / Gangguan</th>
+                    <th className="py-2.5 px-3 text-center">Durasi</th>
                     <th className="py-2.5 px-3 text-center">Status</th>
                   </tr>
                 </thead>
@@ -634,7 +927,7 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
                         </td>
                         <td className="py-2.5 px-3 text-slate-700 dark:text-slate-300 font-mono whitespace-nowrap">
                           <div>{event.start_time}</div>
-                          <div className="text-[10px] text-slate-500 dark:text-slate-400">to {event.end_time}</div>
+                          <div className="text-[10px] text-slate-500 dark:text-slate-400">s/d {event.end_time}</div>
                         </td>
                         <td className="py-2.5 px-3 font-semibold text-slate-900 dark:text-slate-100">
                           {event.title || event.description || event.cause}
@@ -660,8 +953,16 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
                   })}
                   {filteredEvents.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="py-6 text-center text-slate-500 dark:text-slate-400 text-xs">
-                        No incident history found for the selected date.
+                      <td colSpan={5} className="py-12 text-center text-slate-500 dark:text-slate-400 text-xs">
+                        Tidak ada riwayat gangguan untuk tanggal yang dipilih.
+                        {selectedEventDate !== "ALL" && (
+                          <button
+                            onClick={() => handleSelectDay(null)}
+                            className="block mx-auto mt-2 text-blue-500 hover:underline font-semibold cursor-pointer"
+                          >
+                            Tampilkan Semua Riwayat Gangguan
+                          </button>
+                        )}
                       </td>
                     </tr>
                   )}

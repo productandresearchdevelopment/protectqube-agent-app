@@ -18,6 +18,8 @@ import {
 import {
   useDVRReportGatewayDetail,
   IDVRReportGatewayDetail,
+  IDailySlaRecord,
+  IDailySlaSummary,
 } from "@/store/api/monitoring";
 import { SmartBoxIsometricIllustration } from "@/components/ui/SmartBoxIllustration";
 import { parseReportPeriod } from "@/lib/reportPeriodUtils";
@@ -36,6 +38,17 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
 }) => {
   const { data, isLoading } = useDVRReportGatewayDetail(gatewayId, dateRange);
   const [selectedEventDate, setSelectedEventDate] = useState<string>("ALL");
+  const [selectedBarDay, setSelectedBarDay] = useState<number | null>(null);
+  const [dailyViewMetric, setDailyViewMetric] = useState<"cpu_dvr" | "recording">("cpu_dvr");
+
+  const handleSelectDay = (day: number | null, dateKey?: string) => {
+    setSelectedBarDay((prev) => (prev === day ? null : day));
+    if (day === null) {
+      setSelectedEventDate("ALL");
+    } else if (dateKey) {
+      setSelectedEventDate(dateKey);
+    }
+  };
   const [hoveredDay, setHoveredDay] = useState<{
     day: number;
     dayNumStr: string;
@@ -53,32 +66,45 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
     return parseReportPeriod(data?.period || dateRange);
   }, [data?.period, dateRange]);
 
-  // Generate dynamic daily status points for Gateway, Cellular, and DVR based on active report month (full month, status only up to today)
+  // Generate dynamic daily status points: full 30-day month timeline, indicators only appear for filtered dates
   const dailyMultiTrack = useMemo(() => {
     const { daysInMonth, monthStr, yearStr, todayDay, isCurrentMonth } = periodInfo;
+    const minDay = periodInfo.startDay;
+    const maxDay = periodInfo.endDay;
     const events = data?.trouble_events || [];
+    const breakdown = data?.daily_breakdown || [];
 
     const list = [];
-    for (let day = 1; day <= daysInMonth; day++) {
+    for (let day = minDay; day <= maxDay; day++) {
       const dayNumStr = day < 10 ? `0${day}` : `${day}`;
       const dateKey = `${dayNumStr} ${monthStr}`;
       const fullDate = `${dayNumStr} ${monthStr} ${yearStr}`;
 
-      const isFuture = Boolean(isCurrentMonth && todayDay && day > todayDay);
+      const isInRange = day >= minDay && day <= maxDay;
+      const isFutureDate = Boolean(isCurrentMonth && todayDay && day > todayDay);
+      const hasBar = isInRange && !isFutureDate;
 
-      const dayEvents = isFuture
-        ? []
-        : events.filter((ev) => {
+      const dayEvents = hasBar
+        ? events.filter((ev) => {
             const trimmed = (ev.start_time || "").trim();
             return trimmed.startsWith(dateKey) || trimmed.startsWith(`${day} ${monthStr}`);
-          });
+          })
+        : [];
+
+      const daySla = breakdown.find((r) => r.day === day);
 
       // Status per track
-      let gwStatus: "online" | "offline" | "future" = isFuture ? "future" : "online";
-      let cellStatus: "online" | "offline" | "future" = isFuture ? "future" : "online";
-      let dvrStatus: "online" | "offline" | "future" = isFuture ? "future" : "online";
+      let gwStatus: "online" | "offline" | "future" = !hasBar ? "future" : "online";
+      let cellStatus: "online" | "offline" | "future" = !hasBar ? "future" : "online";
+      let dvrStatus: "online" | "offline" | "future" = !hasBar ? "future" : "online";
 
-      if (!isFuture) {
+      if (hasBar) {
+        if (daySla) {
+          if ((daySla.cpu_modem_downtime_min ?? 0) > 0) gwStatus = "offline";
+          if ((daySla.cellular_downtime_min ?? 0) > 0) cellStatus = "offline";
+          if ((daySla.cpu_dvr_downtime_min ?? daySla.downtime_min ?? 0) > 0 || (daySla.rec_downtime_min ?? 0) > 0) dvrStatus = "offline";
+        }
+
         for (const ev of dayEvents) {
           const cat = (ev.category || "").toLowerCase();
           const desc = (ev.description || "").toLowerCase();
@@ -93,7 +119,6 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
           }
         }
 
-        // If gateway is down, all downstream are impacted
         if (gwStatus === "offline") {
           cellStatus = "offline";
           dvrStatus = "offline";
@@ -110,34 +135,104 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
         dvrStatus,
         eventsCount: dayEvents.length,
         isToday: day === todayDay,
-        isFuture,
+        isFuture: !hasBar,
+        isInRange,
       });
     }
 
     return list;
-  }, [data?.trouble_events, periodInfo]);
+  }, [data?.trouble_events, data?.daily_breakdown, periodInfo]);
 
+  // 1. Filter trouble events strictly within the active date range
+  const rangeFilteredEvents = useMemo(() => {
+    const rawEvents = data?.trouble_events || [];
+    const minDay = periodInfo.startDay;
+    const maxDay = periodInfo.endDay || periodInfo.effectiveDays;
+    const month = periodInfo.monthStr.toLowerCase();
 
-  // Unique dates for trouble event filter dropdown
+    return rawEvents.filter((ev) => {
+      const parts = (ev.start_time || "").trim().split(" ");
+      if (parts.length >= 2) {
+        const dNum = parseInt(parts[0], 10);
+        const mStr = parts[1].toLowerCase();
+        if (!isNaN(dNum) && mStr === month) {
+          return dNum >= minDay && dNum <= maxDay;
+        }
+      }
+      return true;
+    });
+  }, [data?.trouble_events, periodInfo.startDay, periodInfo.endDay, periodInfo.effectiveDays, periodInfo.monthStr]);
+
+  // 2. Extract distinct dates for trouble event filter dropdown
   const uniqueDates = useMemo(() => {
     const set = new Set<string>();
-    (data?.trouble_events || []).forEach((ev) => {
+    rangeFilteredEvents.forEach((ev) => {
       const parts = ev.start_time.trim().split(" ");
       if (parts.length >= 2) {
         set.add(`${parts[0]} ${parts[1]}`);
       }
     });
     return Array.from(set);
-  }, [data?.trouble_events]);
+  }, [rangeFilteredEvents]);
 
-  // Filter trouble events by selected date
+  // 3. Filter trouble events by selected date (timeline bar click or dropdown selection)
   const filteredEvents = useMemo(() => {
-    if (!data?.trouble_events) return [];
-    if (selectedEventDate === "ALL") {
-      return data.trouble_events;
+    if (selectedBarDay !== null) {
+      const dayNumStr = selectedBarDay < 10 ? `0${selectedBarDay}` : `${selectedBarDay}`;
+      const prefix = `${dayNumStr} ${periodInfo.monthStr}`;
+      return rangeFilteredEvents.filter((ev) => {
+        const trimmed = (ev.start_time || "").trim();
+        return trimmed.startsWith(prefix) || trimmed.startsWith(`${selectedBarDay} ${periodInfo.monthStr}`);
+      });
     }
-    return data.trouble_events.filter((ev) => ev.start_time.startsWith(selectedEventDate));
-  }, [data?.trouble_events, selectedEventDate]);
+    if (selectedEventDate === "ALL") {
+      return rangeFilteredEvents;
+    }
+    return rangeFilteredEvents.filter((ev) => ev.start_time.startsWith(selectedEventDate));
+  }, [rangeFilteredEvents, selectedEventDate, selectedBarDay, periodInfo.monthStr]);
+
+  // Filter Rincian SLA to only show active days between startDay and effectiveDays
+  const activeDailyBreakdown = useMemo(() => {
+    const allRows = data?.daily_breakdown || [];
+    const minDay = periodInfo.startDay;
+    const maxDay = periodInfo.effectiveDays;
+    return allRows.filter((row) => row.day >= minDay && row.day <= maxDay);
+  }, [data?.daily_breakdown, periodInfo.startDay, periodInfo.effectiveDays]);
+
+  // When a day bar is clicked, filter Rincian SLA to only that day; otherwise show all active days up to today
+  const displayedBreakdown = useMemo(() => {
+    if (selectedBarDay !== null) {
+      return activeDailyBreakdown.filter((r) => r.day === selectedBarDay);
+    }
+    return activeDailyBreakdown;
+  }, [activeDailyBreakdown, selectedBarDay]);
+
+  // Compute footer summary dynamically for displayed rows
+  const displayedSummary = useMemo(() => {
+    const isCpu = dailyViewMetric === "cpu_dvr";
+    const count = displayedBreakdown.length;
+    if (count === 0) return null;
+
+    let totalUptime = 0;
+    let totalDowntime = 0;
+    displayedBreakdown.forEach((r) => {
+      totalUptime += isCpu ? (r.cpu_dvr_uptime_min ?? r.uptime_min) : (r.rec_uptime_min ?? r.cpu_dvr_uptime_min ?? r.uptime_min);
+      totalDowntime += isCpu ? (r.cpu_dvr_downtime_min ?? r.downtime_min) : (r.rec_downtime_min ?? r.cpu_dvr_downtime_min ?? r.downtime_min);
+    });
+
+    const totalObs = totalUptime + totalDowntime;
+    const avgSuccessRate = totalObs > 0 ? (totalUptime / totalObs) * 100 : 0;
+    const isSuccess = avgSuccessRate >= 98.0;
+
+    return {
+      count,
+      totalObs,
+      totalUptime,
+      totalDowntime,
+      avgSuccessRate,
+      isSuccess,
+    };
+  }, [displayedBreakdown, dailyViewMetric]);
 
   if (!gatewayId) return null;
 
@@ -440,257 +535,421 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
         </div>
       </div>
 
-      {/* 3. Bottom Section: Multi-Track Timeline Status & Incident History */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
-        {/* Left Column (lg:col-span-6): Multi-Track Timeline (Gateway, Cellular, DVR) with All 31 Days */}
-        <div className="lg:col-span-6 bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 flex flex-col justify-between shadow-xs">
-          <div>
-            {/* Header with Title & Legend */}
+      {/* 3. Bottom Section: Multi-Track Timeline Status, SLA Summary & Riwayat Gangguan */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-start">
+        {/* Left Column (lg:col-span-6): Multi-Track Timeline + Rincian SLA Harian Table */}
+        <div className="lg:col-span-6 flex flex-col gap-3.5">
+          {/* Top Card: Multi-Track Timeline (Gateway, Cellular, DVR) with All 31 Days */}
+          <div className="bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 flex flex-col justify-between shadow-xs">
+            <div>
+              {/* Header with Title & Legend */}
+              <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200 dark:border-slate-800/60">
+                <div className="flex items-center gap-2">
+                  <h4 className="text-xs font-bold text-slate-900 dark:text-white">
+                    Timeline Status ({periodInfo.effectivePeriodStr})
+                  </h4>
+                  <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 bg-slate-200/60 dark:bg-slate-800 px-2 py-0.5 rounded-full">
+                    {periodInfo.endDay - periodInfo.startDay + 1} Days
+                  </span>
+                </div>
+                <div className="flex items-center gap-3 text-[11px] text-slate-600 dark:text-slate-300">
+                  <span className="flex items-center gap-1.5">
+                    <span className="size-2 rounded-full bg-[#00c875]" />
+                    Online
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="size-2 rounded-full bg-[#e2445c]" />
+                    Offline
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="size-2 rounded-full bg-blue-500" />
+                    Today
+                  </span>
+                </div>
+              </div>
+
+              {/* Dynamic Multi-Track Timeline Matrix Card */}
+              <div className="mt-3.5 p-3.5 rounded-xl bg-white dark:bg-[#070e1d] border border-slate-200/90 dark:border-slate-800/80 shadow-xs space-y-2">
+                {/* RULER / HEADER TANGGAL DI ATAS */}
+                <div className="flex items-center gap-2">
+                  <div className="w-16 shrink-0 text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                    Track
+                  </div>
+                  <div
+                    className="flex-1 grid gap-0.5 sm:gap-1"
+                    style={{ gridTemplateColumns: `repeat(${dailyMultiTrack.length}, minmax(0, 1fr))` }}
+                  >
+                    {dailyMultiTrack.map((item) => (
+                      <div
+                        key={item.day}
+                        onClick={() => {
+                          if (item.isFuture) return;
+                          const nextDay = selectedBarDay === item.day ? null : item.day;
+                          handleSelectDay(nextDay, `${item.dayNumStr} ${periodInfo.monthStr}`);
+                        }}
+                        onMouseEnter={() => !item.isFuture && setHoveredDay(item)}
+                        onMouseLeave={() => setHoveredDay(null)}
+                        className={`text-center select-none ${item.isFuture ? "cursor-default" : "cursor-pointer"}`}
+                        title={item.isFuture ? `${item.fullDate}` : item.fullDate}
+                      >
+                        <span
+                          className={`text-[9px] font-mono block leading-none transition-all ${
+                            item.isToday
+                              ? "font-extrabold text-blue-600 dark:text-blue-400 bg-blue-500/20 px-0.5 py-0.5 rounded ring-1 ring-blue-500/50 scale-110 shadow-xs"
+                              : (selectedBarDay === item.day || selectedEventDate === item.dateKey)
+                              ? "font-bold text-amber-500 dark:text-amber-400"
+                              : item.isFuture
+                              ? "text-slate-400 dark:text-slate-600 opacity-60"
+                              : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
+                          }`}
+                        >
+                          {item.dayNumStr}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* TRACK 1: GATEWAY */}
+                <div className="flex items-center gap-2 pt-1.5 border-t border-slate-200/60 dark:border-slate-800/60">
+                  <div className="w-16 shrink-0 text-[11px] font-semibold text-slate-700 dark:text-slate-300 truncate">
+                    Gateway
+                  </div>
+                  <div
+                    className="flex-1 grid gap-0.5 sm:gap-1"
+                    style={{ gridTemplateColumns: `repeat(${dailyMultiTrack.length}, minmax(0, 1fr))` }}
+                  >
+                    {dailyMultiTrack.map((item) => (
+                      <div
+                        key={item.day}
+                        onClick={() => {
+                          if (item.isFuture) return;
+                          const nextDay = selectedBarDay === item.day ? null : item.day;
+                          handleSelectDay(nextDay, `${item.dayNumStr} ${periodInfo.monthStr}`);
+                        }}
+                        onMouseEnter={() => !item.isFuture && setHoveredDay(item)}
+                        onMouseLeave={() => setHoveredDay(null)}
+                        className={`h-5.5 rounded-xs transition-all ${
+                          item.isFuture
+                            ? "bg-slate-200/30 dark:bg-slate-800/30 cursor-default"
+                            : item.gwStatus === "offline"
+                            ? "bg-[#e2445c] hover:bg-[#ff4d6d] cursor-pointer"
+                            : "bg-[#00c875] hover:bg-[#05e287] cursor-pointer"
+                        } ${
+                          item.isToday && !item.isFuture
+                            ? "ring-1.5 ring-blue-500 shadow-xs"
+                            : ""
+                        } ${
+                          (selectedBarDay === item.day || selectedEventDate === item.dateKey)
+                            ? "ring-2 ring-amber-400 scale-105"
+                            : !item.isFuture ? "hover:scale-105" : ""
+                        }`}
+                        title={item.isFuture ? `${item.fullDate}` : `Gateway ${item.dayNumStr} ${periodInfo.monthStr}: ${item.gwStatus === "offline" ? "Offline" : "Online"}`}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* TRACK 2: CELLULAR */}
+                <div className="flex items-center gap-2">
+                  <div className="w-16 shrink-0 text-[11px] font-semibold text-slate-700 dark:text-slate-300 truncate">
+                    Cellular
+                  </div>
+                  <div
+                    className="flex-1 grid gap-0.5 sm:gap-1"
+                    style={{ gridTemplateColumns: `repeat(${dailyMultiTrack.length}, minmax(0, 1fr))` }}
+                  >
+                    {dailyMultiTrack.map((item) => (
+                      <div
+                        key={item.day}
+                        onClick={() => {
+                          if (item.isFuture) return;
+                          const nextDay = selectedBarDay === item.day ? null : item.day;
+                          handleSelectDay(nextDay, `${item.dayNumStr} ${periodInfo.monthStr}`);
+                        }}
+                        onMouseEnter={() => !item.isFuture && setHoveredDay(item)}
+                        onMouseLeave={() => setHoveredDay(null)}
+                        className={`h-5.5 rounded-xs transition-all ${
+                          item.isFuture
+                            ? "bg-slate-200/30 dark:bg-slate-800/30 cursor-default"
+                            : item.cellStatus === "offline"
+                            ? "bg-[#e2445c] hover:bg-[#ff4d6d] cursor-pointer"
+                            : "bg-[#00c875] hover:bg-[#05e287] cursor-pointer"
+                        } ${
+                          item.isToday && !item.isFuture
+                            ? "ring-1.5 ring-blue-500 shadow-xs"
+                            : ""
+                        } ${
+                          (selectedBarDay === item.day || selectedEventDate === item.dateKey)
+                            ? "ring-2 ring-amber-400 scale-105"
+                            : !item.isFuture ? "hover:scale-105" : ""
+                        }`}
+                        title={item.isFuture ? `${item.fullDate}` : `Cellular ${item.dayNumStr} ${periodInfo.monthStr}: ${item.cellStatus === "offline" ? "Offline" : "Online"}`}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* TRACK 3: DVR */}
+                <div className="flex items-center gap-2">
+                  <div className="w-16 shrink-0 text-[11px] font-semibold text-slate-700 dark:text-slate-300 truncate">
+                    DVR
+                  </div>
+                  <div
+                    className="flex-1 grid gap-0.5 sm:gap-1"
+                    style={{ gridTemplateColumns: `repeat(${dailyMultiTrack.length}, minmax(0, 1fr))` }}
+                  >
+                    {dailyMultiTrack.map((item) => (
+                      <div
+                        key={item.day}
+                        onClick={() => {
+                          if (item.isFuture) return;
+                          const nextDay = selectedBarDay === item.day ? null : item.day;
+                          handleSelectDay(nextDay, `${item.dayNumStr} ${periodInfo.monthStr}`);
+                        }}
+                        onMouseEnter={() => !item.isFuture && setHoveredDay(item)}
+                        onMouseLeave={() => setHoveredDay(null)}
+                        className={`h-5.5 rounded-xs transition-all ${
+                          item.isFuture
+                            ? "bg-slate-200/30 dark:bg-slate-800/30 cursor-default"
+                            : item.dvrStatus === "offline"
+                            ? "bg-[#e2445c] hover:bg-[#ff4d6d] cursor-pointer"
+                            : "bg-[#00c875] hover:bg-[#05e287] cursor-pointer"
+                        } ${
+                          item.isToday && !item.isFuture
+                            ? "ring-1.5 ring-blue-500 shadow-xs"
+                            : ""
+                        } ${
+                          (selectedBarDay === item.day || selectedEventDate === item.dateKey)
+                            ? "ring-2 ring-amber-400 scale-105"
+                            : !item.isFuture ? "hover:scale-105" : ""
+                        }`}
+                        title={item.isFuture ? `${item.fullDate}` : `DVR ${item.dayNumStr} ${periodInfo.monthStr}: ${item.dvrStatus === "offline" ? "Offline" : "Online"}`}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* Hover / Selected Day Real-Time Info Bar */}
+                <div className="mt-3 pt-2.5 border-t border-slate-200/70 dark:border-slate-800/70 flex items-center justify-between text-xs min-h-7">
+                  {hoveredDay ? (
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-slate-800 dark:text-slate-200">
+                        {hoveredDay.fullDate}
+                        {hoveredDay.isToday && (
+                          <span className="ml-1.5 px-1.5 py-0.2 rounded text-[10px] font-bold bg-blue-500/20 text-blue-500">
+                            Today
+                          </span>
+                        )}
+                        :
+                      </span>
+                      <span className="text-[11px] text-slate-600 dark:text-slate-300">
+                        Gateway:{" "}
+                        <strong className={hoveredDay.gwStatus === "offline" ? "text-[#e2445c]" : "text-[#00c875]"}>
+                          {hoveredDay.gwStatus === "offline" ? "Offline" : "Online"}
+                        </strong>
+                        {" | "}
+                        Cellular:{" "}
+                        <strong className={hoveredDay.cellStatus === "offline" ? "text-[#e2445c]" : "text-[#00c875]"}>
+                          {hoveredDay.cellStatus === "offline" ? "Offline" : "Online"}
+                        </strong>
+                        {" | "}
+                        DVR:{" "}
+                        <strong className={hoveredDay.dvrStatus === "offline" ? "text-[#e2445c]" : "text-[#00c875]"}>
+                          {hoveredDay.dvrStatus === "offline" ? "Offline" : "Online"}
+                        </strong>
+                        {hoveredDay.eventsCount > 0 && ` (${hoveredDay.eventsCount} incident events)`}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between w-full">
+                      <span>Hover or click a date ({dailyMultiTrack[0]?.dayNumStr || "01"} - {dailyMultiTrack[dailyMultiTrack.length - 1]?.dayNumStr || "30"}) to filter incident details.</span>
+
+                      {(selectedBarDay !== null || selectedEventDate !== "ALL") && (
+                        <button
+                          onClick={() => handleSelectDay(null)}
+                          className="text-blue-500 hover:underline text-[11px] font-medium cursor-pointer"
+                        >
+                          Reset Filter
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom Card: Rincian SLA Harian Table (Directly underneath the timeline card) */}
+          <div className="bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 shadow-xs">
+            {/* Header: Title, Active Selection Badge & Metric Toggle */}
             <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200 dark:border-slate-800/60">
               <div className="flex items-center gap-2">
+                <div className="size-6 rounded-md bg-blue-500/15 flex items-center justify-center text-blue-600 dark:text-blue-400">
+                  <FileSpreadsheet className="size-3.5" />
+                </div>
                 <h4 className="text-xs font-bold text-slate-900 dark:text-white">
-                  Timeline Status ({periodInfo.effectivePeriodStr})
+                  Rincian SLA Harian
                 </h4>
-                <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 bg-slate-200/60 dark:bg-slate-800 px-2 py-0.5 rounded-full">
-                  {dailyMultiTrack.length} Days
-                </span>
+                {selectedBarDay !== null ? (
+                  <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-blue-600 dark:text-blue-400 bg-blue-500/10 dark:bg-blue-500/20 px-2 py-0.5 rounded-full border border-blue-500/30">
+                    <span>Tgl {selectedBarDay < 10 ? `0${selectedBarDay}` : selectedBarDay} {periodInfo.monthStr}</span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSelectDay(null);
+                      }}
+                      className="text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer"
+                      title="Tampilkan semua hari"
+                    >
+                      <X className="size-3" />
+                    </button>
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 bg-slate-200/60 dark:bg-slate-800 px-2 py-0.5 rounded-full">
+                    {activeDailyBreakdown.length} Hari
+                  </span>
+                )}
               </div>
-              <div className="flex items-center gap-3 text-[11px] text-slate-600 dark:text-slate-300">
-                <span className="flex items-center gap-1.5">
-                  <span className="size-2 rounded-full bg-[#00c875]" />
-                  Online
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="size-2 rounded-full bg-[#e2445c]" />
-                  Offline
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="size-2 rounded-full bg-blue-500" />
-                  Today
-                </span>
+
+              {/* Metric Toggle */}
+              <div className="flex items-center gap-1 text-[11px]">
+                <span className="text-slate-500 dark:text-slate-400 font-medium mr-1">Metrik:</span>
+                <button
+                  type="button"
+                  onClick={() => setDailyViewMetric("cpu_dvr")}
+                  className={`px-2 py-0.5 rounded text-[11px] font-semibold transition-all cursor-pointer ${
+                    dailyViewMetric === "cpu_dvr"
+                      ? "bg-blue-600 text-white shadow-xs"
+                      : "bg-slate-200/60 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700"
+                  }`}
+                >
+                  CPU – DVR
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDailyViewMetric("recording")}
+                  className={`px-2 py-0.5 rounded text-[11px] font-semibold transition-all cursor-pointer ${
+                    dailyViewMetric === "recording"
+                      ? "bg-blue-600 text-white shadow-xs"
+                      : "bg-slate-200/60 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700"
+                  }`}
+                >
+                  Rekaman CCTV
+                </button>
               </div>
             </div>
 
-            {/* Dynamic Multi-Track Timeline Matrix Card */}
-            <div className="mt-3.5 p-3.5 rounded-xl bg-white dark:bg-[#070e1d] border border-slate-200/90 dark:border-slate-800/80 shadow-xs space-y-2">
-              {/* RULER / HEADER TANGGAL DI ATAS */}
-              <div className="flex items-center gap-2">
-                <div className="w-16 shrink-0 text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-                  Track
-                </div>
-                <div
-                  className="flex-1 grid gap-0.5 sm:gap-1"
-                  style={{ gridTemplateColumns: `repeat(${dailyMultiTrack.length}, minmax(0, 1fr))` }}
-                >
-                  {dailyMultiTrack.map((item) => (
-                    <div
-                      key={item.day}
-                      onClick={() => {
-                        if (item.isFuture) return;
-                        if (selectedEventDate === item.dateKey) {
-                          setSelectedEventDate("ALL");
-                        } else {
-                          setSelectedEventDate(item.dateKey);
-                        }
-                      }}
-                      onMouseEnter={() => !item.isFuture && setHoveredDay(item)}
-                      onMouseLeave={() => setHoveredDay(null)}
-                      className={`text-center select-none ${item.isFuture ? "cursor-default" : "cursor-pointer"}`}
-                      title={item.isFuture ? `${item.fullDate}` : item.fullDate}
-                    >
-                      <span
-                        className={`text-[9px] font-mono block leading-none transition-all ${
-                          item.isToday
-                            ? "font-extrabold text-blue-600 dark:text-blue-400 bg-blue-500/20 px-0.5 py-0.5 rounded ring-1 ring-blue-500/50 scale-110 shadow-xs"
-                            : selectedEventDate === item.dateKey
-                            ? "font-bold text-amber-500 dark:text-amber-400"
-                            : item.isFuture
-                            ? "text-slate-400 dark:text-slate-600 opacity-60"
-                            : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
+            {/* Table (Columns: Tanggal, Uptime (Menit), Downtime (Menit), Success Rate, Status SLA) */}
+            <div className="overflow-x-auto mt-2 max-h-72 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="sticky top-0 z-10 bg-slate-100 dark:bg-[#0a1224] shadow-xs">
+                  <tr className="text-[11px] text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800/60 font-semibold">
+                    <th className="py-2 px-3">Tanggal</th>
+                    <th className="py-2 px-3 text-right">Uptime (Menit)</th>
+                    <th className="py-2 px-3 text-right">Downtime (Menit)</th>
+                    <th className="py-2 px-3 text-right">Success Rate</th>
+                    <th className="py-2 px-3 text-center">Status SLA</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 dark:divide-slate-800/40 text-[11px]">
+                  {displayedBreakdown.map((row) => {
+                    const isCpu = dailyViewMetric === "cpu_dvr";
+                    const upMin = isCpu
+                      ? (row.cpu_dvr_uptime_min ?? row.uptime_min)
+                      : (row.rec_uptime_min ?? row.cpu_dvr_uptime_min ?? row.uptime_min);
+                    const downMin = isCpu
+                      ? (row.cpu_dvr_downtime_min ?? row.downtime_min)
+                      : (row.rec_downtime_min ?? row.cpu_dvr_downtime_min ?? row.downtime_min);
+                    const sr = isCpu
+                      ? (row.cpu_dvr_success_rate ?? row.success_rate)
+                      : (row.rec_success_rate ?? row.cpu_dvr_success_rate ?? row.success_rate);
+                    const status = isCpu
+                      ? (row.cpu_dvr_status_sla ?? row.sla_status)
+                      : (row.rec_status_sla ?? row.cpu_dvr_status_sla ?? row.sla_status);
+                    const isSuccess = status === "Tercapai";
+                    const isSelected = selectedBarDay === row.day;
+
+                    return (
+                      <tr
+                        key={row.day}
+                        onClick={() => handleSelectDay(row.day, `${row.day < 10 ? `0${row.day}` : row.day} ${periodInfo.monthStr}`)}
+                        className={`transition-colors cursor-pointer ${
+                          isSelected
+                            ? "bg-blue-500/10 dark:bg-blue-500/20 font-medium"
+                            : "hover:bg-slate-100/80 dark:hover:bg-slate-800/30"
                         }`}
+                        title="Klik untuk memilih tanggal ini"
                       >
-                        {item.dayNumStr}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* TRACK 1: GATEWAY */}
-              <div className="flex items-center gap-2 pt-1.5 border-t border-slate-200/60 dark:border-slate-800/60">
-                <div className="w-16 shrink-0 text-[11px] font-semibold text-slate-700 dark:text-slate-300 truncate">
-                  Gateway
-                </div>
-                <div
-                  className="flex-1 grid gap-0.5 sm:gap-1"
-                  style={{ gridTemplateColumns: `repeat(${dailyMultiTrack.length}, minmax(0, 1fr))` }}
-                >
-                  {dailyMultiTrack.map((item) => (
-                    <div
-                      key={item.day}
-                      onClick={() => {
-                        if (item.isFuture) return;
-                        if (selectedEventDate === item.dateKey) {
-                          setSelectedEventDate("ALL");
-                        } else {
-                          setSelectedEventDate(item.dateKey);
-                        }
-                      }}
-                      onMouseEnter={() => !item.isFuture && setHoveredDay(item)}
-                      onMouseLeave={() => setHoveredDay(null)}
-                      className={`h-5.5 rounded-xs transition-all ${
-                        item.isFuture
-                          ? "bg-slate-200/30 dark:bg-slate-800/30 cursor-default"
-                          : item.gwStatus === "offline"
-                          ? "bg-[#e2445c] hover:bg-[#ff4d6d] cursor-pointer"
-                          : "bg-[#00c875] hover:bg-[#05e287] cursor-pointer"
-                      } ${
-                        item.isToday && !item.isFuture
-                          ? "ring-1.5 ring-blue-500 shadow-xs"
-                          : ""
-                      } ${
-                        selectedEventDate === item.dateKey
-                          ? "ring-2 ring-amber-400 scale-105"
-                          : !item.isFuture ? "hover:scale-105" : ""
-                      }`}
-                      title={item.isFuture ? `${item.fullDate}` : `Gateway ${item.dayNumStr} ${periodInfo.monthStr}: ${item.gwStatus === "offline" ? "Offline" : "Online"}`}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              {/* TRACK 2: CELLULAR */}
-              <div className="flex items-center gap-2">
-                <div className="w-16 shrink-0 text-[11px] font-semibold text-slate-700 dark:text-slate-300 truncate">
-                  Cellular
-                </div>
-                <div
-                  className="flex-1 grid gap-0.5 sm:gap-1"
-                  style={{ gridTemplateColumns: `repeat(${dailyMultiTrack.length}, minmax(0, 1fr))` }}
-                >
-                  {dailyMultiTrack.map((item) => (
-                    <div
-                      key={item.day}
-                      onClick={() => {
-                        if (item.isFuture) return;
-                        if (selectedEventDate === item.dateKey) {
-                          setSelectedEventDate("ALL");
-                        } else {
-                          setSelectedEventDate(item.dateKey);
-                        }
-                      }}
-                      onMouseEnter={() => !item.isFuture && setHoveredDay(item)}
-                      onMouseLeave={() => setHoveredDay(null)}
-                      className={`h-5.5 rounded-xs transition-all ${
-                        item.isFuture
-                          ? "bg-slate-200/30 dark:bg-slate-800/30 cursor-default"
-                          : item.cellStatus === "offline"
-                          ? "bg-[#e2445c] hover:bg-[#ff4d6d] cursor-pointer"
-                          : "bg-[#00c875] hover:bg-[#05e287] cursor-pointer"
-                      } ${
-                        item.isToday && !item.isFuture
-                          ? "ring-1.5 ring-blue-500 shadow-xs"
-                          : ""
-                      } ${
-                        selectedEventDate === item.dateKey
-                          ? "ring-2 ring-amber-400 scale-105"
-                          : !item.isFuture ? "hover:scale-105" : ""
-                      }`}
-                      title={item.isFuture ? `${item.fullDate}` : `Cellular ${item.dayNumStr} ${periodInfo.monthStr}: ${item.cellStatus === "offline" ? "Offline" : "Online"}`}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              {/* TRACK 3: DVR */}
-              <div className="flex items-center gap-2">
-                <div className="w-16 shrink-0 text-[11px] font-semibold text-slate-700 dark:text-slate-300 truncate">
-                  DVR
-                </div>
-                <div
-                  className="flex-1 grid gap-0.5 sm:gap-1"
-                  style={{ gridTemplateColumns: `repeat(${dailyMultiTrack.length}, minmax(0, 1fr))` }}
-                >
-                  {dailyMultiTrack.map((item) => (
-                    <div
-                      key={item.day}
-                      onClick={() => {
-                        if (item.isFuture) return;
-                        if (selectedEventDate === item.dateKey) {
-                          setSelectedEventDate("ALL");
-                        } else {
-                          setSelectedEventDate(item.dateKey);
-                        }
-                      }}
-                      onMouseEnter={() => !item.isFuture && setHoveredDay(item)}
-                      onMouseLeave={() => setHoveredDay(null)}
-                      className={`h-5.5 rounded-xs transition-all ${
-                        item.isFuture
-                          ? "bg-slate-200/30 dark:bg-slate-800/30 cursor-default"
-                          : item.dvrStatus === "offline"
-                          ? "bg-[#e2445c] hover:bg-[#ff4d6d] cursor-pointer"
-                          : "bg-[#00c875] hover:bg-[#05e287] cursor-pointer"
-                      } ${
-                        item.isToday && !item.isFuture
-                          ? "ring-1.5 ring-blue-500 shadow-xs"
-                          : ""
-                      } ${
-                        selectedEventDate === item.dateKey
-                          ? "ring-2 ring-amber-400 scale-105"
-                          : !item.isFuture ? "hover:scale-105" : ""
-                      }`}
-                      title={item.isFuture ? `${item.fullDate}` : `DVR ${item.dayNumStr} ${periodInfo.monthStr}: ${item.dvrStatus === "offline" ? "Offline" : "Online"}`}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              {/* Hover / Selected Day Real-Time Info Bar */}
-              <div className="mt-3 pt-2.5 border-t border-slate-200/70 dark:border-slate-800/70 flex items-center justify-between text-xs min-h-7">
-                {hoveredDay ? (
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-slate-800 dark:text-slate-200">
-                      {hoveredDay.fullDate}
-                      {hoveredDay.isToday && (
-                        <span className="ml-1.5 px-1.5 py-0.2 rounded text-[10px] font-bold bg-blue-500/20 text-blue-500">
-                          Today
-                        </span>
-                      )}
-                      :
-                    </span>
-                    <span className="text-[11px] text-slate-600 dark:text-slate-300">
-                      Gateway:{" "}
-                      <strong className={hoveredDay.gwStatus === "offline" ? "text-[#e2445c]" : "text-[#00c875]"}>
-                        {hoveredDay.gwStatus === "offline" ? "Offline" : "Online"}
-                      </strong>
-                      {" | "}
-                      Cellular:{" "}
-                      <strong className={hoveredDay.cellStatus === "offline" ? "text-[#e2445c]" : "text-[#00c875]"}>
-                        {hoveredDay.cellStatus === "offline" ? "Offline" : "Online"}
-                      </strong>
-                      {" | "}
-                      DVR:{" "}
-                      <strong className={hoveredDay.dvrStatus === "offline" ? "text-[#e2445c]" : "text-[#00c875]"}>
-                        {hoveredDay.dvrStatus === "offline" ? "Offline" : "Online"}
-                      </strong>
-                      {hoveredDay.eventsCount > 0 && ` (${hoveredDay.eventsCount} incident events)`}
-                    </span>
-                  </div>
-                ) : (
-                  <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between w-full">
-                    <span>Hover or click a date (01 - {dailyMultiTrack.length}) to filter incident details.</span>
-
-                    {selectedEventDate !== "ALL" && (
-                      <button
-                        onClick={() => setSelectedEventDate("ALL")}
-                        className="text-blue-500 hover:underline text-[11px] font-medium cursor-pointer"
-                      >
-                        Reset Filter
-                      </button>
-                    )}
-                  </div>
+                        <td className="py-2 px-3 text-slate-700 dark:text-slate-300 font-mono whitespace-nowrap">
+                          {row.date} ({row.day_name})
+                        </td>
+                        <td className="py-2 px-3 text-right font-mono text-emerald-600 dark:text-emerald-400 font-semibold">
+                          {upMin.toLocaleString("id-ID")}
+                        </td>
+                        <td className="py-2 px-3 text-right font-mono font-semibold">
+                          {downMin > 0 ? (
+                            <span className="text-rose-600 dark:text-rose-400">{downMin.toLocaleString("id-ID")}</span>
+                          ) : (
+                            <span className="text-slate-400">0</span>
+                          )}
+                        </td>
+                        <td className="py-2 px-3 text-right font-mono font-bold text-slate-900 dark:text-white">
+                          {sr.toFixed(1)}%
+                        </td>
+                        <td className="py-2 px-3 text-center whitespace-nowrap">
+                          {isSuccess ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-emerald-600 dark:text-[#00c875] border border-emerald-500/30">
+                              Tercapai
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/15 text-rose-600 dark:text-[#e2445c] border border-rose-500/30">
+                              Tidak Tercapai
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {displayedBreakdown.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="py-6 text-center text-slate-500 dark:text-slate-400 text-xs">
+                        Tidak ada data rincian SLA harian untuk tanggal yang dipilih.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+                {displayedSummary && (
+                  <tfoot className="sticky bottom-0 z-10 bg-slate-200/90 dark:bg-[#070e1d] font-bold text-[11px] border-t-2 border-slate-300 dark:border-slate-700 shadow-md">
+                    <tr>
+                      <td className="py-2 px-3 text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                        <span className="text-blue-600 dark:text-blue-400 mr-1.5">Total:</span>
+                        {displayedSummary.count} Hari ({displayedSummary.totalObs.toLocaleString("id-ID")}m)
+                      </td>
+                      <td className="py-2 px-3 text-right font-mono text-emerald-600 dark:text-emerald-400">
+                        {displayedSummary.totalUptime.toLocaleString("id-ID")}
+                      </td>
+                      <td className="py-2 px-3 text-right font-mono text-rose-600 dark:text-rose-400">
+                        {displayedSummary.totalDowntime.toLocaleString("id-ID")}
+                      </td>
+                      <td className="py-2 px-3 text-right font-mono text-slate-900 dark:text-white">
+                        {displayedSummary.avgSuccessRate.toFixed(1)}%
+                      </td>
+                      <td className="py-2 px-3 text-center">
+                        {displayedSummary.isSuccess ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-emerald-600 dark:text-[#00c875] border border-emerald-500/30">
+                            Tercapai
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/15 text-rose-600 dark:text-[#e2445c] border border-rose-500/30">
+                            Tidak Tercapai
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  </tfoot>
                 )}
-              </div>
+              </table>
             </div>
           </div>
         </div>
@@ -710,15 +969,15 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
 
               {/* Date Selector Dropdown for Daily Filtering */}
               <div className="flex items-center gap-1.5">
-                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Filter Date:</span>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Filter Tanggal:</span>
                 <select
                   value={selectedEventDate}
                   onChange={(e) => setSelectedEventDate(e.target.value)}
                   className="text-xs font-medium bg-white dark:bg-[#070e1d] border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer shadow-xs"
                 >
-                  <option value="ALL">All Dates ({(d.trouble_events || []).length})</option>
+                  <option value="ALL">Semua Tanggal ({rangeFilteredEvents.length})</option>
                   {uniqueDates.map((dateStr) => {
-                    const count = (d.trouble_events || []).filter((e) => e.start_time.startsWith(dateStr)).length;
+                    const count = rangeFilteredEvents.filter((e) => e.start_time.startsWith(dateStr)).length;
                     return (
                       <option key={dateStr} value={dateStr}>
                         {dateStr} ({count} events)

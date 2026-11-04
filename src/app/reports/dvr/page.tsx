@@ -24,7 +24,7 @@ export default function ReportDVRPage() {
     type: "All Types",
     dvr_brand: "All DVR Brands",
     location: "All Locations",
-    date_range: getCurrentMonthPeriodStr(),
+    date_range: "01 Nov 2026 - 04 Nov 2026",
 
     page: 1,
     pageSize: 50,
@@ -505,9 +505,9 @@ export default function ReportDVRPage() {
           onSearchChange={(val) => handleFilterChange("search", val)}
           searchPlaceholder="Search Gateway ID / Location..."
           filters={filterConfigs}
-          timeframe={filters.date_range || getCurrentMonthPeriodStr()}
+          timeframe={filters.date_range || "01 Nov 2026 - 04 Nov 2026"}
 
-          onTimeframeClick={() => {}}
+          onDateRangeChange={(range) => handleFilterChange("date_range", range)}
           onExportClick={handleExport}
         />
       }

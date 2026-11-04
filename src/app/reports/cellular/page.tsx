@@ -24,7 +24,7 @@ export default function ReportCellularPage() {
     type: "All Types",
     provider: "All Providers",
     location: "All Locations",
-    date_range: getCurrentMonthPeriodStr(),
+    date_range: "01 Nov 2026 - 04 Nov 2026",
 
     page: 1,
     pageSize: 50,
@@ -267,7 +267,7 @@ export default function ReportCellularPage() {
       },
       {
         id: "cpu_modem_offline",
-        header: "Offline",
+        header: "Downtime",
         align: "center",
         className: "bg-blue-500/[0.025] dark:bg-blue-500/[0.04]",
         cell: (gw) => (
@@ -301,7 +301,7 @@ export default function ReportCellularPage() {
       },
       {
         id: "network_offline",
-        header: "Offline",
+        header: "Downtime",
         align: "center",
         className: "bg-teal-500/[0.025] dark:bg-teal-500/[0.04]",
         cell: (gw) => (
@@ -456,14 +456,14 @@ export default function ReportCellularPage() {
 
         {/* Under CPU - Modem (Blue Sub-headers) */}
         <th className="py-2 px-2.5 text-center text-[#00c875] bg-[#f4f8ff] dark:bg-[#08152b] border-r border-blue-200/60 dark:border-blue-900/50">Uptime</th>
-        <th className="py-2 px-2.5 text-center text-[#e2445c] bg-[#f4f8ff] dark:bg-[#08152b] border-r border-blue-200/60 dark:border-blue-900/50">Offline</th>
+        <th className="py-2 px-2.5 text-center text-[#e2445c] bg-[#f4f8ff] dark:bg-[#08152b] border-r border-blue-200/60 dark:border-blue-900/50">Downtime</th>
         <th className="py-2 px-2.5 text-center whitespace-nowrap text-blue-900 dark:text-blue-200 bg-[#f4f8ff] dark:bg-[#08152b] border-r-2 border-r-blue-300 dark:border-r-blue-700">
           Success Rate
         </th>
 
         {/* Under Network Connection (Teal Sub-headers) */}
         <th className="py-2 px-2.5 text-center text-[#00c875] bg-[#effcf8] dark:bg-[#041a18] border-r border-teal-200/60 dark:border-teal-900/50">Uptime</th>
-        <th className="py-2 px-2.5 text-center text-[#e2445c] bg-[#effcf8] dark:bg-[#041a18] border-r border-teal-200/60 dark:border-teal-900/50">Offline</th>
+        <th className="py-2 px-2.5 text-center text-[#e2445c] bg-[#effcf8] dark:bg-[#041a18] border-r border-teal-200/60 dark:border-teal-900/50">Downtime</th>
         <th className="py-2 px-2.5 text-center whitespace-nowrap text-[#00c875] bg-[#effcf8] dark:bg-[#041a18] border-r border-teal-200/60 dark:border-teal-900/50">Success Rate</th>
         <th className="py-2 px-2.5 text-center whitespace-nowrap text-teal-900 dark:text-teal-200 bg-[#effcf8] dark:bg-[#041a18] border-r-2 border-r-teal-300 dark:border-r-teal-700">
           Avg RSRP (dBm)
@@ -488,9 +488,9 @@ export default function ReportCellularPage() {
           onSearchChange={(val) => handleFilterChange("search", val)}
           searchPlaceholder="Search Gateway ID / Location..."
           filters={filterConfigs}
-          timeframe={filters.date_range || getCurrentMonthPeriodStr()}
+          timeframe={filters.date_range || "01 Nov 2026 - 04 Nov 2026"}
 
-          onTimeframeClick={() => {}}
+          onDateRangeChange={(range) => handleFilterChange("date_range", range)}
           onExportClick={handleExport}
         />
       }

@@ -2,6 +2,7 @@
 
 import React from "react";
 import { Search, ChevronDown, Download, Calendar, Filter, X, LucideIcon } from "lucide-react";
+import { DateRangePicker } from "./DateRangePicker";
 
 export interface IFilterOption {
   label: string;
@@ -25,6 +26,7 @@ interface FilterHeaderProps {
   actions?: React.ReactNode;
   timeframe?: string;
   onTimeframeClick?: () => void;
+  onDateRangeChange?: (range: string) => void;
   onExportClick?: () => void;
   exportLoading?: boolean;
   title?: string;
@@ -43,6 +45,7 @@ export const FilterHeader: React.FC<FilterHeaderProps> = ({
   actions,
   timeframe = "Last 24 Hours",
   onTimeframeClick,
+  onDateRangeChange,
   onExportClick,
   exportLoading = false,
   title,
@@ -100,7 +103,13 @@ export const FilterHeader: React.FC<FilterHeaderProps> = ({
 
         {actions}
 
-        {onTimeframeClick && (
+        {onDateRangeChange ? (
+          <DateRangePicker
+            value={timeframe || ""}
+            onChange={onDateRangeChange}
+            align="right"
+          />
+        ) : onTimeframeClick ? (
           <button
             type="button"
             onClick={onTimeframeClick}
@@ -110,7 +119,7 @@ export const FilterHeader: React.FC<FilterHeaderProps> = ({
             <span>{timeframe}</span>
             <ChevronDown className="size-3 text-slate-400" />
           </button>
-        )}
+        ) : null}
 
         {onExportClick && (
           <button
@@ -161,7 +170,13 @@ export const FilterHeader: React.FC<FilterHeaderProps> = ({
             <div className="flex flex-wrap items-center gap-2">
               {actions}
 
-              {onTimeframeClick && (
+              {onDateRangeChange ? (
+                <DateRangePicker
+                  value={timeframe || ""}
+                  onChange={onDateRangeChange}
+                  align="right"
+                />
+              ) : onTimeframeClick ? (
                 <button
                   type="button"
                   onClick={onTimeframeClick}
@@ -171,7 +186,7 @@ export const FilterHeader: React.FC<FilterHeaderProps> = ({
                   <span>{timeframe}</span>
                   <ChevronDown className="size-3 text-slate-400" />
                 </button>
-              )}
+              ) : null}
 
               {onExportClick && (
                 <button
@@ -278,7 +293,13 @@ export const FilterHeader: React.FC<FilterHeaderProps> = ({
           <div className="flex flex-wrap items-center gap-2 self-start lg:self-auto shrink-0">
             {actions}
 
-            {onTimeframeClick && (
+            {onDateRangeChange ? (
+              <DateRangePicker
+                value={timeframe || ""}
+                onChange={onDateRangeChange}
+                align="right"
+              />
+            ) : onTimeframeClick ? (
               <button
                 type="button"
                 onClick={onTimeframeClick}
@@ -288,7 +309,7 @@ export const FilterHeader: React.FC<FilterHeaderProps> = ({
                 <span>{timeframe}</span>
                 <ChevronDown className="size-3 text-slate-400" />
               </button>
-            )}
+            ) : null}
 
             {onExportClick && (
               <button

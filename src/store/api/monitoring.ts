@@ -472,6 +472,7 @@ export const exportCellularReportCsvUrl = (filters?: ICellularReportFilters) => 
   if (filters?.type && !filters.type.startsWith("Semua") && !filters.type.startsWith("All")) params.append("gateway_type", filters.type);
   if (filters?.provider && !filters.provider.startsWith("Semua") && !filters.provider.startsWith("All")) params.append("provider", filters.provider);
   if (filters?.location && !filters.location.startsWith("Semua") && !filters.location.startsWith("All")) params.append("location", filters.location);
+  if (filters?.date_range) params.append("date_range", filters.date_range);
   return `${API_BASE_URL}/monitoring/reports/cellular/export?${params.toString()}`;
 };
 
@@ -485,6 +486,9 @@ export interface ITroubleEventItem {
   description?: string;
   category?: string;
   recommendation?: string;
+  metric?: string;
+  date_str?: string;
+  day_downtime_minutes?: number;
 }
 
 export interface ITimelineSegment {
@@ -526,6 +530,62 @@ export interface ICellularReportGatewayDetail {
   total_gangguan: string;
   timeline_segments: ITimelineSegment[];
   trouble_events: ITroubleEventItem[];
+  daily_breakdown?: IDailySlaRecord[];
+  daily_summary?: IDailySlaSummary;
+}
+
+export interface IDailySlaRecord {
+  day: number;
+  date: string;
+  day_name: string;
+  target_sla: number;
+  uptime_min: number;
+  downtime_min: number;
+  success_rate: number;
+  sla_diff: number;
+  sla_status: string;
+  cpu_modem_uptime_min: number;
+  cpu_modem_downtime_min: number;
+  cpu_modem_success_rate: number;
+  cpu_modem_sla_diff: number;
+  cpu_modem_status_sla: string;
+  cellular_uptime_min: number;
+  cellular_downtime_min: number;
+  cellular_success_rate: number;
+  cellular_sla_diff: number;
+  cellular_status_sla: string;
+  cpu_dvr_uptime_min?: number;
+  cpu_dvr_downtime_min?: number;
+  cpu_dvr_success_rate?: number;
+  cpu_dvr_sla_diff?: number;
+  cpu_dvr_status_sla?: string;
+  rec_uptime_min?: number;
+  rec_downtime_min?: number;
+  rec_success_rate?: number;
+  rec_sla_diff?: number;
+  rec_status_sla?: string;
+}
+
+export interface IDailySlaSummary {
+  total_days: number;
+  target_sla_pct: number;
+  total_obs_min: number;
+  total_cpu_modem_uptime_min: number;
+  total_cpu_modem_downtime_min: number;
+  avg_cpu_modem_success_rate: number;
+  cpu_modem_sla_status: string;
+  total_cellular_uptime_min: number;
+  total_cellular_downtime_min: number;
+  avg_cellular_success_rate: number;
+  cellular_sla_status: string;
+  total_cpu_dvr_uptime_min?: number;
+  total_cpu_dvr_downtime_min?: number;
+  avg_cpu_dvr_success_rate?: number;
+  cpu_dvr_sla_status?: string;
+  total_rec_uptime_min?: number;
+  total_rec_downtime_min?: number;
+  avg_rec_success_rate?: number;
+  rec_sla_status?: string;
 }
 
 export const fetchCellularReportGatewayDetail = async (
@@ -650,6 +710,7 @@ export const exportDVRReportCsvUrl = (filters?: IDVRReportFilters) => {
   if (filters?.type && filters.type !== "Semua Tipe") params.append("gateway_type", filters.type);
   if (filters?.dvr_brand && !filters.dvr_brand.startsWith("Semua") && !filters.dvr_brand.startsWith("All")) params.append("dvr_brand", filters.dvr_brand);
   if (filters?.location && !filters.location.startsWith("Semua") && !filters.location.startsWith("All")) params.append("location", filters.location);
+  if (filters?.date_range) params.append("date_range", filters.date_range);
   return `${API_BASE_URL}/monitoring/reports/dvr/export?${params.toString()}`;
 };
 
@@ -663,6 +724,9 @@ export interface IDVRTroubleEventItem {
   title?: string;
   cause?: string;
   recommendation?: string;
+  metric?: string;
+  date_str?: string;
+  day_downtime_minutes?: number;
 }
 
 export interface IDVRTimelineSegment {
@@ -708,6 +772,8 @@ export interface IDVRReportGatewayDetail {
   kamera_offline: number;
   timeline_tracks: IDVRTimelineTrack[];
   trouble_events: IDVRTroubleEventItem[];
+  daily_breakdown?: IDailySlaRecord[];
+  daily_summary?: IDailySlaSummary;
 }
 
 export const fetchDVRReportGatewayDetail = async (

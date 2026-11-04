@@ -4,3 +4,4 @@ export * from "./ChartCard";
 export * from "./DataTable";
 export * from "./StatusBadge";
 export * from "./SmartBoxIllustration";
+export * from "./DateRangePicker";

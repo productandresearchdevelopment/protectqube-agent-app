@@ -81,10 +81,12 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
   // Generate dynamic daily status points for Gateway, Cellular, and DVR based on active report month (full month, status only up to today)
   const dailyMultiTrack = useMemo(() => {
     const { daysInMonth, monthStr, yearStr, todayDay, isCurrentMonth } = periodInfo;
+    const minDay = periodInfo.startDay;
+    const maxDay = periodInfo.endDay;
     const events = rawEvents;
 
     const list = [];
-    for (let day = 1; day <= daysInMonth; day++) {
+    for (let day = minDay; day <= maxDay; day++) {
       const dayNumStr = day < 10 ? `0${day}` : `${day}`;
       const dateKey = `${dayNumStr} ${monthStr}`;
       const fullDate = `${dayNumStr} ${monthStr} ${yearStr}`;
@@ -891,7 +893,7 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
                   </div>
                 ) : (
                   <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between w-full">
-                    <span>Hover or click a date (01 - {dailyMultiTrack.length}) to filter incident details.</span>
+                    <span>Hover or click a date ({dailyMultiTrack[0]?.dayNumStr || "01"} - {dailyMultiTrack[dailyMultiTrack.length - 1]?.dayNumStr || "30"}) to filter incident details.</span>
 
                     {selectedEventDate !== "ALL" && (
                       <button
