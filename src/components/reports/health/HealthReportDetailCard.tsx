@@ -29,6 +29,36 @@ import {
 import { SmartBoxIsometricIllustration } from "@/components/ui/SmartBoxIllustration";
 import { parseReportPeriod } from "@/lib/reportPeriodUtils";
 
+const formatDurationEn = (dur?: string) => {
+  if (!dur) return "-";
+  return dur
+    .replace(/menit/gi, "m")
+    .replace(/jam/gi, "h")
+    .replace(/detik/gi, "s")
+    .trim();
+};
+
+const formatIncidentEn = (text?: string) => {
+  if (!text) return "Normal Operation (No incidents detected)";
+  return text
+    .replace(/Komunikasi\s+Port\s+USB\s+Modem\s+dengan\s+CPU\s+Terputus/gi, "Modem USB Port Communication Lost")
+    .replace(/Koneksi\s+Jaringan\s+Seluler\s+Terputus/gi, "Cellular Network Connection Disconnected")
+    .replace(/Aliran\s+Data\s+Internet\s+Mati/gi, "No Internet Data")
+    .replace(/Komunikasi\s+Gateway\s+CPU\s+ke\s+NVR\s+Surveillance\s+Terputus/gi, "Gateway CPU to NVR Communication Lost")
+    .replace(/Kamera\s+Hilang\s+Sinyal\s*\/\s*No\s+Video/gi, "Camera Signal Loss / No Video")
+    .replace(/Kamera\s+Terputus\s*\/\s*Offline/gi, "Camera Disconnected / Offline")
+    .replace(/Gangguan\s+Jaringan/gi, "Network Disruption")
+    .replace(/Gangguan/gi, "Incident")
+    .replace(/selama\s+(\d+)\s*Menit/gi, "for $1m")
+    .replace(/selama\s+(\d+)\s*Jam\s*(\d+)\s*Menit/gi, "for $1h $2m")
+    .replace(/selama\s+(\d+)\s*Jam/gi, "for $1h")
+    .replace(/(\d+)\s*Menit/gi, "$1m")
+    .replace(/(\d+)\s*Jam/gi, "$1h")
+    .replace(/Normal\s+Operation\s*\(No incidents detected\)/gi, "Normal Operation (No incidents detected)")
+    .replace(/Operasi\s+Normal/gi, "Normal Operation")
+    .trim();
+};
+
 
 interface HealthReportDetailCardProps {
   gatewayId: string | null;
@@ -82,6 +112,33 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
     }
     return list;
   }, [periodInfo]);
+
+  // Filter events by period / selected date for Incident History table
+  const rangeFilteredEvents = useMemo(() => {
+    return rawEvents.filter((ev: any) => {
+      const parts = (ev.start_time || "").split(" ");
+      const dayNum = parseInt(parts[0], 10);
+      if (isNaN(dayNum)) return true;
+      return dayNum >= periodInfo.startDay && dayNum <= periodInfo.effectiveDays;
+    });
+  }, [rawEvents, periodInfo]);
+
+  const uniqueDates = useMemo(() => {
+    const dates = new Set<string>();
+    rangeFilteredEvents.forEach((e: any) => {
+      const match = (e.start_time || "").match(/^(\d{1,2}\s+[A-Za-z]{3})/);
+      if (match) dates.add(match[1]);
+    });
+    return Array.from(dates);
+  }, [rangeFilteredEvents]);
+
+  const filteredEvents = useMemo(() => {
+    if (selectedEventDate === "ALL") return rangeFilteredEvents;
+    const target = selectedEventDate.trim().toLowerCase();
+    return rangeFilteredEvents.filter((e: any) =>
+      (e.start_time || "").trim().toLowerCase().startsWith(target)
+    );
+  }, [rangeFilteredEvents, selectedEventDate]);
 
   // Memoized dynamic trend data for CPU, RAM, and Storage Usage based on selected date (per jam / hourly when day is selected)
   const { filteredCpuTrend, filteredRamTrend, filteredStorageTrend, dayStats } = useMemo(() => {
@@ -390,17 +447,8 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
   const d = data;
   const isWhite = (d.type || "").includes("Putih");
 
-  // Dynamic Real SLA Calculations (Active period or selected day)
-  const isSLAMet = slaCalc.isSLAMet;
-  const slaDiffPct = slaCalc.slaDiffPct;
+  // Dynamic Period Calculation
   const periodHoursStr = slaCalc.periodHoursStr;
-  const uptimeDurationText = slaCalc.uptimeText;
-  const uptimePctNum = slaCalc.uptimePct;
-  const downtimeDurationText = slaCalc.downtimeText;
-  const downtimePctNum = slaCalc.downtimePct;
-  const slaTargetHoursText = slaCalc.slaMinUptimeText;
-  const slaDowntimeAllowedText = slaCalc.slaMaxDownText;
-  const downtimeDiffText = slaCalc.toleranceText;
 
   const getCategoryColor = (cat: string) => {
     if (cat.includes("CPU")) return "text-[#f59e0b]";
@@ -490,8 +538,8 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
 
         {/* Right Column (xl:col-span-9): 7 KPI Cards & 3 Realtime Trend Charts */}
         <div className="xl:col-span-9 space-y-3 flex flex-col justify-between">
-          {/* Top Sub-row: 8 KPI Cards with SLA Breakdown */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
+          {/* Top Sub-row: 5 Hardware Health KPI Cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
             {/* Card 1: Periode & Total Waktu */}
             <div className="bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-2.5 flex flex-col justify-between shadow-xs">
               <div className="flex items-center gap-1.5">
@@ -510,65 +558,7 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
               </div>
             </div>
 
-            {/* Card 2: Accumulated Uptime */}
-            <div className="bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-2.5 flex flex-col justify-between shadow-xs">
-              <div className="flex items-center gap-1.5">
-                <div className="size-5 rounded bg-emerald-500/15 flex items-center justify-center text-[#00a862] dark:text-[#00c875]">
-                  <CheckCircle2 className="size-3" />
-                </div>
-                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate">Accumulated Uptime</span>
-              </div>
-              <div className="mt-2">
-                <div className="text-xs font-bold text-[#00a862] dark:text-[#00c875] leading-tight font-mono">
-                  {uptimeDurationText}
-                </div>
-                <div className="text-[10px] font-semibold text-[#00a862] dark:text-[#00c875] mt-0.5">
-                  {uptimePctNum}%
-                </div>
-              </div>
-            </div>
-
-            {/* Card 3: Accumulated Downtime */}
-            <div className="bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-2.5 flex flex-col justify-between shadow-xs">
-              <div className="flex items-center gap-1.5">
-                <div className="size-5 rounded bg-rose-500/15 flex items-center justify-center text-[#e2445c]">
-                  <Clock className="size-3" />
-                </div>
-                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate">Accumulated Downtime</span>
-              </div>
-              <div className="mt-2">
-                <div className="text-xs font-bold text-[#e2445c] leading-tight font-mono">
-                  {downtimeDurationText}
-                </div>
-                <div className="text-[10px] font-semibold text-[#e2445c] mt-0.5">
-                  {downtimePctNum}%
-                </div>
-              </div>
-            </div>
-
-            {/* Card 4: Target SLA 99.5% */}
-            <div className="bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-2.5 flex flex-col justify-between shadow-xs">
-              <div className="flex items-center gap-1.5">
-                <div className={`size-5 rounded flex items-center justify-center ${
-                  isSLAMet ? "bg-emerald-500/15 text-[#00a862] dark:text-[#00c875]" : "bg-rose-500/15 text-[#e2445c]"
-                }`}>
-                  {isSLAMet ? <CheckCircle2 className="size-3" /> : <AlertTriangle className="size-3" />}
-                </div>
-                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate">SLA 99.5%</span>
-              </div>
-              <div className="mt-2">
-                <div className="text-xs font-bold text-slate-900 dark:text-white leading-tight">
-                  {uptimePctNum}% <span className="text-[10px] text-slate-500 dark:text-slate-400 font-normal">/ 99.5%</span>
-                </div>
-                <div className={`text-[10px] font-bold mt-0.5 truncate ${
-                  isSLAMet ? "text-[#00a862] dark:text-[#00c875]" : "text-[#e2445c]"
-                }`}>
-                  {isSLAMet ? "Achieved" : `Breach (${slaDiffPct}%)`}
-                </div>
-              </div>
-            </div>
-
-            {/* Card 5: Average CPU */}
+            {/* Card 2: Average CPU */}
             <div className="bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-2.5 flex flex-col justify-between shadow-xs">
               <div className="flex items-center gap-1.5">
                 <div className="size-5 rounded bg-rose-500/15 flex items-center justify-center text-[#e2445c]">
@@ -586,7 +576,7 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
               </div>
             </div>
 
-            {/* Card 6: Average RAM */}
+            {/* Card 3: Average RAM */}
             <div className="bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-2.5 flex flex-col justify-between shadow-xs">
               <div className="flex items-center gap-1.5">
                 <div className="size-5 rounded bg-emerald-500/15 flex items-center justify-center text-[#00a862] dark:text-[#00c875]">
@@ -604,7 +594,7 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
               </div>
             </div>
 
-            {/* Card 7: Storage Usage */}
+            {/* Card 4: Storage Usage */}
             <div className="bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-2.5 flex flex-col justify-between shadow-xs">
               <div className="flex items-center gap-1.5">
                 <div className="size-5 rounded bg-amber-500/15 flex items-center justify-center text-amber-600 dark:text-[#f59e0b]">
@@ -622,7 +612,7 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
               </div>
             </div>
 
-            {/* Card 8: Storage Health & Temp */}
+            {/* Card 5: Storage Health & Temp */}
             <div className="bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-2.5 flex flex-col justify-between shadow-xs">
               <div className="flex items-center gap-1.5">
                 <div className="size-5 rounded bg-blue-500/15 flex items-center justify-center text-blue-600 dark:text-[#00d2ff]">
@@ -631,8 +621,14 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
                 <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate">Health & Temp</span>
               </div>
               <div className="mt-2">
-                <div className="text-xs font-bold text-[#00a862] dark:text-[#00c875] leading-tight">
-                  {d.sd_health_status} ({d.sd_life_pct}%)
+                <div className={`text-xs font-bold leading-tight ${
+                  d.sd_health_status === "Warning" || d.sd_health_status === "Caution"
+                    ? "text-[#fdab3d]"
+                    : d.sd_health_status === "Critical"
+                    ? "text-[#e2445c]"
+                    : "text-[#00a862] dark:text-[#00c875]"
+                }`}>
+                  {d.sd_health_status === "Caution" ? "Warning" : d.sd_health_status} ({d.sd_life_pct}%)
                 </div>
                 <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
                   {d.temp_avg}°C (Peak {d.temp_max}°C)
@@ -641,116 +637,121 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
             </div>
           </div>
 
-          {/* Dedicated Panel: Akumulasi Operasional & Pencapaian SLA 99.5% (1 Bulan) */}
-          <div className="bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-3.5 space-y-3 shadow-xs">
-            {/* Header: Title + SLA Status Badge */}
-            <div className="flex flex-wrap items-center justify-between gap-2">
+          {/* Incident History Table (Replaces redundant Accumulated SLA Panel) */}
+          <div className="bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-3.5 flex flex-col flex-1 shadow-xs justify-between min-h-[160px]">
+            {/* Header: Title, Event Count Badge & Filter Dropdown */}
+            <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-slate-200 dark:border-slate-800/60 shrink-0">
               <div className="flex items-center gap-2">
-                <div className={`size-6 rounded-md flex items-center justify-center ${
-                  isSLAMet ? "bg-emerald-500/15 text-[#00a862] dark:text-[#00c875]" : "bg-rose-500/15 text-[#e2445c]"
-                }`}>
+                <div className="size-6 rounded-md bg-amber-500/15 flex items-center justify-center text-[#f59e0b]">
                   <Clock className="size-3.5" />
                 </div>
-                <div>
-                  <h4 className="text-xs font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
-                    Accumulated Operational Uptime & 99.5% SLA Performance
-                    <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400 hidden sm:inline">
-                      ({slaCalc.periodLabel})
-                    </span>
-                  </h4>
-                </div>
+                <h4 className="text-xs font-bold text-slate-900 dark:text-white">
+                  Incident History
+                </h4>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                  {filteredEvents.length}
+                </span>
               </div>
 
-              {/* Status Badge */}
-              <div className="flex items-center gap-2">
-                <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${
-                  isSLAMet 
-                    ? "bg-[#00c875]/15 text-[#00a862] dark:text-[#00c875] border-[#00c875]/30" 
-                    : "bg-[#e2445c]/15 text-rose-600 dark:text-[#e2445c] border-[#e2445c]/30"
-                }`}>
-                  <span className={`size-1.5 rounded-full ${isSLAMet ? "bg-[#00c875]" : "bg-[#e2445c] animate-pulse"}`} />
-                  {isSLAMet ? `SLA 99.5% Achieved (+${slaDiffPct}%)` : `SLA 99.5% Breach (${slaDiffPct}%)`}
-                </span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Filter Date:</span>
+                <select
+                  value={selectedEventDate}
+                  onChange={(e) => setSelectedEventDate(e.target.value)}
+                  className="text-xs font-medium bg-white dark:bg-[#070e1d] border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer shadow-xs"
+                >
+                  <option value="ALL">All Dates ({rangeFilteredEvents.length})</option>
+                  {uniqueDates.map((dateStr) => {
+                    const count = rangeFilteredEvents.filter((e: any) => (e.start_time || "").startsWith(dateStr)).length;
+                    return (
+                      <option key={dateStr} value={dateStr}>
+                        {dateStr} ({count} {count === 1 ? "incident" : "incidents"})
+                      </option>
+                    );
+                  })}
+                </select>
+                {selectedEventDate !== "ALL" && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedEventDate("ALL")}
+                    className="text-xs text-blue-500 hover:underline font-medium cursor-pointer ml-1"
+                  >
+                    Reset Filter
+                  </button>
+                )}
               </div>
             </div>
 
-            {/* Visual Accumulation Bar with SLA Target Line (99.5%) */}
-            <div className="space-y-1.5">
-              <div className="relative h-4 bg-slate-200 dark:bg-slate-900 rounded-full overflow-hidden flex border border-slate-300 dark:border-slate-800">
-                {/* Uptime Green Segment */}
-                <div 
-                  style={{ width: `${uptimePctNum}%` }} 
-                  className="h-full bg-linear-to-r from-emerald-600 to-[#00c875] transition-all duration-500"
-                  title={`Uptime: ${uptimeDurationText} (${uptimePctNum}%)`}
-                />
-                {/* Downtime Red Segment */}
-                <div 
-                  style={{ width: `${downtimePctNum}%` }} 
-                  className="h-full bg-linear-to-r from-rose-500 to-[#e2445c] transition-all duration-500"
-                  title={`Downtime: ${downtimeDurationText} (${downtimePctNum}%)`}
-                />
-                {/* SLA 99.5% Target Marker */}
-                <div 
-                  style={{ left: "99.5%" }} 
-                  className="absolute top-0 bottom-0 w-0.5 bg-yellow-400 z-10 shadow-[0_0_6px_rgba(250,204,21,0.9)]"
-                  title="Target SLA 99.5% (Min. 740h 17m)"
-                />
-              </div>
-
-              {/* Bar Subtitle / Legend */}
-              <div className="flex flex-wrap items-center justify-between text-[10px] text-slate-500 dark:text-slate-400 gap-2">
-                <div className="flex items-center gap-3">
-                  <span className="flex items-center gap-1">
-                    <span className="size-2 rounded-full bg-[#00c875]" />
-                    Total Uptime: <strong className="text-slate-900 dark:text-emerald-400 font-mono">{uptimeDurationText}</strong> ({uptimePctNum}%)
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <span className="size-2 rounded-full bg-[#e2445c]" />
-                    Total Downtime: <strong className="text-slate-900 dark:text-rose-400 font-mono">{downtimeDurationText}</strong> ({downtimePctNum}%)
-                  </span>
-                </div>
-                <div className="flex items-center gap-1.5 text-amber-600 dark:text-yellow-400 font-medium">
-                  <span className="w-2.5 h-0.5 bg-yellow-400 inline-block" />
-                  Target SLA: 99.5% (Min. {slaTargetHoursText} &bull; Max Downtime Tolerance {slaDowntimeAllowedText})
-                </div>
-              </div>
-            </div>
-
-            {/* 4 Detail Metric Pills */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 border-t border-slate-200 dark:border-slate-800/60">
-              <div className="bg-white dark:bg-[#070e1c] p-2.5 rounded-lg border border-slate-200 dark:border-slate-800/80 shadow-2xs">
-                <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-medium">Observation Period</span>
-                <span className="text-xs font-bold text-slate-900 dark:text-white font-mono mt-0.5 block">{periodHoursStr}</span>
-                <span className="text-[9px] text-slate-500 dark:text-slate-400">
-                  {selectedEventDate !== "ALL" ? "24 hours observation" : `${periodInfo.effectiveDays - periodInfo.startDay + 1} active days \u00d7 24h`}
-                </span>
-              </div>
-
-              <div className="bg-white dark:bg-[#070e1c] p-2.5 rounded-lg border border-slate-200 dark:border-slate-800/80 shadow-2xs">
-                <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-medium">Accumulated Uptime</span>
-                <span className="text-xs font-bold text-[#00a862] dark:text-[#00c875] font-mono mt-0.5 block">
-                  {uptimeDurationText} ({uptimePctNum}%)
-                </span>
-                <span className="text-[9px] text-slate-500 dark:text-slate-400">Target Min: {slaTargetHoursText}</span>
-              </div>
-
-              <div className="bg-white dark:bg-[#070e1c] p-2.5 rounded-lg border border-slate-200 dark:border-slate-800/80 shadow-2xs">
-                <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-medium">Accumulated Downtime</span>
-                <span className={`text-xs font-bold font-mono mt-0.5 block ${isSLAMet ? "text-slate-700 dark:text-slate-300" : "text-[#e2445c]"}`}>
-                  {downtimeDurationText} ({downtimePctNum}%)
-                </span>
-                <span className="text-[9px] text-slate-500 dark:text-slate-400">Max Limit: {slaDowntimeAllowedText}</span>
-              </div>
-
-              <div className="bg-white dark:bg-[#070e1c] p-2.5 rounded-lg border border-slate-200 dark:border-slate-800/80 shadow-2xs">
-                <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-medium">SLA Status & Tolerance</span>
-                <span className={`text-xs font-bold font-mono mt-0.5 block ${isSLAMet ? "text-[#00a862] dark:text-[#00c875]" : "text-[#e2445c]"}`}>
-                  {isSLAMet ? `Achieved (+${slaDiffPct}%)` : `Deficit ${slaDiffPct}%`}
-                </span>
-                <span className="text-[9px] text-slate-500 dark:text-slate-400 truncate block" title={downtimeDiffText}>
-                  {downtimeDiffText}
-                </span>
-              </div>
+            {/* Table */}
+            <div className={`overflow-x-auto flex-1 min-h-0 flex flex-col justify-start pr-1 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700 ${filteredEvents.length > 3 ? "max-h-[220px] overflow-y-auto" : "h-full min-h-[140px]"}`}>
+              <table className="w-full h-full flex-1 text-left text-xs border-collapse" style={{ height: "100%" }}>
+                <thead className="sticky top-0 z-10 bg-slate-100 dark:bg-[#0a1224] shadow-xs shrink-0">
+                  <tr className="text-[11px] text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800/60 font-semibold h-8">
+                    <th className="py-2 px-2 text-center w-8">No.</th>
+                    <th className="py-2 px-3">Incident Time</th>
+                    <th className="py-2 px-3">Incident / Disturbance</th>
+                    <th className="py-2 px-3 text-center">Duration</th>
+                    <th className="py-2 px-3 text-center">Status</th>
+                  </tr>
+                </thead>
+                <tbody className={`divide-y divide-slate-200 dark:divide-slate-800/40 text-[11px] ${filteredEvents.length <= 1 ? "h-full" : ""}`} style={{ height: "100%" }}>
+                  {filteredEvents.map((event: any, idx: number) => {
+                    const isStillActive = event.end_time === "-" || event.end_time?.toLowerCase().includes("sekarang") || event.end_time?.toLowerCase().includes("now");
+                    return (
+                      <tr
+                        key={event.no || idx}
+                        style={filteredEvents.length === 1 ? { height: "100%" } : undefined}
+                        className={`hover:bg-slate-100/80 dark:hover:bg-slate-800/30 transition-colors ${
+                          filteredEvents.length === 1 ? "h-full" : ""
+                        }`}
+                      >
+                        <td className={`py-2 px-2 text-center text-slate-500 dark:text-slate-400 font-mono align-middle ${filteredEvents.length === 1 ? "py-4" : ""}`}>
+                          {idx + 1}
+                        </td>
+                        <td className={`py-2 px-3 text-slate-700 dark:text-slate-300 font-mono whitespace-nowrap align-middle ${filteredEvents.length === 1 ? "py-4" : ""}`}>
+                          <div>{event.start_time}</div>
+                          <div className="text-[10px] text-slate-500 dark:text-slate-400">to {event.end_time}</div>
+                        </td>
+                        <td className={`py-2 px-3 font-semibold text-slate-900 dark:text-slate-100 align-middle ${filteredEvents.length === 1 ? "py-4" : ""}`}>
+                          {formatIncidentEn(event.title || event.description || event.cause)}
+                        </td>
+                        <td className={`py-2 px-3 text-center whitespace-nowrap align-middle ${filteredEvents.length === 1 ? "py-4" : ""}`}>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md font-bold text-xs bg-amber-500/10 dark:bg-amber-500/20 text-[#f59e0b] border border-amber-500/30">
+                            {formatDurationEn(event.duration)}
+                          </span>
+                        </td>
+                        <td className={`py-2 px-3 text-center whitespace-nowrap align-middle ${filteredEvents.length === 1 ? "py-4" : ""}`}>
+                          {isStillActive ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/15 text-[#e2445c] border border-rose-500/30 animate-pulse">
+                              Active
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-[#00c875] border border-emerald-500/30">
+                              Resolved
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {filteredEvents.length === 0 && (
+                    <tr className="h-full" style={{ height: "100%" }}>
+                      <td colSpan={5} className="py-8 text-center text-slate-500 dark:text-slate-400 text-xs align-middle h-full">
+                        No incident history available for the selected date.
+                        {selectedEventDate !== "ALL" && (
+                          <button
+                            type="button"
+                            onClick={() => setSelectedEventDate("ALL")}
+                            className="block mx-auto mt-1.5 text-blue-500 hover:underline font-semibold cursor-pointer"
+                          >
+                            Show All Incident History
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>

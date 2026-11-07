@@ -116,16 +116,16 @@ export default function ReportHealthPage() {
         </span>
       );
     }
-    if (status === "Caution") {
+    if (status === "Warning" || status === "Caution") {
       return (
         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-[#fdab3d] border border-amber-500/25">
-          Caution
+          Warning
         </span>
       );
     }
     return (
       <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/15 text-[#e2445c] border border-rose-500/25">
-        Poor
+        Critical
       </span>
     );
   };

@@ -535,6 +535,9 @@ export interface ICellularReportGatewayDetail {
   trouble_events: ITroubleEventItem[];
   daily_breakdown?: IDailySlaRecord[];
   daily_summary?: IDailySlaSummary;
+  camera_list?: any[];
+  recording_info?: any;
+  cameras_info?: any;
 }
 
 export interface IDailySlaRecord {
@@ -542,6 +545,7 @@ export interface IDailySlaRecord {
   date: string;
   day_name: string;
   target_sla: number;
+  observation_min?: number;
   uptime_min: number;
   downtime_min: number;
   success_rate: number;
@@ -781,6 +785,9 @@ export interface IDVRReportGatewayDetail {
   trouble_events: IDVRTroubleEventItem[];
   daily_breakdown?: IDailySlaRecord[];
   daily_summary?: IDailySlaSummary;
+  camera_list?: any[];
+  recording_info?: any;
+  cameras_info?: any;
 }
 
 export const fetchDVRReportGatewayDetail = async (
@@ -975,6 +982,9 @@ export interface IHealthReportGatewayDetail {
   events: IHealthReportEvent[];
   daily_breakdown?: IDailySlaRecord[];
   daily_summary?: IDailySlaSummary;
+  camera_list?: any[];
+  recording_info?: any;
+  cameras_info?: any;
 }
 
 export const fetchHealthReportGatewayDetail = async (

@@ -85,6 +85,15 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
     return parseReportPeriod(data?.period || dateRange);
   }, [data?.period, dateRange]);
 
+  // Actual first active day of this gateway (never calculate or show fake days before device existed)
+  const minActiveDay = useMemo(() => {
+    const rawBreakdown = data?.daily_breakdown || [];
+    if (rawBreakdown.length > 0) {
+      return Math.max(periodInfo.startDay, rawBreakdown[0].day);
+    }
+    return periodInfo.startDay;
+  }, [data?.daily_breakdown, periodInfo.startDay]);
+
   // Synchronized date selection handler across Timeline, Rincian SLA, and Incident History
   const handleSelectDay = (day: number | null, dateKey?: string) => {
     if (day === null || (selectedBarDay === day && (!dateKey || selectedEventDate === dateKey))) {
@@ -116,10 +125,10 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
     }
   };
 
-  // Generate dynamic daily status bar chart items: full month timeline (1 s/d 30/31+), bars only appear for filtered dates
+  // Generate dynamic daily status bar chart items: full month timeline (1 s/d 30/31+), bars only appear for active filtered dates
   const dailyStatusList = useMemo(() => {
     const { daysInMonth, monthStr, yearStr, todayDay, isCurrentMonth } = periodInfo;
-    const minDay = periodInfo.startDay;
+    const minDay = minActiveDay;
     const maxDay = periodInfo.endDay;
     const breakdown = data?.daily_breakdown || [];
 
@@ -212,12 +221,12 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
     }
 
     return list;
-  }, [data?.daily_breakdown, periodInfo, dailyViewMetric]);
+  }, [data?.daily_breakdown, periodInfo, minActiveDay, dailyViewMetric]);
 
   // 1. Filter trouble events strictly within the active date range & metric
   const rangeFilteredEvents = useMemo(() => {
     const rawEvents = data?.trouble_events || [];
-    const minDay = periodInfo.startDay;
+    const minDay = minActiveDay;
     const maxDay = periodInfo.endDay || periodInfo.effectiveDays;
     const month = periodInfo.monthStr.toLowerCase();
 
@@ -246,7 +255,7 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
       }
       return true;
     });
-  }, [data?.trouble_events, periodInfo.startDay, periodInfo.endDay, periodInfo.effectiveDays, periodInfo.monthStr, dailyViewMetric]);
+  }, [data?.trouble_events, minActiveDay, periodInfo.endDay, periodInfo.effectiveDays, periodInfo.monthStr, dailyViewMetric]);
 
   // 2. Extract distinct dates from range-filtered events for dropdown
   const uniqueDates = useMemo(() => {
@@ -276,13 +285,93 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
     return rangeFilteredEvents.filter((ev) => ev.start_time.trim().startsWith(selectedEventDate));
   }, [rangeFilteredEvents, selectedEventDate, selectedBarDay, periodInfo.monthStr]);
 
-  // Filter Rincian SLA to only show active days between startDay and effectiveDays
+  // Filter Rincian SLA to only show active days between minActiveDay and effectiveDays
   const activeDailyBreakdown = useMemo(() => {
     const allRows = data?.daily_breakdown || [];
-    const minDay = periodInfo.startDay;
+    const minDay = minActiveDay;
     const maxDay = periodInfo.effectiveDays;
     return allRows.filter((row) => row.day >= minDay && row.day <= maxDay);
-  }, [data?.daily_breakdown, periodInfo.startDay, periodInfo.effectiveDays]);
+  }, [data?.daily_breakdown, minActiveDay, periodInfo.effectiveDays]);
+
+  // Dynamic top cards metrics responding to timeline selection / active observation period
+  const cellularMetrics = useMemo(() => {
+    if (selectedBarDay !== null) {
+      const dayRow = activeDailyBreakdown.find((r) => r.day === selectedBarDay);
+      const dayEvents = filteredEvents;
+      if (dayRow) {
+        const obsMin = dayRow.observation_min ?? ((dayRow.uptime_min ?? 0) + (dayRow.downtime_min ?? 0));
+        const upMin = dayRow.cpu_modem_uptime_min ?? dayRow.uptime_min ?? obsMin;
+        const downMin = dayRow.cpu_modem_downtime_min ?? dayRow.downtime_min ?? 0;
+        const sr = dayRow.cpu_modem_success_rate ?? dayRow.success_rate ?? (obsMin > 0 ? (upMin / obsMin) * 100 : 100);
+
+        const netUpMin = dayRow.cellular_uptime_min ?? upMin;
+        const netDownMin = dayRow.cellular_downtime_min ?? downMin;
+        const netSr = dayRow.cellular_success_rate ?? sr;
+
+        const dayStr = dayRow.date;
+        const obsHrs = (obsMin / 60.0).toFixed(1);
+
+        return {
+          periodStr: dayStr,
+          periodHoursStr: `Total ${obsHrs} Hours`,
+          cpuModemUptime: `${Math.floor(upMin / 60)}h ${Math.round(upMin % 60)}m`,
+          cpuModemUptimePct: `${sr.toFixed(1)}%`,
+          cpuModemOffline: `${Math.floor(downMin / 60)}h ${Math.round(downMin % 60)}m`,
+          cpuModemOfflinePct: `${(100.0 - sr).toFixed(1)}%`,
+          successRate: `${sr.toFixed(1)}%`,
+          successRateChecks: `(1 / 1 day)`,
+          networkUptime: `${Math.floor(netUpMin / 60)}h ${Math.round(netUpMin % 60)}m`,
+          networkUptimePct: `${netSr.toFixed(1)}%`,
+          networkOffline: `${Math.floor(netDownMin / 60)}h ${Math.round(netDownMin % 60)}m`,
+          networkOfflinePct: `${(100.0 - netSr).toFixed(1)}%`,
+          eventsCount: dayEvents.length,
+        };
+      }
+    }
+
+    const count = activeDailyBreakdown.length;
+    let totalObsMin = 0;
+    let totalUpMin = 0;
+    let totalDownMin = 0;
+    let totalNetUpMin = 0;
+    let totalNetDownMin = 0;
+
+    activeDailyBreakdown.forEach((r) => {
+      const obs = r.observation_min ?? ((r.uptime_min ?? 0) + (r.downtime_min ?? 0));
+      totalObsMin += obs;
+      totalUpMin += (r.cpu_modem_uptime_min ?? r.uptime_min ?? obs);
+      totalDownMin += (r.cpu_modem_downtime_min ?? r.downtime_min ?? 0);
+      totalNetUpMin += (r.cellular_uptime_min ?? r.uptime_min ?? obs);
+      totalNetDownMin += (r.cellular_downtime_min ?? r.downtime_min ?? 0);
+    });
+
+    const avgSr = totalObsMin > 0 ? (totalUpMin / totalObsMin) * 100 : (data?.cpu_modem_uptime_pct ? parseFloat(data.cpu_modem_uptime_pct) : 100);
+    const avgNetSr = totalObsMin > 0 ? (totalNetUpMin / totalObsMin) * 100 : (data?.network_uptime_pct ? parseFloat(data.network_uptime_pct) : 100);
+
+    const firstDay = activeDailyBreakdown[0];
+    const lastDay = activeDailyBreakdown[activeDailyBreakdown.length - 1];
+    const activeRangeStr = firstDay && lastDay && firstDay.date !== lastDay.date
+      ? `${firstDay.date} - ${lastDay.date}`
+      : (firstDay?.date || periodInfo.effectivePeriodStr);
+
+    const totalObsHrs = (totalObsMin / 60.0).toFixed(1);
+
+    return {
+      periodStr: activeRangeStr,
+      periodHoursStr: data?.period_hours || `Total ${totalObsHrs} Hours`,
+      cpuModemUptime: data?.cpu_modem_uptime || `${Math.floor(totalUpMin / 60)}h ${Math.round(totalUpMin % 60)}m`,
+      cpuModemUptimePct: `${avgSr.toFixed(1)}%`,
+      cpuModemOffline: data?.cpu_modem_offline || `${Math.floor(totalDownMin / 60)}h ${Math.round(totalDownMin % 60)}m`,
+      cpuModemOfflinePct: `${(100.0 - avgSr).toFixed(1)}%`,
+      successRate: `${avgSr.toFixed(1)}%`,
+      successRateChecks: `(${count} / ${count} days)`,
+      networkUptime: data?.network_uptime || `${Math.floor(totalNetUpMin / 60)}h ${Math.round(totalNetUpMin % 60)}m`,
+      networkUptimePct: `${avgNetSr.toFixed(1)}%`,
+      networkOffline: data?.network_offline || `${Math.floor(totalNetDownMin / 60)}h ${Math.round(totalNetDownMin % 60)}m`,
+      networkOfflinePct: `${(100.0 - avgNetSr).toFixed(1)}%`,
+      eventsCount: rangeFilteredEvents.length,
+    };
+  }, [selectedBarDay, activeDailyBreakdown, filteredEvents, rangeFilteredEvents.length, data, periodInfo.effectivePeriodStr]);
 
   // When a day bar is clicked, filter Rincian SLA to only that day; otherwise show all active days up to today
   const displayedBreakdown = useMemo(() => {
@@ -438,10 +527,10 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
             </div>
             <div className="mt-2.5">
               <div className="text-xs font-bold text-slate-900 dark:text-white leading-tight">
-                {periodInfo.effectivePeriodStr}
+                {cellularMetrics.periodStr}
               </div>
               <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
-                {d.period_hours}
+                {cellularMetrics.periodHoursStr}
               </div>
             </div>
           </div>
@@ -456,10 +545,10 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
             </div>
             <div className="mt-2.5">
               <div className="text-sm font-bold text-[#00c875] leading-tight">
-                {d.cpu_modem_uptime}
+                {cellularMetrics.cpuModemUptime}
               </div>
               <div className="text-[11px] font-semibold text-[#00c875] mt-0.5">
-                {d.cpu_modem_uptime_pct}
+                {cellularMetrics.cpuModemUptimePct}
               </div>
             </div>
           </div>
@@ -474,10 +563,10 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
             </div>
             <div className="mt-2.5">
               <div className="text-sm font-bold text-[#e2445c] leading-tight">
-                {d.cpu_modem_offline}
+                {cellularMetrics.cpuModemOffline}
               </div>
               <div className="text-[11px] font-semibold text-[#e2445c] mt-0.5">
-                {d.cpu_modem_offline_pct}
+                {cellularMetrics.cpuModemOfflinePct}
               </div>
             </div>
           </div>
@@ -492,10 +581,10 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
             </div>
             <div className="mt-2.5">
               <div className="text-sm font-bold text-[#00c875] leading-tight">
-                {d.success_rate}
+                {cellularMetrics.successRate}
               </div>
               <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">
-                {d.success_rate_checks}
+                {cellularMetrics.successRateChecks}
               </div>
             </div>
           </div>
@@ -525,10 +614,10 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
             </div>
             <div className="mt-2.5">
               <div className="text-sm font-bold text-[#00c875] leading-tight">
-                {d.network_uptime}
+                {cellularMetrics.networkUptime}
               </div>
               <div className="text-[11px] font-semibold text-[#00c875] mt-0.5">
-                {d.network_uptime_pct}
+                {cellularMetrics.networkUptimePct}
               </div>
             </div>
           </div>
@@ -543,10 +632,10 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
             </div>
             <div className="mt-2.5">
               <div className="text-sm font-bold text-[#e2445c] leading-tight">
-                {d.network_offline}
+                {cellularMetrics.networkOffline}
               </div>
               <div className="text-[11px] font-semibold text-[#e2445c] mt-0.5">
-                {d.network_offline_pct}
+                {cellularMetrics.networkOfflinePct}
               </div>
             </div>
           </div>
@@ -594,7 +683,7 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
             </div>
             <div className="mt-2.5">
               <div className="text-sm font-bold text-[#f59e0b] leading-tight">
-                {rangeFilteredEvents.length} {rangeFilteredEvents.length === 1 ? "incident" : "incidents"}
+                {cellularMetrics.eventsCount} {cellularMetrics.eventsCount === 1 ? "incident" : "incidents"}
               </div>
             </div>
           </div>
