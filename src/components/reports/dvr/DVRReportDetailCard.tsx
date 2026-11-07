@@ -24,6 +24,36 @@ import {
 import { SmartBoxIsometricIllustration } from "@/components/ui/SmartBoxIllustration";
 import { parseReportPeriod } from "@/lib/reportPeriodUtils";
 
+const formatDurationEn = (dur?: string) => {
+  if (!dur) return "-";
+  return dur
+    .replace(/menit/gi, "m")
+    .replace(/jam/gi, "h")
+    .replace(/detik/gi, "s")
+    .trim();
+};
+
+const formatIncidentEn = (text?: string) => {
+  if (!text) return "Normal Operation (No incidents detected)";
+  return text
+    .replace(/Komunikasi\s+Port\s+USB\s+Modem\s+dengan\s+CPU\s+Terputus/gi, "Modem USB Port Communication Lost")
+    .replace(/Koneksi\s+Jaringan\s+Seluler\s+Terputus/gi, "Cellular Network Connection Disconnected")
+    .replace(/Aliran\s+Data\s+Internet\s+Mati/gi, "No Internet Data")
+    .replace(/Komunikasi\s+Gateway\s+CPU\s+ke\s+NVR\s+Surveillance\s+Terputus/gi, "Gateway CPU to NVR Communication Lost")
+    .replace(/Kamera\s+Hilang\s+Sinyal\s*\/\s*No\s+Video/gi, "Camera Signal Loss / No Video")
+    .replace(/Kamera\s+Terputus\s*\/\s*Offline/gi, "Camera Disconnected / Offline")
+    .replace(/Gangguan\s+Jaringan/gi, "Network Disruption")
+    .replace(/Gangguan/gi, "Incident")
+    .replace(/selama\s+(\d+)\s*Menit/gi, "for $1m")
+    .replace(/selama\s+(\d+)\s*Jam\s*(\d+)\s*Menit/gi, "for $1h $2m")
+    .replace(/selama\s+(\d+)\s*Jam/gi, "for $1h")
+    .replace(/(\d+)\s*Menit/gi, "$1m")
+    .replace(/(\d+)\s*Jam/gi, "$1h")
+    .replace(/Normal\s+Operation\s*\(No incidents detected\)/gi, "Normal Operation (No incidents detected)")
+    .replace(/Operasi\s+Normal/gi, "Normal Operation")
+    .trim();
+};
+
 
 interface DVRReportDetailCardProps {
   gatewayId: string | null;
@@ -246,7 +276,7 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
       <div className="bg-white dark:bg-[#070e1d] text-slate-800 dark:text-slate-100 rounded-2xl border border-slate-200 dark:border-slate-800/90 shadow-xl p-8 flex items-center justify-center">
         <div className="flex items-center gap-3 text-slate-500 text-sm">
           <div className="size-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-          <span>Memuat data performa DVR/NVR...</span>
+          <span>Loading DVR/NVR performance data...</span>
         </div>
       </div>
     );
@@ -272,7 +302,7 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
             <FileSpreadsheet className="size-4" />
           </div>
           <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white tracking-tight">
-            Detail Performa Gateway &ndash; {d.location || d.id}
+            Gateway Performance Details &ndash; {d.location || d.id}
           </h2>
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#00c875]/15 dark:bg-[#00c875]/20 text-[#00c875] border border-[#00c875]/30">
             {d.status}
@@ -422,16 +452,16 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
           {/* Card 6: Recording Uptime */}
           <div className="bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-3 flex flex-col justify-between shadow-xs">
             <div className="flex items-center gap-2">
-              <div className="size-6 rounded-md bg-rose-500/15 flex items-center justify-center text-[#e2445c]">
+              <div className="size-6 rounded-md bg-emerald-500/15 flex items-center justify-center text-[#00c875]">
                 <Disc className="size-3.5" />
               </div>
               <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate">Recording Uptime</span>
             </div>
             <div className="mt-2.5">
-              <div className="text-sm font-bold text-[#e2445c] leading-tight">
+              <div className="text-sm font-bold text-[#00c875] leading-tight">
                 {d.rec_uptime}
               </div>
-              <div className="text-[11px] font-semibold text-[#e2445c] mt-0.5">
+              <div className="text-[11px] font-semibold text-[#00c875] mt-0.5">
                 {d.rec_uptime_pct}
               </div>
             </div>
@@ -542,7 +572,7 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
 
       {/* 3. Bottom Section: Multi-Track Timeline Status, SLA Summary & Riwayat Gangguan */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-start">
-        {/* Left Column (lg:col-span-6): Multi-Track Timeline + Rincian SLA Harian Table */}
+        {/* Left Column (lg:col-span-6): Multi-Track Timeline + Daily SLA Breakdown Table */}
         <div className="lg:col-span-6 flex flex-col gap-3.5">
           {/* Top Card: Multi-Track Timeline (Gateway, Cellular, DVR) with All 31 Days */}
           <div className="bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 flex flex-col justify-between shadow-xs">
@@ -551,7 +581,7 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
               <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200 dark:border-slate-800/60">
                 <div className="flex items-center gap-2">
                   <h4 className="text-xs font-bold text-slate-900 dark:text-white">
-                    Timeline Status ({periodInfo.effectivePeriodStr})
+                    Daily Status Timeline ({periodInfo.effectivePeriodStr})
                   </h4>
                   <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 bg-slate-200/60 dark:bg-slate-800 px-2 py-0.5 rounded-full">
                     {periodInfo.endDay - periodInfo.startDay + 1} Days
@@ -655,45 +685,7 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
                   </div>
                 </div>
 
-                {/* TRACK 2: CELLULAR */}
-                <div className="flex items-center gap-2">
-                  <div className="w-16 shrink-0 text-[11px] font-semibold text-slate-700 dark:text-slate-300 truncate">
-                    Cellular
-                  </div>
-                  <div
-                    className="flex-1 grid gap-0.5 sm:gap-1"
-                    style={{ gridTemplateColumns: `repeat(${dailyMultiTrack.length}, minmax(0, 1fr))` }}
-                  >
-                    {dailyMultiTrack.map((item) => (
-                      <div
-                        key={item.day}
-                        onClick={() => {
-                          if (item.isFuture) return;
-                          const nextDay = selectedBarDay === item.day ? null : item.day;
-                          handleSelectDay(nextDay, `${item.dayNumStr} ${periodInfo.monthStr}`);
-                        }}
-                        onMouseEnter={() => !item.isFuture && setHoveredDay(item)}
-                        onMouseLeave={() => setHoveredDay(null)}
-                        className={`h-5.5 rounded-xs transition-all ${
-                          item.isFuture
-                            ? "bg-slate-200/30 dark:bg-slate-800/30 cursor-default"
-                            : item.cellStatus === "offline"
-                            ? "bg-[#e2445c] hover:bg-[#ff4d6d] cursor-pointer"
-                            : "bg-[#00c875] hover:bg-[#05e287] cursor-pointer"
-                        } ${
-                          item.isToday && !item.isFuture
-                            ? "ring-1.5 ring-blue-500 shadow-xs"
-                            : ""
-                        } ${
-                          (selectedBarDay === item.day || selectedEventDate === item.dateKey)
-                            ? "ring-2 ring-amber-400 scale-105"
-                            : !item.isFuture ? "hover:scale-105" : ""
-                        }`}
-                        title={item.isFuture ? `${item.fullDate}` : `Cellular ${item.dayNumStr} ${periodInfo.monthStr}: ${item.cellStatus === "offline" ? "Offline" : "Online"}`}
-                      />
-                    ))}
-                  </div>
-                </div>
+
 
                 {/* TRACK 3: DVR */}
                 <div className="flex items-center gap-2">
@@ -754,11 +746,6 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
                           {hoveredDay.gwStatus === "offline" ? "Offline" : "Online"}
                         </strong>
                         {" | "}
-                        Cellular:{" "}
-                        <strong className={hoveredDay.cellStatus === "offline" ? "text-[#e2445c]" : "text-[#00c875]"}>
-                          {hoveredDay.cellStatus === "offline" ? "Offline" : "Online"}
-                        </strong>
-                        {" | "}
                         DVR:{" "}
                         <strong className={hoveredDay.dvrStatus === "offline" ? "text-[#e2445c]" : "text-[#00c875]"}>
                           {hoveredDay.dvrStatus === "offline" ? "Offline" : "Online"}
@@ -785,7 +772,7 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
             </div>
           </div>
 
-          {/* Bottom Card: Rincian SLA Harian Table (Directly underneath the timeline card) */}
+          {/* Bottom Card: Daily SLA Breakdown Table (Directly underneath the timeline card) */}
           <div className="bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 shadow-xs">
             {/* Header: Title, Active Selection Badge & Metric Toggle */}
             <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200 dark:border-slate-800/60">
@@ -794,32 +781,32 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
                   <FileSpreadsheet className="size-3.5" />
                 </div>
                 <h4 className="text-xs font-bold text-slate-900 dark:text-white">
-                  Rincian SLA Harian
+                  Daily SLA Breakdown
                 </h4>
                 {selectedBarDay !== null ? (
                   <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-blue-600 dark:text-blue-400 bg-blue-500/10 dark:bg-blue-500/20 px-2 py-0.5 rounded-full border border-blue-500/30">
-                    <span>Tgl {selectedBarDay < 10 ? `0${selectedBarDay}` : selectedBarDay} {periodInfo.monthStr}</span>
+                    <span>Date {selectedBarDay < 10 ? `0${selectedBarDay}` : selectedBarDay} {periodInfo.monthStr}</span>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         handleSelectDay(null);
                       }}
                       className="text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer"
-                      title="Tampilkan semua hari"
+                      title="Show all days"
                     >
                       <X className="size-3" />
                     </button>
                   </span>
                 ) : (
                   <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 bg-slate-200/60 dark:bg-slate-800 px-2 py-0.5 rounded-full">
-                    {activeDailyBreakdown.length} Hari
+                    {activeDailyBreakdown.length} Days
                   </span>
                 )}
               </div>
 
               {/* Metric Toggle */}
               <div className="flex items-center gap-1 text-[11px]">
-                <span className="text-slate-500 dark:text-slate-400 font-medium mr-1">Metrik:</span>
+                <span className="text-slate-500 dark:text-slate-400 font-medium mr-1">Metric:</span>
                 <button
                   type="button"
                   onClick={() => setDailyViewMetric("cpu_dvr")}
@@ -845,16 +832,19 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
               </div>
             </div>
 
-            {/* Table (Columns: Tanggal, Uptime (Menit), Downtime (Menit), Success Rate, Status SLA) */}
+            {/* Table (Columns: Tanggal, Status Rekaman (if recording), Uptime (Menit), Downtime (Menit), Success Rate, Status SLA) */}
             <div className="overflow-x-auto mt-2 max-h-72 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700">
               <table className="w-full text-left text-xs border-collapse">
                 <thead className="sticky top-0 z-10 bg-slate-100 dark:bg-[#0a1224] shadow-xs">
                   <tr className="text-[11px] text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800/60 font-semibold">
-                    <th className="py-2 px-3">Tanggal</th>
-                    <th className="py-2 px-3 text-right">Uptime (Menit)</th>
-                    <th className="py-2 px-3 text-right">Downtime (Menit)</th>
+                    <th className="py-2 px-3">Date</th>
+                    {dailyViewMetric === "recording" && (
+                      <th className="py-2 px-3 text-center">Status Rekaman</th>
+                    )}
+                    <th className="py-2 px-3 text-right">Uptime (Mins)</th>
+                    <th className="py-2 px-3 text-right">Downtime (Mins)</th>
                     <th className="py-2 px-3 text-right">Success Rate</th>
-                    <th className="py-2 px-3 text-center">Status SLA</th>
+                    <th className="py-2 px-3 text-center">SLA Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 dark:divide-slate-800/40 text-[11px]">
@@ -872,7 +862,7 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
                     const status = isCpu
                       ? (row.cpu_dvr_status_sla ?? row.sla_status)
                       : (row.rec_status_sla ?? row.cpu_dvr_status_sla ?? row.sla_status);
-                    const isSuccess = status === "Tercapai";
+                    const isSuccess = status === "Tercapai" || status === "Achieved";
                     const isSelected = selectedBarDay === row.day;
 
                     return (
@@ -884,11 +874,39 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
                             ? "bg-blue-500/10 dark:bg-blue-500/20 font-medium"
                             : "hover:bg-slate-100/80 dark:hover:bg-slate-800/30"
                         }`}
-                        title="Klik untuk memilih tanggal ini"
+                        title="Click to select this date"
                       >
                         <td className="py-2 px-3 text-slate-700 dark:text-slate-300 font-mono whitespace-nowrap">
                           {row.date} ({row.day_name})
                         </td>
+                        {dailyViewMetric === "recording" && (
+                          <td className="py-2 px-3 text-center whitespace-nowrap">
+                            <span
+                              className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                                sr >= 98.0
+                                  ? "bg-emerald-500/15 text-emerald-600 dark:text-[#00c875] border-emerald-500/30"
+                                  : sr > 0
+                                  ? "bg-amber-500/15 text-amber-600 dark:text-[#fdab3d] border-amber-500/30"
+                                  : "bg-rose-500/15 text-rose-600 dark:text-[#e2445c] border-rose-500/30"
+                              }`}
+                            >
+                              <span
+                                className={`size-1.5 rounded-full ${
+                                  sr >= 98.0
+                                    ? "bg-[#00c875]"
+                                    : sr > 0
+                                    ? "bg-[#fdab3d]"
+                                    : "bg-[#e2445c]"
+                                }`}
+                              />
+                              <span>
+                                {row.rec_channels
+                                  ? (sr >= 98.0 ? `Full (${row.rec_channels})` : sr > 0 ? `Partial (${row.rec_channels})` : `Not Record (${row.rec_channels})`)
+                                  : (sr >= 98.0 ? "Full Recording" : sr > 0 ? "Partial Record" : "Not Recording")}
+                              </span>
+                            </span>
+                          </td>
+                        )}
                         <td className="py-2 px-3 text-right font-mono text-emerald-600 dark:text-emerald-400 font-semibold">
                           {upMin.toLocaleString("id-ID")}
                         </td>
@@ -905,11 +923,11 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
                         <td className="py-2 px-3 text-center whitespace-nowrap">
                           {isSuccess ? (
                             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-emerald-600 dark:text-[#00c875] border border-emerald-500/30">
-                              Tercapai
+                              Achieved
                             </span>
                           ) : (
                             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/15 text-rose-600 dark:text-[#e2445c] border border-rose-500/30">
-                              Tidak Tercapai
+                              Not Achieved
                             </span>
                           )}
                         </td>
@@ -918,8 +936,8 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
                   })}
                   {displayedBreakdown.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="py-6 text-center text-slate-500 dark:text-slate-400 text-xs">
-                        Tidak ada data rincian SLA harian untuk tanggal yang dipilih.
+                      <td colSpan={dailyViewMetric === "recording" ? 6 : 5} className="py-6 text-center text-slate-500 dark:text-slate-400 text-xs">
+                        No daily SLA breakdown data for the selected date.
                       </td>
                     </tr>
                   )}
@@ -927,9 +945,9 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
                 {displayedSummary && (
                   <tfoot className="sticky bottom-0 z-10 bg-slate-200/90 dark:bg-[#070e1d] font-bold text-[11px] border-t-2 border-slate-300 dark:border-slate-700 shadow-md">
                     <tr>
-                      <td className="py-2 px-3 text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                      <td colSpan={dailyViewMetric === "recording" ? 2 : 1} className="py-2 px-3 text-slate-700 dark:text-slate-300 whitespace-nowrap">
                         <span className="text-blue-600 dark:text-blue-400 mr-1.5">Total:</span>
-                        {displayedSummary.count} Hari ({displayedSummary.totalObs.toLocaleString("id-ID")}m)
+                        {displayedSummary.count} Days ({displayedSummary.totalObs.toLocaleString("en-US")}m)
                       </td>
                       <td className="py-2 px-3 text-right font-mono text-emerald-600 dark:text-emerald-400">
                         {displayedSummary.totalUptime.toLocaleString("id-ID")}
@@ -943,11 +961,11 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
                       <td className="py-2 px-3 text-center">
                         {displayedSummary.isSuccess ? (
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-emerald-600 dark:text-[#00c875] border border-emerald-500/30">
-                            Tercapai
+                            Achieved
                           </span>
                         ) : (
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/15 text-rose-600 dark:text-[#e2445c] border border-rose-500/30">
-                            Tidak Tercapai
+                            Not Achieved
                           </span>
                         )}
                       </td>
@@ -974,13 +992,13 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
 
               {/* Date Selector Dropdown for Daily Filtering */}
               <div className="flex items-center gap-1.5">
-                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Filter Tanggal:</span>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Filter Date:</span>
                 <select
                   value={selectedEventDate}
                   onChange={(e) => setSelectedEventDate(e.target.value)}
                   className="text-xs font-medium bg-white dark:bg-[#070e1d] border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer shadow-xs"
                 >
-                  <option value="ALL">Semua Tanggal ({rangeFilteredEvents.length})</option>
+                  <option value="ALL">All Dates ({rangeFilteredEvents.length})</option>
                   {uniqueDates.map((dateStr) => {
                     const count = rangeFilteredEvents.filter((e) => e.start_time.startsWith(dateStr)).length;
                     return (
@@ -1021,11 +1039,11 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
                           <div className="text-[10px] text-slate-500 dark:text-slate-400">to {event.end_time}</div>
                         </td>
                         <td className="py-2.5 px-3 font-semibold text-slate-900 dark:text-slate-100">
-                          {event.title || event.description || event.cause}
+                          {formatIncidentEn(event.title || event.description || event.cause)}
                         </td>
                         <td className="py-2.5 px-3 text-center whitespace-nowrap">
                           <span className="inline-flex items-center px-2 py-0.5 rounded-md font-bold text-xs bg-amber-500/10 dark:bg-amber-500/20 text-[#f59e0b] border border-amber-500/30">
-                            {event.duration}
+                            {formatDurationEn(event.duration)}
                           </span>
                         </td>
                         <td className="py-2.5 px-3 text-center whitespace-nowrap">

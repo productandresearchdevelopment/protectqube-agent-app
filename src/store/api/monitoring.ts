@@ -250,6 +250,7 @@ export interface ICellularDashboardData {
 export interface ICellularFilters {
   search?: string;
   type?: string;
+  status?: string;
   provider?: string;
   page?: number;
   pageSize?: number;
@@ -265,6 +266,7 @@ export const fetchCellularDashboard = async (
   const params = new URLSearchParams();
   if (filters?.search) params.append("search", filters.search);
   if (filters?.type && !filters.type.startsWith("Semua") && !filters.type.startsWith("All")) params.append("gateway_type", filters.type);
+  if (filters?.status && !filters.status.startsWith("Semua") && !filters.status.startsWith("All")) params.append("status", filters.status);
   if (filters?.provider && !filters.provider.startsWith("Semua") && !filters.provider.startsWith("All")) params.append("provider", filters.provider);
   if (filters?.page) params.append("page", String(filters.page));
   if (filters?.pageSize) params.append("page_size", String(filters.pageSize));
@@ -300,6 +302,7 @@ export interface IDVRSummary {
   kamera_online: number;
   kamera_no_video: number;
   kamera_offline: number;
+  kamera_success_rate?: number;
   total_storage_tb: number;
   storage_used_tb: number;
   storage_warning_tb: number;
@@ -564,6 +567,8 @@ export interface IDailySlaRecord {
   rec_success_rate?: number;
   rec_sla_diff?: number;
   rec_status_sla?: string;
+  rec_channels?: string;
+  rec_condition?: string;
 }
 
 export interface IDailySlaSummary {
@@ -640,6 +645,8 @@ export interface IDVRReportItem {
   rec_uptime: string;
   rec_tidak_merekam: string;
   rec_error: string;
+  rec_success_rate?: number;
+  sla?: number;
   storage_kapasitas: string;
   storage_terpakai_pct: number;
   storage_rata_rata: string;
@@ -900,6 +907,9 @@ export const exportHealthReportCsvUrl = (filters?: IHealthReportFilters) => {
 export interface IHealthTrendPoint {
   date: string;
   value: number;
+  time?: string;
+  day?: number;
+  date_key?: string;
 }
 
 export interface IHealthReportEvent {
@@ -963,6 +973,8 @@ export interface IHealthReportGatewayDetail {
   sd_trend: IHealthTrendPoint[];
   timeline_tracks: IHealthTimelineTrack[];
   events: IHealthReportEvent[];
+  daily_breakdown?: IDailySlaRecord[];
+  daily_summary?: IDailySlaSummary;
 }
 
 export const fetchHealthReportGatewayDetail = async (
@@ -1016,8 +1028,19 @@ export interface IDowntimeEvent {
   accumulated_hours: string;
   category: string;
   reason: string;
+  description?: string;
+  title?: string;
   sla_impact_pct: number;
   status: string;
+}
+
+export interface ISystemHealthEventItem {
+  id?: string;
+  title: string;
+  time: string;
+  status?: "success" | "warning" | "error" | "info";
+  duration?: string;
+  category?: string;
 }
 
 export interface IGatewayDetailData {
@@ -1057,6 +1080,7 @@ export interface IGatewayDetailData {
   sla_status?: string;
   sla_downtime_allowed?: string;
   downtime_events?: IDowntimeEvent[];
+  events?: ISystemHealthEventItem[];
 }
 
 export const fetchGatewayDetail = async (
@@ -1138,6 +1162,7 @@ export interface ICellularEventItem {
   title: string;
   time: string;
   status?: "success" | "warning" | "error" | "info";
+  duration?: string;
 }
 
 export interface ICellularGatewayDetailData {
@@ -1249,6 +1274,7 @@ export interface IDVREventItem {
   title: string;
   time: string;
   status?: "success" | "warning" | "error" | "info";
+  duration?: string;
 }
 
 export interface IDVRGatewayDetailData {

@@ -65,8 +65,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
       badgeColor: "bg-[#0073ea]",
     },
     {
-      name: "Cellular Connectivity",
-      href: "/cellular-connectivity",
+      name: "Cellular",
+      href: "/cellular",
       icon: Radio,
       badge: "Modem/SIM",
       badgeColor: "bg-[#0073ea]",

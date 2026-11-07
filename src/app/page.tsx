@@ -749,7 +749,7 @@ export default function OverviewPage() {
                   </div>
                   <div>
                     <h3 className="text-xs font-bold text-slate-900 dark:text-white">
-                      Cellular Connectivity
+                      Cellular
                     </h3>
                     <p className="text-[11px] text-slate-500 dark:text-slate-400">Quectel 4G LTE Fleet</p>
                   </div>
@@ -1228,11 +1228,11 @@ export default function OverviewPage() {
                 <div className="flex items-center gap-2">
                   <span className="size-2 rounded-full bg-[#00d2ff]" />
                   <span className="text-xs font-extrabold uppercase tracking-wider text-slate-800 dark:text-slate-200">
-                    Cellular Connectivity Telemetry
+                    Cellular Telemetry
                   </span>
                 </div>
                 <Link
-                  href="/cellular-connectivity"
+                  href="/cellular"
                   className="text-[11px] font-semibold text-[#0073ea] hover:underline flex items-center gap-1"
                 >
                   Go to Cellular Page <ChevronRight className="size-3" />
@@ -2106,7 +2106,7 @@ export default function OverviewPage() {
                 </div>
                 <div>
                   <h4 className="text-sm font-bold text-slate-900 dark:text-white group-hover:text-cyan-500 dark:group-hover:text-cyan-400 transition-colors flex items-center gap-1.5">
-                    Report Cellular Connectivity
+                    Report Cellular
                     <ArrowUpRight className="size-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
                   </h4>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">

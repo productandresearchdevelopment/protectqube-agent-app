@@ -170,7 +170,7 @@ export const SummaryCard: React.FC<ISummaryCardItem> = ({
         onClick ? "cursor-pointer hover:-translate-y-0.5 hover:shadow-md" : ""
       } ${
         active
-          ? "ring-2 ring-[#0073ea]/40 border-[#0073ea]"
+          ? "ring-2 ring-inset ring-[#0073ea] border-[#0073ea]"
           : ""
       } ${className}`}
     >

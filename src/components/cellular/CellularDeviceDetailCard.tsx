@@ -9,7 +9,6 @@ import {
   CheckCircle2,
   AlertTriangle,
   AlertCircle,
-  ChevronDown,
   X,
   Cpu,
   Activity,
@@ -26,6 +25,36 @@ import {
   ICellularGatewayDetailData,
 } from "@/store/api/monitoring";
 import { formatToWIB } from "@/utils/common";
+
+const formatDurationEn = (dur?: string) => {
+  if (!dur) return "-";
+  return dur
+    .replace(/menit/gi, "m")
+    .replace(/jam/gi, "h")
+    .replace(/detik/gi, "s")
+    .trim();
+};
+
+const formatIncidentEn = (text?: string) => {
+  if (!text) return "Normal Operation (No incidents detected)";
+  return text
+    .replace(/Komunikasi\s+Port\s+USB\s+Modem\s+dengan\s+CPU\s+Terputus/gi, "Modem USB Port Communication Lost")
+    .replace(/Koneksi\s+Jaringan\s+Seluler\s+Terputus/gi, "Cellular Network Connection Disconnected")
+    .replace(/Aliran\s+Data\s+Internet\s+Mati/gi, "No Internet Data")
+    .replace(/Komunikasi\s+Gateway\s+CPU\s+ke\s+NVR\s+Surveillance\s+Terputus/gi, "Gateway CPU to NVR Communication Lost")
+    .replace(/Kamera\s+Hilang\s+Sinyal\s*\/\s*No\s+Video/gi, "Camera Signal Loss / No Video")
+    .replace(/Kamera\s+Terputus\s*\/\s*Offline/gi, "Camera Disconnected / Offline")
+    .replace(/Gangguan\s+Jaringan/gi, "Network Disruption")
+    .replace(/Gangguan/gi, "Incident")
+    .replace(/selama\s+(\d+)\s*Menit/gi, "for $1m")
+    .replace(/selama\s+(\d+)\s*Jam\s*(\d+)\s*Menit/gi, "for $1h $2m")
+    .replace(/selama\s+(\d+)\s*Jam/gi, "for $1h")
+    .replace(/(\d+)\s*Menit/gi, "$1m")
+    .replace(/(\d+)\s*Jam/gi, "$1h")
+    .replace(/Normal\s+Operation\s*\(No incidents detected\)/gi, "Normal Operation (No incidents detected)")
+    .replace(/Operasi\s+Normal/gi, "Normal Operation")
+    .trim();
+};
 
 interface CellularDeviceDetailCardProps {
   gatewayId: string | null;
@@ -269,7 +298,6 @@ export const CellularDeviceDetailCard: React.FC<
     | "CPU – Modem"
     | "Modem & SIM"
     | "Signal & Network"
-    | "Temperatur"
     | "Event Log"
   >("Overview");
 
@@ -304,14 +332,12 @@ export const CellularDeviceDetailCard: React.FC<
     | "CPU – Modem"
     | "Modem & SIM"
     | "Signal & Network"
-    | "Temperatur"
     | "Event Log"
   > = [
     "Overview",
     "CPU – Modem",
     "Modem & SIM",
     "Signal & Network",
-    "Temperatur",
     "Event Log",
   ];
 
@@ -389,12 +415,8 @@ export const CellularDeviceDetailCard: React.FC<
           })}
         </div>
 
-        {/* Right: Remote Action Menu & Close */}
+        {/* Right: Close Button */}
         <div className="flex items-center gap-2">
-          <button className="bg-[#0073ea] hover:bg-blue-600 active:scale-95 text-white text-xs font-semibold px-3.5 py-1.5 rounded-lg flex items-center gap-1.5 transition-all shadow-xs cursor-pointer">
-            <span>Remote Action</span>
-            <ChevronDown className="size-3.5" />
-          </button>
           {onClose && (
             <button
               onClick={onClose}
@@ -437,11 +459,12 @@ export const CellularDeviceDetailCard: React.FC<
                     <span className="font-bold text-slate-900 dark:text-white">
                       {d.last_incident.title}
                     </span>
-                    {d.last_incident.duration && d.last_incident.duration !== "N/A" && (
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
-                        Downtime: {d.last_incident.duration}
-                      </span>
-                    )}
+                    {d.last_incident.duration &&
+                      d.last_incident.duration !== "N/A" && (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                          Downtime: {d.last_incident.duration}
+                        </span>
+                      )}
                     <span className="text-[10px] text-slate-400 font-mono">
                       {d.last_incident.time_wib}
                     </span>
@@ -636,13 +659,52 @@ export const CellularDeviceDetailCard: React.FC<
                     </span>
                   </div>
                 </div>
+
+                {/* CPU Temperature */}
+                <div className="border-t border-slate-200 dark:border-slate-800/60 pt-2 mt-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 font-sans">
+                      <Thermometer className="size-3.5 text-cyan-600 dark:text-cyan-400" />
+                      <span>CPU Temperature</span>
+                    </div>
+                    <span className="text-sm font-bold font-mono text-cyan-600 dark:text-cyan-400">
+                      {d.modem_temperature.temperature}°C
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-1 text-[10px] text-slate-500 dark:text-slate-400 text-center bg-slate-100/60 dark:bg-slate-800/40 rounded-lg py-1 px-1 mt-1.5">
+                    <div>
+                      <span className="block text-[9px] text-slate-400 font-sans">
+                        Min
+                      </span>
+                      <span className="font-mono font-medium text-slate-700 dark:text-slate-300">
+                        {d.modem_temperature.min_temp}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="block text-[9px] text-slate-400 font-sans">
+                        Avg
+                      </span>
+                      <span className="font-mono font-medium text-slate-700 dark:text-slate-300">
+                        {d.modem_temperature.avg_temp}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="block text-[9px] text-slate-400 font-sans">
+                        Max
+                      </span>
+                      <span className="font-mono font-medium text-rose-500 dark:text-rose-400">
+                        {d.modem_temperature.max_temp}
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
             {/* ========================================================= */}
-            {/* BARIS 2: 3 Kolom Rata Semua (Signal Strength, Network & SIM, Modem Temperature) */}
+            {/* BARIS 2: 2 Kolom Rata (Signal Strength & Network/SIM) */}
             {/* ========================================================= */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 items-stretch">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 items-stretch">
               {/* Kolom 1 dari 3: Signal Strength (RSRP) */}
               <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 flex flex-col justify-between shadow-xs">
                 <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300 font-medium text-xs">
@@ -784,59 +846,6 @@ export const CellularDeviceDetailCard: React.FC<
                   </div>
                 </div>
               </div>
-
-              {/* Kolom 3 dari 3: Modem Temperature */}
-              <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 flex flex-col justify-between shadow-xs">
-                <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300 font-medium text-xs">
-                  <Thermometer className="size-3.5 text-cyan-600 dark:text-cyan-400" />
-                  <span className="font-semibold text-slate-800 dark:text-slate-200">
-                    Modem Temperature
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-around gap-3 my-3">
-                  <CircularGauge
-                    percent={tempPercent}
-                    strokeColor="#00a3ff"
-                    centerContent={
-                      <div className="text-center">
-                        <span className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
-                          {d.modem_temperature.temperature}°C
-                        </span>
-                      </div>
-                    }
-                  />
-
-                  <div className="text-xs space-y-1.5 font-medium text-slate-700 dark:text-slate-300">
-                    <div className="flex items-center gap-2">
-                      <span className="size-2 rounded-full bg-rose-500 shrink-0" />
-                      <span className="text-slate-800 dark:text-slate-200">
-                        Maks: {d.modem_temperature.max_temp}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="size-2 rounded-full bg-blue-500 shrink-0" />
-                      <span className="text-slate-700 dark:text-slate-300">
-                        Min: {d.modem_temperature.min_temp}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="size-2 rounded-full bg-cyan-500 dark:bg-cyan-400 shrink-0" />
-                      <span className="text-slate-700 dark:text-slate-300">
-                        Rata2: {d.modem_temperature.avg_temp}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <SparklineWave
-                    data={d.modem_temperature.sparkline}
-                    color="#00a3ff"
-                    id="temp"
-                  />
-                </div>
-              </div>
             </div>
           </div>
         )}
@@ -953,6 +962,54 @@ export const CellularDeviceDetailCard: React.FC<
                   <div className="text-slate-400 font-mono">/dev/ttyUSB5</div>
                   <div className="font-semibold text-slate-800 dark:text-slate-200">
                     Modem Data / PPP
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* CPU Temperature Telemetry */}
+            <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-3">
+              <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-sm">
+                <Thermometer className="size-4 text-cyan-600 dark:text-cyan-400" />
+                <span>CPU Temperature</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="p-3 rounded-lg bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800">
+                  <div className="text-xs text-slate-500">
+                    Current Temperature
+                  </div>
+                  <div className="text-xl font-bold text-sky-400 font-mono mt-1">
+                    {d.modem_temperature.temperature}°C
+                  </div>
+                  <div className="text-[11px] text-emerald-500 mt-0.5">
+                    Normal Operational
+                  </div>
+                </div>
+                <div className="p-3 rounded-lg bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800">
+                  <div className="text-xs text-slate-500">Max Temperature</div>
+                  <div className="text-xl font-bold text-rose-500 font-mono mt-1">
+                    {d.modem_temperature.max_temp}
+                  </div>
+                  <div className="text-[11px] text-slate-400 mt-0.5">
+                    {d.modem_temperature.max_time || "Peak Period"}
+                  </div>
+                </div>
+                <div className="p-3 rounded-lg bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800">
+                  <div className="text-xs text-slate-500">Min Temperature</div>
+                  <div className="text-xl font-bold text-blue-400 font-mono mt-1">
+                    {d.modem_temperature.min_temp}
+                  </div>
+                  <div className="text-[11px] text-slate-400 mt-0.5">
+                    {d.modem_temperature.min_time || "Lowest Period"}
+                  </div>
+                </div>
+                <div className="p-3 rounded-lg bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800">
+                  <div className="text-xs text-slate-500">Period Average</div>
+                  <div className="text-xl font-bold text-slate-900 dark:text-white font-mono mt-1">
+                    {d.modem_temperature.avg_temp}
+                  </div>
+                  <div className="text-[11px] text-slate-400 mt-0.5">
+                    Max Safe Threshold: 85°C
                   </div>
                 </div>
               </div>
@@ -1105,11 +1162,13 @@ export const CellularDeviceDetailCard: React.FC<
                   {d.signal_strength.rsrp >= -85
                     ? "Sangat Baik"
                     : d.signal_strength.rsrp >= -95
-                    ? "Baik"
-                    : d.signal_strength.rsrp >= -105
-                    ? "Cukup"
-                    : "Lemah"}{" "}
-                  {d.signal_strength.csq ? `(CSQ ${d.signal_strength.csq})` : ""}
+                      ? "Baik"
+                      : d.signal_strength.rsrp >= -105
+                        ? "Cukup"
+                        : "Lemah"}{" "}
+                  {d.signal_strength.csq
+                    ? `(CSQ ${d.signal_strength.csq})`
+                    : ""}
                 </div>
               </div>
               <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-2">
@@ -1151,74 +1210,28 @@ export const CellularDeviceDetailCard: React.FC<
         )}
 
         {/* ========================================================= */}
-        {/* TAB 5: TEMPERATUR */}
-        {/* ========================================================= */}
-        {activeTab === "Temperatur" && (
-          <div className="space-y-4 animate-in fade-in duration-200">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-3.5">
-              <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4">
-                <div className="text-xs text-slate-500">Current Temperature</div>
-                <div className="text-2xl font-bold text-sky-400 font-mono mt-1">
-                  {d.modem_temperature.temperature}°C
-                </div>
-                <div className="text-[11px] text-emerald-500 mt-1">
-                  Normal Operational Status
-                </div>
-              </div>
-              <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4">
-                <div className="text-xs text-slate-500">Max Temperature</div>
-                <div className="text-2xl font-bold text-rose-500 font-mono mt-1">
-                  {d.modem_temperature.max_temp}
-                </div>
-                <div className="text-[11px] text-slate-400 mt-1">
-                  {d.modem_temperature.max_time || "Peak Period"}
-                </div>
-              </div>
-              <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4">
-                <div className="text-xs text-slate-500">Min Temperature</div>
-                <div className="text-2xl font-bold text-blue-400 font-mono mt-1">
-                  {d.modem_temperature.min_temp}
-                </div>
-                <div className="text-[11px] text-slate-400 mt-1">
-                  {d.modem_temperature.min_time || "Lowest Period"}
-                </div>
-              </div>
-              <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4">
-                <div className="text-xs text-slate-500">Period Average</div>
-                <div className="text-2xl font-bold text-slate-900 dark:text-white font-mono mt-1">
-                  {d.modem_temperature.avg_temp}
-                </div>
-                <div className="text-[11px] text-slate-400 mt-1">
-                  Max Threshold: 85°C (Safe)
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-3">
-              <div className="text-xs font-bold text-slate-900 dark:text-white">
-                Modem Thermal Trend
-              </div>
-              <SparklineWave
-                data={d.modem_temperature.sparkline}
-                color="#00a3ff"
-                id="temp-full"
-              />
-            </div>
-          </div>
-        )}
-
-        {/* ========================================================= */}
-        {/* TAB 6: EVENT LOG */}
+        {/* TAB 5: EVENT LOG */}
         {/* ========================================================= */}
         {activeTab === "Event Log" && (
           <div className="space-y-4 animate-in fade-in duration-200">
             <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-3">
               <div className="flex items-center justify-between">
-                <div className="text-xs font-bold text-slate-900 dark:text-white">
-                  Cellular Activity & Event History
+                <div className="flex items-center gap-2">
+                  <div className="text-xs font-bold text-slate-900 dark:text-white">
+                    Cellular Activity & Event History
+                  </div>
+                  <span className="text-[10px] font-semibold bg-blue-500/10 text-[#0073ea] dark:text-[#00d2ff] border border-blue-500/20 px-2 py-0.5 rounded-full">
+                    Today Only (
+                    {new Date().toLocaleDateString("id-ID", {
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                    })}
+                    )
+                  </span>
                 </div>
                 <span className="text-[11px] text-slate-400">
-                  Total {(d.events && d.events.length) || 0} Recent Activities
+                  Total {(d.events && d.events.length) || 0} Events Today
                 </span>
               </div>
               <div className="divide-y divide-slate-200 dark:divide-slate-800/60 text-xs">
@@ -1234,19 +1247,26 @@ export const CellularDeviceDetailCard: React.FC<
                             evt.status === "error"
                               ? "bg-rose-500"
                               : evt.status === "warning"
-                              ? "bg-amber-500"
-                              : evt.status === "info"
-                              ? "bg-sky-500"
-                              : "bg-emerald-500"
+                                ? "bg-amber-500"
+                                : evt.status === "info"
+                                  ? "bg-sky-500"
+                                  : "bg-emerald-500"
                           }`}
                         />
                         <span className="text-slate-800 dark:text-slate-200 font-medium truncate">
-                          {evt.title}
+                          {formatIncidentEn(evt.title)}
                         </span>
                       </div>
-                      <span className="text-slate-400 font-mono text-[11px] whitespace-nowrap shrink-0">
-                        {evt.time}
-                      </span>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {evt.duration && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                            {formatDurationEn(evt.duration)}
+                          </span>
+                        )}
+                        <span className="text-slate-400 font-mono text-[11px] whitespace-nowrap">
+                          {evt.time}
+                        </span>
+                      </div>
                     </div>
                   ))
                 ) : (

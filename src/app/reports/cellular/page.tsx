@@ -22,9 +22,7 @@ export default function ReportCellularPage() {
   const [filters, setFilters] = useState<ICellularReportFilters>({
     search: "",
     type: "All Types",
-    provider: "All Providers",
-    location: "All Locations",
-    date_range: "01 Nov 2026 - 04 Nov 2026",
+    date_range: getCurrentMonthPeriodStr(),
 
     page: 1,
     pageSize: 50,
@@ -99,32 +97,6 @@ export default function ReportCellularPage() {
         { label: "All Types", value: "All Types" },
         { label: "SmartBox Black", value: "SmartBox Hitam" },
         { label: "SmartBox White", value: "SmartBox Putih" },
-      ],
-    },
-    {
-      id: "provider",
-      value: filters.provider || "All Providers",
-      onChange: (val) => handleFilterChange("provider", val),
-      options: [
-        { label: "All Providers", value: "All Providers" },
-        { label: "Telkomsel", value: "Telkomsel" },
-        { label: "Indosat", value: "Indosat" },
-        { label: "XL Axiata", value: "XL Axiata" },
-        { label: "Smartfren", value: "Smartfren" },
-      ],
-    },
-    {
-      id: "location",
-      value: filters.location || "All Locations",
-      onChange: (val) => handleFilterChange("location", val),
-      options: [
-        { label: "All Locations", value: "All Locations" },
-        { label: "Alfa Mart", value: "Alfa" },
-        { label: "Indomaret", value: "IDM" },
-        { label: "SPBU", value: "SPBU" },
-        { label: "Cileungsi", value: "Cileungsi" },
-        { label: "Cinere", value: "Cinere" },
-        { label: "Sawangan", value: "Sawangan" },
       ],
     },
   ];
@@ -340,6 +312,7 @@ export default function ReportCellularPage() {
           </span>
         ),
       },
+      /* Sementara di-comment (Incident Period):
       // Group 3: Incident Period (Apple Purple Tint)
       {
         id: "trouble_events_count",
@@ -366,6 +339,7 @@ export default function ReportCellularPage() {
           </span>
         ),
       },
+      */
     ],
     []
   );
@@ -424,13 +398,14 @@ export default function ReportCellularPage() {
           Network Connection
         </th>
 
-        {/* Group 3: Incident Period (Apple Purple) */}
+        {/* Sementara di-comment (Incident Period):
         <th
           colSpan={2}
           className="py-2 px-3 text-center border-r-2 border-r-purple-300 dark:border-r-purple-700 font-bold text-purple-900 dark:text-purple-200 bg-[#f5f0ff] dark:bg-[#1a0f30] border-b border-b-purple-200 dark:border-b-purple-800/60"
         >
           Incident Period
         </th>
+        */}
       </tr>
 
       {/* Level 2 Sub-headers */}
@@ -469,18 +444,19 @@ export default function ReportCellularPage() {
           Avg RSRP (dBm)
         </th>
 
-        {/* Under Incident Period (Purple Sub-headers) */}
+        {/* Sementara di-comment (Incident Period Sub-headers):
         <th className="py-2 px-2.5 text-center whitespace-nowrap text-purple-900 dark:text-purple-200 bg-[#f8f4ff] dark:bg-[#120a22] border-r border-purple-200/60 dark:border-purple-900/50">Total Events</th>
         <th className="py-2 px-3 whitespace-nowrap text-purple-900 dark:text-purple-200 bg-[#f8f4ff] dark:bg-[#120a22] border-r-2 border-r-purple-300 dark:border-r-purple-700">
           Last Update
         </th>
+        */}
       </tr>
     </>
   );
 
   return (
     <AppLayout
-      title="Report Cellular Connectivity"
+      title="Report Cellular"
       headerRight={
         <FilterHeader
           inline
@@ -488,7 +464,7 @@ export default function ReportCellularPage() {
           onSearchChange={(val) => handleFilterChange("search", val)}
           searchPlaceholder="Search Gateway ID / Location..."
           filters={filterConfigs}
-          timeframe={filters.date_range || "01 Nov 2026 - 04 Nov 2026"}
+          timeframe={filters.date_range || getCurrentMonthPeriodStr()}
 
           onDateRangeChange={(range) => handleFilterChange("date_range", range)}
           onExportClick={handleExport}

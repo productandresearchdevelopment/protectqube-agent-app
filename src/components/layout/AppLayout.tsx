@@ -124,18 +124,18 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
           </Link>
 
           <Link
-            href="/cellular-connectivity"
-            title="Cellular Connectivity"
+            href="/cellular"
+            title="Cellular"
             className={`flex items-center ${
               isCollapsed ? "justify-center px-2 py-2.5" : "gap-3 px-3.5 py-2.5"
             } text-sm font-medium rounded-xl transition-all ${
-              pathname === "/cellular-connectivity"
+              pathname === "/cellular" || pathname === "/cellular-connectivity"
                 ? "bg-[#0073ea] text-white shadow-md shadow-blue-500/25 font-semibold"
                 : "text-slate-200 hover:text-white hover:bg-white/10"
             }`}
           >
             <Radio className="size-5 shrink-0" />
-            {!isCollapsed && <span>Cellular Connectivity</span>}
+            {!isCollapsed && <span>Cellular</span>}
           </Link>
 
           <Link

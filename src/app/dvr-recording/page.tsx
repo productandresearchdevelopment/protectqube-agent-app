@@ -136,6 +136,15 @@ export default function DVRRecordingPage() {
     }, 120);
   };
 
+  const handleCardFilter = (statusVal: string) => {
+    if (statusFilter === statusVal) {
+      setStatusFilter("All Statuses");
+    } else {
+      setStatusFilter(statusVal);
+    }
+    setCurrentPage(1);
+  };
+
   const filters: IFilterConfig[] = [
     {
       id: "type",
@@ -148,20 +157,6 @@ export default function DVRRecordingPage() {
         { label: "All Types", value: "All Types" },
         { label: "SmartBox Black", value: "SmartBox Hitam" },
         { label: "SmartBox White", value: "SmartBox Putih" },
-      ],
-    },
-    {
-      id: "status",
-      value: statusFilter,
-      onChange: (val) => {
-        setStatusFilter(val);
-        setCurrentPage(1);
-      },
-      options: [
-        { label: "All Statuses", value: "All Statuses" },
-        { label: "Online", value: "Online" },
-        { label: "Warning", value: "Warning" },
-        { label: "Offline", value: "Offline" },
       ],
     },
   ];
@@ -315,39 +310,37 @@ export default function DVRRecordingPage() {
       id: "recording_status",
       header: "Recording Status",
       align: "center",
-      cell: (item) => (
-        <StatusBadge
-          status={item.recording_status}
-          variant={item.recording_status === "Normal" ? "online" : item.recording_status === "Warning" ? "warning" : "critical"}
-        />
-      ),
+      cell: (item) => {
+        const isRec = item.recording_status === "Recording" || item.recording_status === "Normal";
+        return (
+          <StatusBadge
+            status={isRec ? "Recording" : "Not Recording"}
+            variant={isRec ? "online" : "critical"}
+          />
+        );
+      },
     },
     {
       id: "storage_percent",
-      header: "Storage HDD/SD",
+      header: "Storage",
       align: "center",
       cell: (item) => <LoadProgressBar percent={item.storage_usage_percent} />,
     },
     {
       id: "dvr_health",
-      header: "Kesehatan DVR",
+      header: "DVR Health",
       align: "center",
       cell: (item) => (
         <StatusBadge
           status={item.dvr_health}
-          variant={item.dvr_health === "Good" ? "good" : item.dvr_health === "Caution" ? "caution" : "bad"}
+          variant={
+            item.dvr_health === "Good"
+              ? "good"
+              : item.dvr_health === "Warning" || item.dvr_health === "Caution"
+              ? "warning"
+              : "critical"
+          }
         />
-      ),
-    },
-    {
-      id: "last_update",
-      header: "Last Update",
-      align: "center",
-      accessorKey: "last_update",
-      cell: (item) => (
-        <span className="text-slate-400 font-mono text-[11px] whitespace-nowrap">
-          {formatToWIB(item.last_update)}
-        </span>
       ),
     },
   ];
@@ -365,27 +358,29 @@ export default function DVRRecordingPage() {
           }}
           searchPlaceholder="Search Gateway ID or Location..."
           filters={filters}
-          timeframe="Last 24 Hours"
-          onTimeframeClick={() => {}}
         />
       }
     >
-      <div className="space-y-5 max-w-[1600px] mx-auto pb-16 font-sans transition-colors">
+      <div className="w-full flex-1 flex flex-col min-h-0 space-y-3.5 font-sans transition-colors pb-2">
 
         {/* 2. Top Summary Metric Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 pt-1 pb-0.5">
           <SummaryCard
             title="Total Gateway"
             value={summary ? summary.total_gateways : 2000}
             icon={Server}
             color="blue"
+            onClick={() => handleCardFilter("All Statuses")}
+            active={statusFilter === "All Statuses"}
           />
           <SummaryCard
-            title="Recording Normal"
+            title="Recording"
             value={summary ? summary.recording_normal : 1760}
             icon={Check}
             color="emerald"
             percentage={`${summary?.recording_normal_percent ?? 88.0}%`}
+            onClick={() => handleCardFilter("Recording")}
+            active={statusFilter === "Recording"}
           />
           <SummaryCard
             title="Issue"
@@ -393,6 +388,8 @@ export default function DVRRecordingPage() {
             icon={AlertCircle}
             color="amber"
             percentage={`${summary?.issue_percent ?? 9.0}%`}
+            onClick={() => handleCardFilter("Issue")}
+            active={statusFilter === "Issue"}
           />
           <SummaryCard
             title="Offline"
@@ -400,6 +397,8 @@ export default function DVRRecordingPage() {
             icon={AlertTriangle}
             color="rose"
             percentage={`${summary?.offline_percent ?? 3.0}%`}
+            onClick={() => handleCardFilter("Offline")}
+            active={statusFilter === "Offline"}
           />
           <SummaryCard
             title="Total Cameras"
@@ -436,10 +435,27 @@ export default function DVRRecordingPage() {
           />
         </div>
 
-        {/* 3. Filterable & Paginated Daftar Gateway Table */}
+        {/* Status Filter Indicator */}
+        {statusFilter !== "All Statuses" && (
+          <div className="flex items-center justify-between bg-blue-50/70 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/40 px-3.5 py-2 rounded-xl text-xs shrink-0">
+            <div className="flex items-center gap-2">
+              <span className="text-slate-500 dark:text-slate-400">Filtering table by status:</span>
+              <span className="font-bold text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/50 px-2.5 py-0.5 rounded-full">
+                {statusFilter}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => handleCardFilter("All Statuses")}
+              className="text-blue-500 hover:underline font-semibold cursor-pointer"
+            >
+              Reset Filter (Show All)
+            </button>
+          </div>
+        )}
+
+        {/* 3. Filterable & Paginated Daftar Gateway Table (Full Viewport Height) */}
         <DataTable
-          title="DVR & Recording Gateway List"
-          subtitle="Click a row to inspect DVR telemetry and CCTV previews below"
           data={gateways}
           columns={columns}
           keyField="id"
@@ -457,6 +473,7 @@ export default function DVRRecordingPage() {
             setPageSize(newSize);
             setCurrentPage(1);
           }}
+          className={selectedGatewayId ? "min-h-100" : "h-[calc(100vh-215px)] flex-1"}
         />
 
         {/* 5. DVR Device Detail Section - Appears below table upon row click with smooth auto-scroll */}

@@ -30,8 +30,11 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
   const getInitialDates = () => {
     const defaultRange = value || getCurrentMonthPeriodStr();
     const parts = defaultRange.split(" - ");
-    const s = parseDisplayToInput(parts[0]) || "2026-11-01";
-    const e = parseDisplayToInput(parts[1]) || (parts[0] ? parseDisplayToInput(parts[0]) : "2026-11-04");
+    const now = new Date();
+    const firstDayStr = formatDateToInput(new Date(now.getFullYear(), now.getMonth(), 1));
+    const todayStr = formatDateToInput(now);
+    const s = parseDisplayToInput(parts[0]) || firstDayStr;
+    const e = parseDisplayToInput(parts[1]) || (parts[0] ? parseDisplayToInput(parts[0]) : todayStr);
     return { s, e };
   };
 

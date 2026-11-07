@@ -113,6 +113,15 @@ export default function SystemHealthPage() {
     }, 120);
   };
 
+  const handleCardFilter = (statusVal: string) => {
+    if (statusFilter === statusVal) {
+      setStatusFilter("All Statuses");
+    } else {
+      setStatusFilter(statusVal);
+    }
+    setCurrentPage(1);
+  };
+
   const filters: IFilterConfig[] = [
     {
       id: "type",
@@ -125,20 +134,6 @@ export default function SystemHealthPage() {
         { label: "All Types", value: "All Types" },
         { label: "SmartBox Black", value: "SmartBox Hitam" },
         { label: "SmartBox White", value: "SmartBox Putih" },
-      ],
-    },
-    {
-      id: "status",
-      value: statusFilter,
-      onChange: (val) => {
-        setStatusFilter(val);
-        setCurrentPage(1);
-      },
-      options: [
-        { label: "All Statuses", value: "All Statuses" },
-        { label: "Healthy", value: "Healthy" },
-        { label: "Warning", value: "Warning" },
-        { label: "Critical", value: "Critical" },
       ],
     },
   ];
@@ -241,20 +236,26 @@ export default function SystemHealthPage() {
     },
     {
       id: "sd_card",
-      header: "SD Card",
+      header: "Storage",
       align: "center",
       cell: (item) => <LoadProgressBar percent={item.sd_percent} />,
     },
     {
       id: "sd_health",
-      header: "SD Health",
+      header: "Storage Health",
       align: "center",
-      cell: (item) => (
-        <StatusBadge
-          status={item.sd_health}
-          variant={item.sd_health === "Good" ? "good" : item.sd_health === "Wear" ? "wear" : "bad"}
-        />
-      ),
+      cell: (item) => {
+        const isGood = item.sd_health === "Good" || item.sd_health === "Normal";
+        const isWarn = item.sd_health === "Wear" || item.sd_health === "Warning" || item.sd_health === "Caution";
+        const statusLabel = isGood ? "Good" : isWarn ? "Warning" : "Critical";
+        const variant = isGood ? "good" : isWarn ? "warning" : "critical";
+        return (
+          <StatusBadge
+            status={statusLabel}
+            variant={variant}
+          />
+        );
+      },
     },
     {
       id: "uptime",
@@ -278,17 +279,6 @@ export default function SystemHealthPage() {
         />
       ),
     },
-    {
-      id: "last_update",
-      header: "Last Update",
-      align: "center",
-      accessorKey: "last_update",
-      cell: (item) => (
-        <span className="text-slate-400 font-mono text-[11px] whitespace-nowrap">
-          {formatToWIB(item.last_update)}
-        </span>
-      ),
-    },
   ];
 
   return (
@@ -304,20 +294,20 @@ export default function SystemHealthPage() {
           }}
           searchPlaceholder="Search Gateway ID or Location..."
           filters={filters}
-          timeframe="Last 24 Hours"
-          onTimeframeClick={() => {}}
         />
       }
     >
-      <div className="space-y-5 max-w-[1600px] mx-auto pb-16 font-sans transition-colors">
+      <div className="w-full flex-1 flex flex-col min-h-0 space-y-3.5 font-sans transition-colors pb-2">
 
         {/* 2. Top Summary Metric Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 pt-1 pb-0.5">
           <SummaryCard
             title="Total Gateway"
             value={summary ? summary.total_gateways : 2000}
             icon={Server}
             color="blue"
+            onClick={() => handleCardFilter("All Statuses")}
+            active={statusFilter === "All Statuses"}
           />
           <SummaryCard
             title="Healthy"
@@ -325,6 +315,8 @@ export default function SystemHealthPage() {
             icon={Check}
             color="emerald"
             percentage={`${summary?.healthy_percent ?? 94.5}%`}
+            onClick={() => handleCardFilter("Healthy")}
+            active={statusFilter === "Healthy"}
           />
           <SummaryCard
             title="Warning"
@@ -332,6 +324,8 @@ export default function SystemHealthPage() {
             icon={AlertCircle}
             color="amber"
             percentage={`${summary?.warning_percent ?? 4.0}%`}
+            onClick={() => handleCardFilter("Warning")}
+            active={statusFilter === "Warning"}
           />
           <SummaryCard
             title="Critical"
@@ -339,6 +333,8 @@ export default function SystemHealthPage() {
             icon={AlertTriangle}
             color="rose"
             percentage={`${summary?.critical_percent ?? 1.5}%`}
+            onClick={() => handleCardFilter("Critical")}
+            active={statusFilter === "Critical"}
           />
           <SummaryCard
             title="SmartBox Black"
@@ -366,10 +362,27 @@ export default function SystemHealthPage() {
           />
         </div>
 
-        {/* 3. Filterable & Paginated Daftar Gateway Table */}
+        {/* Status Filter Indicator */}
+        {statusFilter !== "All Statuses" && (
+          <div className="flex items-center justify-between bg-blue-50/70 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/40 px-3.5 py-2 rounded-xl text-xs shrink-0">
+            <div className="flex items-center gap-2">
+              <span className="text-slate-500 dark:text-slate-400">Filtering table by status:</span>
+              <span className="font-bold text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/50 px-2.5 py-0.5 rounded-full">
+                {statusFilter}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => handleCardFilter("All Statuses")}
+              className="text-blue-500 hover:underline font-semibold cursor-pointer"
+            >
+              Reset Filter (Show All)
+            </button>
+          </div>
+        )}
+
+        {/* 3. Filterable & Paginated Daftar Gateway Table (Full Viewport Height) */}
         <DataTable
-          title="Gateway List"
-          subtitle="Click a row to inspect telemetry details below"
           data={gateways}
           columns={columns}
           keyField="id"
@@ -387,6 +400,7 @@ export default function SystemHealthPage() {
             setPageSize(newSize);
             setCurrentPage(1);
           }}
+          className={selectedGatewayId ? "min-h-100" : "h-[calc(100vh-215px)] flex-1"}
         />
 
         {/* 5. Device Detail Section - Appears below table upon row click with smooth auto-scroll */}

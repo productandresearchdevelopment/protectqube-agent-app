@@ -22,7 +22,6 @@ export default function ReportHealthPage() {
   const [filters, setFilters] = useState<IHealthReportFilters>({
     search: "",
     type: "All Types",
-    location: "All Locations",
     date_range: getCurrentMonthPeriodStr(),
 
     page: 1,
@@ -98,20 +97,6 @@ export default function ReportHealthPage() {
         { label: "All Types", value: "All Types" },
         { label: "SmartBox Black", value: "SmartBox Hitam" },
         { label: "SmartBox White", value: "SmartBox Putih" },
-      ],
-    },
-    {
-      id: "location",
-      value: filters.location || "All Locations",
-      onChange: (val) => handleFilterChange("location", val),
-      options: [
-        { label: "All Locations", value: "All Locations" },
-        { label: "Alfa Mart", value: "Alfa" },
-        { label: "Indomaret", value: "IDM" },
-        { label: "SPBU", value: "SPBU" },
-        { label: "Cileungsi", value: "Cileungsi" },
-        { label: "Cinere", value: "Cinere" },
-        { label: "Sawangan", value: "Sawangan" },
       ],
     },
   ];
@@ -272,7 +257,7 @@ export default function ReportHealthPage() {
         id: "ram_peak",
         header: "Peak",
         align: "center",
-        className: "bg-teal-500/[0.025] dark:bg-teal-500/[0.04]",
+        className: "bg-teal-500/[0.025] dark:bg-teal-500/[0.04] border-r-2 border-r-teal-300 dark:border-r-teal-700/80",
         cell: (gw) => (
           <span
             className={`font-bold whitespace-nowrap ${
@@ -287,24 +272,7 @@ export default function ReportHealthPage() {
           </span>
         ),
       },
-      {
-        id: "ram_oom_count",
-        header: "OOM",
-        align: "center",
-        className: "bg-teal-500/[0.025] dark:bg-teal-500/[0.04] border-r-2 border-r-teal-300 dark:border-r-teal-700/80",
-        cell: (gw) => (
-          <span
-            className={`font-semibold whitespace-nowrap ${
-              gw.ram_gt_80_duration !== "0m" && gw.ram_gt_80_duration !== "0h"
-                ? "text-[#e2445c]"
-                : "text-slate-400"
-            }`}
-          >
-            {gw.ram_gt_80_duration}
-          </span>
-        ),
-      },
-      // Group 3: SD Card Usage (Apple Amber Group)
+      // Group 3: Storage Usage (Apple Amber Group)
       {
         id: "sd_usage_avg",
         header: "Average",
@@ -320,7 +288,7 @@ export default function ReportHealthPage() {
         id: "sd_usage_peak",
         header: "Peak",
         align: "center",
-        className: "bg-amber-500/[0.025] dark:bg-amber-500/[0.04]",
+        className: "bg-amber-500/[0.025] dark:bg-amber-500/[0.04] border-r-2 border-r-amber-300 dark:border-r-amber-700/80",
         cell: (gw) => (
           <span
             className={`font-bold whitespace-nowrap ${
@@ -335,21 +303,10 @@ export default function ReportHealthPage() {
           </span>
         ),
       },
-      {
-        id: "sd_usage_free",
-        header: "Free Space",
-        align: "center",
-        className: "bg-amber-500/[0.025] dark:bg-amber-500/[0.04] border-r-2 border-r-amber-300 dark:border-r-amber-700/80",
-        cell: (gw) => (
-          <span className="text-slate-700 dark:text-slate-300 font-mono whitespace-nowrap text-[11px]">
-            {gw.sd_gt_90_duration}
-          </span>
-        ),
-      },
-      // Group 4: SD Card Health (Apple Emerald Group)
+      // Group 4: Storage Health (Apple Emerald Group)
       {
         id: "sd_wear_level",
-        header: "Wear Level",
+        header: "Health",
         align: "center",
         className: "bg-emerald-500/[0.025] dark:bg-emerald-500/[0.04]",
         cell: (gw) => (
@@ -404,6 +361,7 @@ export default function ReportHealthPage() {
           </span>
         ),
       },
+      /* Sementara di-comment (Periode Gangguan / Total Events & Uptime):
       // Trailing Group: Periode Gangguan (Apple Purple Group)
       {
         id: "incident_count",
@@ -430,6 +388,7 @@ export default function ReportHealthPage() {
           </span>
         ),
       },
+      */
     ],
     []
   );
@@ -466,26 +425,26 @@ export default function ReportHealthPage() {
 
         {/* Group 2: RAM (Apple Teal Group) */}
         <th
-          colSpan={3}
+          colSpan={2}
           className="py-2 px-3 text-center border-r-2 border-r-teal-300 dark:border-r-teal-700 font-bold text-teal-900 dark:text-teal-200 bg-[#e6fbf5] dark:bg-[#062422] border-b border-b-teal-200 dark:border-b-teal-800/60"
         >
           RAM
         </th>
 
-        {/* Group 3: SD Card Usage (Apple Amber Group) */}
+        {/* Group 3: Storage Usage (Apple Amber Group) */}
         <th
-          colSpan={3}
+          colSpan={2}
           className="py-2 px-3 text-center border-r-2 border-r-amber-300 dark:border-r-amber-700 font-bold text-amber-900 dark:text-amber-200 bg-[#fffbeb] dark:bg-[#261705] border-b border-b-amber-200 dark:border-b-amber-800/60"
         >
-          SD Card Usage
+          Storage Usage
         </th>
 
-        {/* Group 4: SD Card Health (Apple Emerald Group) */}
+        {/* Group 4: Storage Health (Apple Emerald Group) */}
         <th
           colSpan={2}
           className="py-2 px-3 text-center border-r-2 border-r-emerald-300 dark:border-r-emerald-700 font-bold text-emerald-900 dark:text-emerald-200 bg-[#f0fdf4] dark:bg-[#05210f] border-b border-b-emerald-200 dark:border-b-emerald-800/60"
         >
-          SD Card Health
+          Storage Health
         </th>
 
         {/* Group 5: System Temperature (Apple Rose Group) */}
@@ -496,13 +455,14 @@ export default function ReportHealthPage() {
           System Temperature
         </th>
 
-        {/* Individual Trailing Columns (Apple Purple Group) */}
+        {/* Sementara di-comment (Total Events & Uptime):
         <th rowSpan={2} className="py-2.5 px-3 text-center whitespace-nowrap border-r border-purple-200/60 dark:border-purple-900/50 font-bold bg-[#f5f0ff] dark:bg-[#1a0f30] text-purple-900 dark:text-purple-200">
           Total Events
         </th>
         <th rowSpan={2} className="py-2.5 px-3.5 whitespace-nowrap border-r-2 border-r-purple-300 dark:border-r-purple-700 bg-[#f5f0ff] dark:bg-[#1a0f30] text-purple-900 dark:text-purple-200">
           Uptime
         </th>
+        */}
       </tr>
 
       {/* Level 2 Sub-headers */}
@@ -516,20 +476,18 @@ export default function ReportHealthPage() {
 
         {/* Under RAM (Teal Sub-headers) */}
         <th className="py-2 px-2.5 text-center text-teal-900 dark:text-teal-200 bg-[#effcf8] dark:bg-[#041a18] border-r border-teal-200/60 dark:border-teal-900/50">Average</th>
-        <th className="py-2 px-2.5 text-center text-teal-900 dark:text-teal-200 bg-[#effcf8] dark:bg-[#041a18] border-r border-teal-200/60 dark:border-teal-900/50">Peak</th>
         <th className="py-2 px-2.5 text-center text-teal-900 dark:text-teal-200 bg-[#effcf8] dark:bg-[#041a18] border-r-2 border-r-teal-300 dark:border-r-teal-700">
-          OOM
+          Peak
         </th>
 
-        {/* Under SD Card Usage (Amber Sub-headers) */}
+        {/* Under Storage Usage (Amber Sub-headers) */}
         <th className="py-2 px-2.5 text-center text-amber-900 dark:text-amber-200 bg-[#fffdf5] dark:bg-[#1a0f02] border-r border-amber-200/60 dark:border-amber-900/50">Average</th>
-        <th className="py-2 px-2.5 text-center text-amber-900 dark:text-amber-200 bg-[#fffdf5] dark:bg-[#1a0f02] border-r border-amber-200/60 dark:border-amber-900/50">Peak</th>
         <th className="py-2 px-2.5 text-center text-amber-900 dark:text-amber-200 bg-[#fffdf5] dark:bg-[#1a0f02] border-r-2 border-r-amber-300 dark:border-r-amber-700">
-          Free Space
+          Peak
         </th>
 
-        {/* Under SD Card Health (Emerald Sub-headers) */}
-        <th className="py-2 px-2.5 text-center text-emerald-900 dark:text-emerald-200 bg-[#f7fef9] dark:bg-[#03170a] border-r border-emerald-200/60 dark:border-emerald-900/50">Wear Level</th>
+        {/* Under Storage Health (Emerald Sub-headers) */}
+        <th className="py-2 px-2.5 text-center text-emerald-900 dark:text-emerald-200 bg-[#f7fef9] dark:bg-[#03170a] border-r border-emerald-200/60 dark:border-emerald-900/50">Health</th>
         <th className="py-2 px-2.5 text-center text-emerald-900 dark:text-emerald-200 bg-[#f7fef9] dark:bg-[#03170a] border-r-2 border-r-emerald-300 dark:border-r-emerald-700">
           Status
         </th>
@@ -537,7 +495,7 @@ export default function ReportHealthPage() {
         {/* Under System Temperature (Rose Sub-headers) */}
         <th className="py-2 px-2.5 text-center text-rose-900 dark:text-rose-200 bg-[#fff5f5] dark:bg-[#1f0a0d] border-r border-rose-200/60 dark:border-rose-900/50">Average</th>
         <th className="py-2 px-2.5 text-center text-rose-900 dark:text-rose-200 bg-[#fff5f5] dark:bg-[#1f0a0d] border-r-2 border-r-rose-300 dark:border-r-rose-700">
-          Puncak
+          Peak
         </th>
       </tr>
     </>

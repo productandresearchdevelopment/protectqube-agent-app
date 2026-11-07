@@ -74,9 +74,23 @@ export function parseInputToDisplay(inp?: string): string {
 }
 
 /**
- * Returns the default active month date range string (e.g. "01 Nov 2026 - 30 Nov 2026").
+ * Returns the default active month date range string from 1st of current month up to today (e.g. "01 Nov 2026 - 05 Nov 2026").
  */
 export function getCurrentMonthPeriodStr(
+  referenceDate: Date = new Date(),
+): string {
+  const year = referenceDate.getFullYear();
+  const monthIdx = referenceDate.getMonth();
+  const monthName = MONTH_NAMES[monthIdx];
+  const today = referenceDate.getDate();
+  const todayStr = today < 10 ? `0${today}` : `${today}`;
+  return `01 ${monthName} ${year} - ${todayStr} ${monthName} ${year}`;
+}
+
+/**
+ * Returns the full calendar month date range string (e.g. "01 Nov 2026 - 30 Nov 2026").
+ */
+export function getFullMonthPeriodStr(
   referenceDate: Date = new Date(),
 ): string {
   const year = referenceDate.getFullYear();

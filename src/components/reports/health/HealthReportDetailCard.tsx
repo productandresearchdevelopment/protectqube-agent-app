@@ -56,20 +56,7 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
   dateRange,
   onClose,
 }) => {
-  const { data, isLoading } = useHealthReportGatewayDetail(gatewayId, dateRange);
-  const [hoveredDay, setHoveredDay] = useState<{
-    day: number;
-    dayNumStr: string;
-    dateKey: string;
-    fullDate: string;
-    gwStatus: "online" | "offline" | "future";
-    cellStatus: "online" | "offline" | "future";
-    dvrStatus: "online" | "offline" | "future";
-    eventsCount: number;
-    isToday: boolean;
-    isFuture?: boolean;
-  } | null>(null);
-  const [activeEventTab, setActiveEventTab] = useState<"all" | "downtime">("all");
+  const { data, isLoading, isError, refetch } = useHealthReportGatewayDetail(gatewayId, dateRange);
   const [selectedEventDate, setSelectedEventDate] = useState<string>("ALL");
 
   const rawEvents = data?.events || [];
@@ -78,115 +65,296 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
     return parseReportPeriod(data?.period || dateRange);
   }, [data?.period, dateRange]);
 
-  // Generate dynamic daily status points for Gateway, Cellular, and DVR based on active report month (full month, status only up to today)
-  const dailyMultiTrack = useMemo(() => {
-    const { daysInMonth, monthStr, yearStr, todayDay, isCurrentMonth } = periodInfo;
+  // List of active days for date filtering dropdown
+  const availableDays = useMemo(() => {
+    const list: { day: number; dateKey: string; label: string }[] = [];
     const minDay = periodInfo.startDay;
-    const maxDay = periodInfo.endDay;
-    const events = rawEvents;
-
-    const totalDays = Math.max(daysInMonth, maxDay);
-    const list = [];
-    for (let day = 1; day <= totalDays; day++) {
+    const maxDay = periodInfo.effectiveDays;
+    for (let day = minDay; day <= maxDay; day++) {
       const dayNumStr = day < 10 ? `0${day}` : `${day}`;
-      const dateKey = `${dayNumStr} ${monthStr}`;
-      const fullDate = `${dayNumStr} ${monthStr} ${yearStr}`;
-
-      const isFuture = Boolean(isCurrentMonth && todayDay && day > todayDay);
-
-      const dayEvents = isFuture
-        ? []
-        : events.filter((ev: any) => {
-            const trimmed = (ev.start_time || "").trim();
-            return trimmed.startsWith(dateKey) || trimmed.startsWith(`${day} ${monthStr}`);
-          });
-
-      // Status per track
-      let gwStatus: "online" | "offline" | "future" = isFuture ? "future" : "online";
-      let cellStatus: "online" | "offline" | "future" = isFuture ? "future" : "online";
-      let dvrStatus: "online" | "offline" | "future" = isFuture ? "future" : "online";
-
-      if (!isFuture) {
-        for (const ev of dayEvents) {
-          const cat = (ev.category || "").toLowerCase();
-          const desc = (ev.description || "").toLowerCase();
-          if (cat.includes("gateway") || desc.includes("gateway") || desc.includes("power") || desc.includes("loss")) {
-            gwStatus = "offline";
-          }
-          if (cat.includes("cellular") || desc.includes("sim") || desc.includes("modem")) {
-            cellStatus = "offline";
-          }
-          if (cat.includes("dvr") || cat.includes("camera") || desc.includes("recording") || desc.includes("nvr")) {
-            dvrStatus = "offline";
-          }
-        }
-
-        // If gateway is down, all downstream are impacted
-        if (gwStatus === "offline") {
-          cellStatus = "offline";
-          dvrStatus = "offline";
-        }
-      }
-
+      const dateKey = `${dayNumStr} ${periodInfo.monthStr}`;
+      const isToday = Boolean(periodInfo.isCurrentMonth && periodInfo.todayDay === day);
       list.push({
         day,
-        dayNumStr,
         dateKey,
-        fullDate,
-        gwStatus,
-        cellStatus,
-        dvrStatus,
-        eventsCount: dayEvents.length,
-        isToday: day === todayDay,
-        isFuture,
+        label: `${dateKey}${isToday ? " (Today)" : ""}`,
+      });
+    }
+    return list;
+  }, [periodInfo]);
+
+  // Memoized dynamic trend data for CPU, RAM, and Storage Usage based on selected date (per jam / hourly when day is selected)
+  const { filteredCpuTrend, filteredRamTrend, filteredStorageTrend, dayStats } = useMemo(() => {
+    const rawCpu = (data?.cpu_trend as any[]) || [];
+    const rawRam = (data?.ram_trend as any[]) || [];
+    const rawSd = (data?.sd_trend as any[]) || [];
+
+    const defaultStats = {
+      isDaySelected: false,
+      label: "All Month",
+      hasData: rawCpu.length > 0,
+      maxHourLabel: "23:00",
+      isDayToday: false,
+      cpuAvg: data?.cpu_avg || 0,
+      cpuMax: data?.cpu_max || 0,
+      ramAvg: data?.ram_avg || 0,
+      ramMax: data?.ram_max || 0,
+      sdAvg: data?.sd_avg || 0,
+      sdMax: data?.sd_max || 0,
+    };
+
+    if (selectedEventDate === "ALL") {
+      const sample = (arr: any[]) => {
+        if (arr.length <= 31) {
+          return arr.map((p) => ({
+            ...p,
+            displayDate: p.date_key || p.date,
+          }));
+        }
+        // Deduplicate by date_key if present
+        const seen = new Set<string>();
+        const deduped: any[] = [];
+        for (const item of arr) {
+          const k = item.date_key || item.date?.split(" ")[0];
+          if (k && !seen.has(k)) {
+            seen.add(k);
+            deduped.push({ ...item, displayDate: k });
+          }
+        }
+        if (deduped.length > 0) return deduped;
+        const step = Math.ceil(arr.length / 30);
+        return arr.filter((_, idx) => idx % step === 0).map((p) => ({ ...p, displayDate: p.date_key || p.date }));
+      };
+
+      return {
+        filteredCpuTrend: sample(rawCpu),
+        filteredRamTrend: sample(rawRam),
+        filteredStorageTrend: sample(rawSd),
+        dayStats: defaultStats,
+      };
+    }
+
+    // A specific day is selected, e.g. "06 Nov" or "04 Nov"
+    // Aggregated per jam (hourly range: 00:00 - current hour for today, or 00:00 - 23:00 for past days)
+    const selDayNum = parseInt(selectedEventDate.split(" ")[0], 10);
+    const targetKey = selectedEventDate.trim().toLowerCase();
+
+    const matchDay = (p: any) => {
+      if (p.day && p.day === selDayNum) return true;
+      if (p.date_key && p.date_key.trim().toLowerCase() === targetKey) return true;
+      if (p.date && p.date.trim().toLowerCase().startsWith(targetKey)) return true;
+      return false;
+    };
+
+    const dayCpu = rawCpu.filter(matchDay);
+    const dayRam = rawRam.filter(matchDay);
+    const daySd = rawSd.filter(matchDay);
+
+    const isDayToday =
+      periodInfo.isCurrentMonth &&
+      periodInfo.todayDay !== null &&
+      selDayNum === periodInfo.todayDay;
+
+    const currentHour = new Date().getHours();
+    const maxHour = isDayToday ? currentHour : 23;
+    const maxHourLabel = `${maxHour < 10 ? `0${maxHour}` : maxHour}:00`;
+
+    const hourlyCpu: any[] = [];
+    const hourlyRam: any[] = [];
+    const hourlySd: any[] = [];
+
+    const baseCpu = dayCpu.length > 0 ? Math.round(dayCpu.reduce((a, b) => a + (b.value || 0), 0) / dayCpu.length) : (data?.cpu_avg || 0);
+    const baseRam = dayRam.length > 0 ? Math.round(dayRam.reduce((a, b) => a + (b.value || 0), 0) / dayRam.length) : (data?.ram_avg || 0);
+    const baseSd = daySd.length > 0 ? Math.round(daySd.reduce((a, b) => a + (b.value || 0), 0) / daySd.length) : (data?.sd_avg || 0);
+
+    for (let h = 0; h <= maxHour; h++) {
+      const hStr = h < 10 ? `0${h}` : `${h}`;
+      const hourLabel = `${hStr}:00`;
+      const hourPrefix = `${hStr}:`;
+
+      const ptsC = dayCpu.filter((p) => p.time && p.time.startsWith(hourPrefix));
+      const ptsR = dayRam.filter((p) => p.time && p.time.startsWith(hourPrefix));
+      const ptsS = daySd.filter((p) => p.time && p.time.startsWith(hourPrefix));
+
+      const vCpu = ptsC.length > 0 ? Math.round(ptsC.reduce((a, b) => a + (b.value || 0), 0) / ptsC.length) : baseCpu;
+      const vRam = ptsR.length > 0 ? Math.round(ptsR.reduce((a, b) => a + (b.value || 0), 0) / ptsR.length) : baseRam;
+      const vSd = ptsS.length > 0 ? Math.round(ptsS.reduce((a, b) => a + (b.value || 0), 0) / ptsS.length) : baseSd;
+
+      hourlyCpu.push({ displayDate: hourLabel, time: hourLabel, value: vCpu });
+      hourlyRam.push({ displayDate: hourLabel, time: hourLabel, value: vRam });
+      hourlySd.push({ displayDate: hourLabel, time: hourLabel, value: vSd });
+    }
+
+    const calcAvg = (arr: any[]) => Math.round(arr.reduce((acc, x) => acc + (x.value || 0), 0) / arr.length);
+    const calcMax = (arr: any[]) => Math.max(...arr.map((x) => x.value || 0));
+
+    return {
+      filteredCpuTrend: hourlyCpu,
+      filteredRamTrend: hourlyRam,
+      filteredStorageTrend: hourlySd,
+      dayStats: {
+        isDaySelected: true,
+        label: selectedEventDate,
+        hasData: dayCpu.length > 0,
+        maxHourLabel,
+        isDayToday,
+        cpuAvg: calcAvg(hourlyCpu),
+        cpuMax: calcMax(hourlyCpu),
+        ramAvg: calcAvg(hourlyRam),
+        ramMax: calcMax(hourlyRam),
+        sdAvg: calcAvg(hourlySd),
+        sdMax: calcMax(hourlySd),
+      },
+    };
+  }, [
+    data?.cpu_trend,
+    data?.ram_trend,
+    data?.sd_trend,
+    data?.cpu_avg,
+    data?.cpu_max,
+    data?.ram_avg,
+    data?.ram_max,
+    data?.sd_avg,
+    data?.sd_max,
+    selectedEventDate,
+    periodInfo,
+  ]);
+
+  // Real SLA 99.5%, Uptime, and Downtime calculation (supports active period & daily filtering)
+  const slaCalc = useMemo(() => {
+    const isDayFiltered = selectedEventDate !== "ALL";
+    const breakdown = (data?.daily_breakdown as any[]) || [];
+
+    const fmtHM = (mins: number) => {
+      const h = Math.floor(mins / 60);
+      const m = Math.round(mins % 60);
+      return `${h}h ${m.toString().padStart(2, "0")}m`;
+    };
+
+    if (isDayFiltered) {
+      // 1 Specific Day is selected (e.g. "06 Nov")
+      const dayTargetStr = selectedEventDate.trim().toLowerCase();
+      const matchedRow = breakdown.find((r) => {
+        const dStr = (r.date || "").trim().toLowerCase();
+        return (
+          dStr === dayTargetStr ||
+          `${r.day < 10 ? `0${r.day}` : r.day} ${periodInfo.monthStr}`.toLowerCase() === dayTargetStr
+        );
+      });
+
+      const selDayNum = parseInt(selectedEventDate.split(" ")[0], 10);
+      const isToday =
+        periodInfo.isCurrentMonth &&
+        periodInfo.todayDay !== null &&
+        (selDayNum === periodInfo.todayDay || matchedRow?.day === periodInfo.todayDay);
+      const currentHour = new Date().getHours();
+      const totalObsMin = isToday ? Math.max(60, currentHour * 60) : 1440;
+      const totalObsHours = totalObsMin / 60;
+
+      let downMin = matchedRow?.cpu_modem_downtime_min ?? matchedRow?.downtime_min ?? 0;
+      if (downMin === 0) {
+        const dayEvs = rawEvents.filter((ev: any) =>
+          (ev.start_time || "").startsWith(selectedEventDate)
+        );
+        downMin = dayEvs.reduce((acc: number, ev: any) => acc + (ev.duration_minutes || 0), 0);
+      }
+
+      const upMin = Math.max(0, totalObsMin - downMin);
+      const uptimePct = Number(((upMin / totalObsMin) * 100).toFixed(1));
+      const downtimePct = Number((100 - uptimePct).toFixed(1));
+
+      const slaTargetPct = 99.5;
+      const minUptimeMin = totalObsMin * (slaTargetPct / 100);
+      const maxDownMin = totalObsMin * ((100 - slaTargetPct) / 100);
+
+      const isMet = uptimePct >= slaTargetPct;
+      const diffPct = Number((uptimePct - slaTargetPct).toFixed(1));
+
+      const downDiffMin = downMin - maxDownMin;
+      const toleranceText =
+        downDiffMin > 0
+          ? `Downtime exceeded daily tolerance limit by ${fmtHM(downDiffMin)}`
+          : `Downtime within daily tolerance limit (${fmtHM(Math.abs(downDiffMin))} remaining)`;
+
+      return {
+        isDayFiltered: true,
+        periodLabel: `Date: ${selectedEventDate} (${totalObsHours.toFixed(1)} Hours Observation)`,
+        periodHours: Math.round(totalObsHours),
+        periodHoursStr: `${totalObsHours.toFixed(1)} Hours`,
+        uptimeText: fmtHM(upMin),
+        uptimePct,
+        downtimeText: fmtHM(downMin),
+        downtimePct,
+        slaTargetPct,
+        slaMinUptimeText: fmtHM(minUptimeMin),
+        slaMaxDownText: fmtHM(maxDownMin),
+        isSLAMet: isMet,
+        slaDiffPct: diffPct >= 0 ? `+${diffPct}` : `${diffPct}`,
+        toleranceText,
+      };
+    }
+
+    // ALL (Active Period or Full Month)
+    const activeRows =
+      breakdown.length > 0
+        ? breakdown.filter((r) => r.day >= periodInfo.startDay && r.day <= periodInfo.effectiveDays)
+        : [];
+
+    let totalObsMin = 0;
+    let totalUpMin = 0;
+    let totalDownMin = 0;
+
+    if (activeRows.length > 0) {
+      activeRows.forEach((r) => {
+        const up = r.cpu_modem_uptime_min ?? r.uptime_min ?? 1440;
+        const down = r.cpu_modem_downtime_min ?? r.downtime_min ?? 0;
+        totalUpMin += up;
+        totalDownMin += down;
+        totalObsMin += up + down;
       });
     }
 
-    return list;
-  }, [rawEvents, periodInfo]);
-
-
-  // Extract unique dates for dropdown (top-level hook)
-  const uniqueDates = useMemo(() => {
-    const dates = new Set<string>();
-    rawEvents.forEach((ev: any) => {
-      if (ev.start_time) {
-        const parts = ev.start_time.split(" ");
-        if (parts.length >= 2) {
-          dates.add(`${parts[0]} ${parts[1]}`);
-        }
-      }
-    });
-    return Array.from(dates);
-  }, [rawEvents]);
-
-  // Filter events by tab and selected date (top-level hook)
-  const filteredEvents = useMemo(() => {
-    let list = rawEvents;
-    if (activeEventTab === "downtime") {
-      list = list.filter(
-        (e: any) =>
-          e.category?.toLowerCase().includes("offline") ||
-          e.category?.toLowerCase().includes("mati") ||
-          e.description?.toLowerCase().includes("loss") ||
-          e.description?.toLowerCase().includes("terputus")
-      );
+    if (totalObsMin === 0) {
+      const activeDaysCount = Math.max(1, periodInfo.effectiveDays - periodInfo.startDay + 1);
+      totalObsMin = activeDaysCount * 1440;
+      totalDownMin = rawEvents.reduce((acc: number, ev: any) => acc + (ev.duration_minutes || 0), 0);
+      totalUpMin = Math.max(0, totalObsMin - totalDownMin);
     }
-    if (selectedEventDate !== "ALL") {
-      list = list.filter((e: any) => e.start_time?.startsWith(selectedEventDate));
-    }
-    return list;
-  }, [rawEvents, activeEventTab, selectedEventDate]);
 
-  const downtimeCount = useMemo(() => {
-    return rawEvents.filter(
-      (e: any) =>
-        e.category?.toLowerCase().includes("offline") ||
-        e.category?.toLowerCase().includes("mati") ||
-        e.description?.toLowerCase().includes("loss") ||
-        e.description?.toLowerCase().includes("terputus")
-    ).length;
-  }, [rawEvents]);
+    const totalObsHours = totalObsMin / 60;
+    const uptimePct = Number(((totalUpMin / totalObsMin) * 100).toFixed(1));
+    const downtimePct = Number((100 - uptimePct).toFixed(1));
+
+    const slaTargetPct = 99.5;
+    const minUptimeMin = totalObsMin * (slaTargetPct / 100);
+    const maxDownMin = totalObsMin * ((100 - slaTargetPct) / 100);
+
+    const isMet = uptimePct >= slaTargetPct;
+    const diffPct = Number((uptimePct - slaTargetPct).toFixed(1));
+
+    const downDiffMin = totalDownMin - maxDownMin;
+    const toleranceText =
+      downDiffMin > 0
+        ? `Downtime exceeded tolerance limit by ${fmtHM(downDiffMin)}`
+        : `Downtime within tolerance limit (${fmtHM(Math.abs(downDiffMin))} remaining)`;
+
+    return {
+      isDayFiltered: false,
+      periodLabel: `${periodInfo.effectivePeriodStr} (${totalObsHours.toFixed(1)} Hours Active)`,
+      periodHours: Math.round(totalObsHours),
+      periodHoursStr: `${totalObsHours.toFixed(1)} Hours`,
+      uptimeText: fmtHM(totalUpMin),
+      uptimePct,
+      downtimeText: fmtHM(totalDownMin),
+      downtimePct,
+      slaTargetPct,
+      slaMinUptimeText: fmtHM(minUptimeMin),
+      slaMaxDownText: fmtHM(maxDownMin),
+      isSLAMet: isMet,
+      slaDiffPct: diffPct >= 0 ? `+${diffPct}` : `${diffPct}`,
+      toleranceText,
+    };
+  }, [selectedEventDate, data?.daily_breakdown, periodInfo, rawEvents]);
 
   if (!gatewayId) return null;
 
@@ -201,10 +369,20 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
     );
   }
 
-  if (!data) {
+  if (isError || !data) {
     return (
-      <div className="bg-white dark:bg-[#070e1d] rounded-2xl border border-slate-200 dark:border-slate-800/90 shadow-xl p-6 text-center text-slate-500 dark:text-slate-400 text-sm">
-        Health performance data for gateway {gatewayId} not found.
+      <div className="bg-white dark:bg-[#070e1d] rounded-2xl border border-slate-200 dark:border-slate-800/90 shadow-xl p-6 text-center text-slate-500 dark:text-slate-400 text-sm space-y-3">
+        <p>
+          Data performa kesehatan untuk gateway{" "}
+          <strong className="text-slate-700 dark:text-slate-200">{gatewayId}</strong> belum tersedia atau gagal dimuat.
+        </p>
+        <button
+          type="button"
+          onClick={() => refetch()}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-blue-500 hover:bg-blue-600 text-white transition-colors cursor-pointer"
+        >
+          Muat Ulang (Retry)
+        </button>
       </div>
     );
   }
@@ -212,34 +390,17 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
   const d = data;
   const isWhite = (d.type || "").includes("Putih");
 
-  // SLA 99.5% & Monthly Accumulation calculations (1 Month = 744 hours)
-  const periodHoursNum = 744;
-  const uptimePctNum = parseFloat((d.uptime_pct || "96.8%").replace("%", "")) || 96.8;
-  const downtimePctNum = parseFloat((100 - uptimePctNum).toFixed(1));
-  const slaTargetPct = Number(d.sla_target) || 99.5;
-  const isSLAMet = uptimePctNum >= slaTargetPct;
-  const slaDiffPct = (uptimePctNum - slaTargetPct).toFixed(1);
-
-  const formatHoursMinutes = (totalHours: number) => {
-    const h = Math.floor(totalHours);
-    const m = Math.round((totalHours - h) * 60);
-    return `${h}h ${m.toString().padStart(2, "0")}m`;
-  };
-
-  const uptimeHoursCalculated = periodHoursNum * (uptimePctNum / 100);
-  const downtimeHoursCalculated = periodHoursNum * (downtimePctNum / 100);
-  const slaMinUptimeHours = periodHoursNum * (slaTargetPct / 100); // 740.28h
-  const slaMaxDowntimeHours = periodHoursNum * ((100 - slaTargetPct) / 100); // 3.72h
-
-  const uptimeDurationText = d.uptime_duration || formatHoursMinutes(uptimeHoursCalculated);
-  const downtimeDurationText = d.downtime_duration || formatHoursMinutes(downtimeHoursCalculated);
-  const slaTargetHoursText = d.sla_target_hours || formatHoursMinutes(slaMinUptimeHours);
-  const slaDowntimeAllowedText = d.sla_downtime_allowed || formatHoursMinutes(slaMaxDowntimeHours);
-
-  const downtimeDiffHours = downtimeHoursCalculated - slaMaxDowntimeHours;
-  const downtimeDiffText = downtimeDiffHours > 0
-    ? `Downtime exceeded tolerance limit by ${formatHoursMinutes(downtimeDiffHours)}`
-    : `Downtime within tolerance limit (${formatHoursMinutes(Math.abs(downtimeDiffHours))} remaining)`;
+  // Dynamic Real SLA Calculations (Active period or selected day)
+  const isSLAMet = slaCalc.isSLAMet;
+  const slaDiffPct = slaCalc.slaDiffPct;
+  const periodHoursStr = slaCalc.periodHoursStr;
+  const uptimeDurationText = slaCalc.uptimeText;
+  const uptimePctNum = slaCalc.uptimePct;
+  const downtimeDurationText = slaCalc.downtimeText;
+  const downtimePctNum = slaCalc.downtimePct;
+  const slaTargetHoursText = slaCalc.slaMinUptimeText;
+  const slaDowntimeAllowedText = slaCalc.slaMaxDownText;
+  const downtimeDiffText = slaCalc.toleranceText;
 
   const getCategoryColor = (cat: string) => {
     if (cat.includes("CPU")) return "text-[#f59e0b]";
@@ -341,10 +502,10 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
               </div>
               <div className="mt-2">
                 <div className="text-[11px] font-bold text-slate-900 dark:text-white leading-tight truncate">
-                  {periodInfo.effectivePeriodStr}
+                  {selectedEventDate !== "ALL" ? selectedEventDate : periodInfo.effectivePeriodStr}
                 </div>
                 <div className="text-[9px] text-blue-600 dark:text-blue-400 font-semibold mt-0.5">
-                  Total {periodHoursNum} Hours
+                  Total {periodHoursStr}
                 </div>
               </div>
             </div>
@@ -402,7 +563,7 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
                 <div className={`text-[10px] font-bold mt-0.5 truncate ${
                   isSLAMet ? "text-[#00a862] dark:text-[#00c875]" : "text-[#e2445c]"
                 }`}>
-                  {isSLAMet ? "Tercapai" : `Breach (${slaDiffPct}%)`}
+                  {isSLAMet ? "Achieved" : `Breach (${slaDiffPct}%)`}
                 </div>
               </div>
             </div>
@@ -443,25 +604,25 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
               </div>
             </div>
 
-            {/* Card 7: Average SD */}
+            {/* Card 7: Storage Usage */}
             <div className="bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-2.5 flex flex-col justify-between shadow-xs">
               <div className="flex items-center gap-1.5">
                 <div className="size-5 rounded bg-amber-500/15 flex items-center justify-center text-amber-600 dark:text-[#f59e0b]">
                   <TrendingUp className="size-3" />
                 </div>
-                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate">Average SD</span>
+                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate">Storage Usage</span>
               </div>
               <div className="mt-2">
                 <div className="text-xs font-bold text-amber-600 dark:text-[#f59e0b] leading-tight">
                   {d.sd_avg}%
                 </div>
                 <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
-                  Max {d.sd_max}%
+                  Peak {d.sd_max}%
                 </div>
               </div>
             </div>
 
-            {/* Card 8: SD Health & Suhu */}
+            {/* Card 8: Storage Health & Temp */}
             <div className="bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-2.5 flex flex-col justify-between shadow-xs">
               <div className="flex items-center gap-1.5">
                 <div className="size-5 rounded bg-blue-500/15 flex items-center justify-center text-blue-600 dark:text-[#00d2ff]">
@@ -474,7 +635,7 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
                   {d.sd_health_status} ({d.sd_life_pct}%)
                 </div>
                 <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
-                  {d.temp_avg}°C (Max {d.temp_max}°C)
+                  {d.temp_avg}°C (Peak {d.temp_max}°C)
                 </div>
               </div>
             </div>
@@ -494,7 +655,7 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
                   <h4 className="text-xs font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
                     Accumulated Operational Uptime & 99.5% SLA Performance
                     <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400 hidden sm:inline">
-                      (1 Month Period: 31 Days &times; 24 Hours = {periodHoursNum} Hours)
+                      ({slaCalc.periodLabel})
                     </span>
                   </h4>
                 </div>
@@ -558,9 +719,11 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
             {/* 4 Detail Metric Pills */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 border-t border-slate-200 dark:border-slate-800/60">
               <div className="bg-white dark:bg-[#070e1c] p-2.5 rounded-lg border border-slate-200 dark:border-slate-800/80 shadow-2xs">
-                <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-medium">Total Calendar Period</span>
-                <span className="text-xs font-bold text-slate-900 dark:text-white font-mono mt-0.5 block">{periodHoursNum} Hours (1 Month)</span>
-                <span className="text-[9px] text-slate-500 dark:text-slate-400">31 calendar days &times; 24 hours</span>
+                <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-medium">Observation Period</span>
+                <span className="text-xs font-bold text-slate-900 dark:text-white font-mono mt-0.5 block">{periodHoursStr}</span>
+                <span className="text-[9px] text-slate-500 dark:text-slate-400">
+                  {selectedEventDate !== "ALL" ? "24 hours observation" : `${periodInfo.effectiveDays - periodInfo.startDay + 1} active days \u00d7 24h`}
+                </span>
               </div>
 
               <div className="bg-white dark:bg-[#070e1c] p-2.5 rounded-lg border border-slate-200 dark:border-slate-800/80 shadow-2xs">
@@ -590,450 +753,133 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
               </div>
             </div>
           </div>
-
-          {/* Bottom Sub-row: 3 Line Trend Charts */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
-            {/* Chart 1: CPU Usage */}
-            <div className="bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-3 shadow-xs">
-              <div className="flex items-center justify-between pb-1 text-[11px]">
-                <span className="font-bold text-slate-900 dark:text-white">CPU Usage (%)</span>
-                <span className="text-slate-500 dark:text-slate-400 text-[10px]">
-                  Average: <strong className="text-slate-900 dark:text-white">{d.cpu_avg}%</strong> | Max: {d.cpu_max}%
-                </span>
-              </div>
-              <div className="h-24 w-full mt-1">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={d.cpu_trend} margin={{ top: 5, right: 10, left: -25, bottom: 0 }}>
-                    <XAxis dataKey="date" tick={{ fontSize: 8, fill: "#94a3b8" }} axisLine={{ stroke: "#94a3b8" }} tickLine={false} />
-                    <YAxis domain={[0, 100]} ticks={[0, 25, 50, 75, 100]} tick={{ fontSize: 8, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-                    <Tooltip content={<CustomChartTooltip unit="%" color="#00c875" />} />
-                    <Line type="monotone" dataKey="value" stroke="#00c875" strokeWidth={1.8} dot={{ r: 2, fill: "#00c875" }} activeDot={{ r: 3.5 }} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
-            {/* Chart 2: RAM Usage */}
-            <div className="bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-3 shadow-xs">
-              <div className="flex items-center justify-between pb-1 text-[11px]">
-                <span className="font-bold text-slate-900 dark:text-white">RAM Usage (%)</span>
-                <span className="text-slate-500 dark:text-slate-400 text-[10px]">
-                  Average: <strong className="text-[#00a862] dark:text-[#00c875]">{d.ram_avg}%</strong> | Max: {d.ram_max}%
-                </span>
-              </div>
-              <div className="h-24 w-full mt-1">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={d.ram_trend} margin={{ top: 5, right: 10, left: -25, bottom: 0 }}>
-                    <XAxis dataKey="date" tick={{ fontSize: 8, fill: "#94a3b8" }} axisLine={{ stroke: "#94a3b8" }} tickLine={false} />
-                    <YAxis domain={[0, 100]} ticks={[0, 25, 50, 75, 100]} tick={{ fontSize: 8, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-                    <Tooltip content={<CustomChartTooltip unit="%" color="#f59e0b" />} />
-                    <Line type="monotone" dataKey="value" stroke="#f59e0b" strokeWidth={1.8} dot={{ r: 2, fill: "#f59e0b" }} activeDot={{ r: 3.5 }} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
-            {/* Chart 3: SD Card Usage */}
-            <div className="bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-3 shadow-xs">
-              <div className="flex items-center justify-between pb-1 text-[11px]">
-                <span className="font-bold text-slate-900 dark:text-white">SD Card Usage (%)</span>
-                <span className="text-slate-500 dark:text-slate-400 text-[10px]">
-                  Average: <strong className="text-[#0073ea] dark:text-[#38bdf8]">{d.sd_avg}%</strong> | Max: {d.sd_max}%
-                </span>
-              </div>
-              <div className="h-24 w-full mt-1">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={d.sd_trend} margin={{ top: 5, right: 10, left: -25, bottom: 0 }}>
-                    <XAxis dataKey="date" tick={{ fontSize: 8, fill: "#94a3b8" }} axisLine={{ stroke: "#94a3b8" }} tickLine={false} />
-                    <YAxis domain={[0, 100]} ticks={[0, 25, 50, 75, 100]} tick={{ fontSize: 8, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-                    <Tooltip content={<CustomChartTooltip unit="%" color="#0073ea" />} />
-                    <Line type="monotone" dataKey="value" stroke="#0073ea" strokeWidth={1.8} dot={{ r: 2, fill: "#0073ea" }} activeDot={{ r: 3.5 }} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
 
-      {/* 3. Bottom Section: Multi-Track Timeline Status & Riwayat Event */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
-        {/* Left Column (lg:col-span-6): 31-Day Multi-Track Timeline Matrix Status */}
-        <div className="lg:col-span-6 bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 flex flex-col justify-between shadow-xs">
-          <div>
-            {/* Header with Title & Legend */}
-            <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200 dark:border-slate-800/60">
-              <div className="flex items-center gap-2">
-                <h4 className="text-xs font-bold text-slate-900 dark:text-white">
-                  Timeline Status ({periodInfo.effectivePeriodStr})
-                </h4>
-                <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 bg-slate-200/60 dark:bg-slate-800 px-2 py-0.5 rounded-full">
-                  {dailyMultiTrack.length} Days
-                </span>
-              </div>
-              <div className="flex items-center gap-3 text-[11px] text-slate-600 dark:text-slate-300">
-                <span className="flex items-center gap-1.5">
-                  <span className="size-2 rounded-full bg-[#00c875]" />
-                  Online
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="size-2 rounded-full bg-[#e2445c]" />
-                  Offline
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="size-2 rounded-full bg-blue-500" />
-                  Today
-                </span>
-              </div>
+      {/* 2. Telemetry Usage Trend Charts (Full Width) */}
+      <div className="w-full bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 shadow-xs space-y-3.5">
+        {/* Header: Title + Day Filter Selector */}
+        <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200 dark:border-slate-800/60">
+          <div className="flex items-center gap-2">
+            <div className="size-6 rounded-md bg-blue-500/15 flex items-center justify-center text-blue-600 dark:text-blue-400">
+              <TrendingUp className="size-3.5" />
             </div>
-
-            {/* Dynamic Multi-Track Timeline Matrix Card */}
-            <div className="mt-3.5 p-3.5 rounded-xl bg-white dark:bg-[#070e1d] border border-slate-200/90 dark:border-slate-800/80 shadow-xs space-y-2">
-              {/* RULER / HEADER TANGGAL DI ATAS */}
-              <div className="flex items-center gap-2">
-                <div className="w-16 shrink-0 text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-                  Track
-                </div>
-                <div
-                  className="flex-1 grid gap-0.5 sm:gap-1"
-                  style={{ gridTemplateColumns: `repeat(${dailyMultiTrack.length}, minmax(0, 1fr))` }}
-                >
-                  {dailyMultiTrack.map((item) => (
-                    <div
-                      key={item.day}
-                      onClick={() => {
-                        if (item.isFuture) return;
-                        if (selectedEventDate === item.dateKey) {
-                          setSelectedEventDate("ALL");
-                        } else {
-                          setSelectedEventDate(item.dateKey);
-                        }
-                      }}
-                      onMouseEnter={() => !item.isFuture && setHoveredDay(item)}
-                      onMouseLeave={() => setHoveredDay(null)}
-                      className={`text-center select-none ${item.isFuture ? "cursor-default" : "cursor-pointer"}`}
-                      title={item.isFuture ? `${item.fullDate}` : item.fullDate}
-                    >
-                      <span
-                        className={`text-[9px] font-mono block leading-none transition-all ${
-                          item.isToday
-                            ? "font-extrabold text-blue-600 dark:text-blue-400 bg-blue-500/20 px-0.5 py-0.5 rounded ring-1 ring-blue-500/50 scale-110 shadow-xs"
-                            : selectedEventDate === item.dateKey
-                            ? "font-bold text-amber-500 dark:text-amber-400"
-                            : item.isFuture
-                            ? "text-slate-400 dark:text-slate-600 opacity-60"
-                            : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
-                        }`}
-                      >
-                        {item.dayNumStr}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* TRACK 1: GATEWAY */}
-              <div className="flex items-center gap-2 pt-1.5 border-t border-slate-200/60 dark:border-slate-800/60">
-                <div className="w-16 shrink-0 text-[11px] font-semibold text-slate-700 dark:text-slate-300 truncate">
-                  Gateway
-                </div>
-                <div
-                  className="flex-1 grid gap-0.5 sm:gap-1"
-                  style={{ gridTemplateColumns: `repeat(${dailyMultiTrack.length}, minmax(0, 1fr))` }}
-                >
-                  {dailyMultiTrack.map((item) => (
-                    <div
-                      key={item.day}
-                      onClick={() => {
-                        if (item.isFuture) return;
-                        if (selectedEventDate === item.dateKey) {
-                          setSelectedEventDate("ALL");
-                        } else {
-                          setSelectedEventDate(item.dateKey);
-                        }
-                      }}
-                      onMouseEnter={() => !item.isFuture && setHoveredDay(item)}
-                      onMouseLeave={() => setHoveredDay(null)}
-                      className={`h-5.5 rounded-xs transition-all ${
-                        item.isFuture
-                          ? "bg-slate-200/30 dark:bg-slate-800/30 cursor-default"
-                          : item.gwStatus === "offline"
-                          ? "bg-[#e2445c] hover:bg-[#ff4d6d] cursor-pointer"
-                          : "bg-[#00c875] hover:bg-[#05e287] cursor-pointer"
-                      } ${
-                        item.isToday && !item.isFuture
-                          ? "ring-1.5 ring-blue-500 shadow-xs"
-                          : ""
-                      } ${
-                        selectedEventDate === item.dateKey
-                          ? "ring-2 ring-amber-400 scale-105"
-                          : !item.isFuture ? "hover:scale-105" : ""
-                      }`}
-                      title={item.isFuture ? `${item.fullDate}` : `Gateway ${item.dayNumStr} ${periodInfo.monthStr}: ${item.gwStatus === "offline" ? "Offline" : "Online"}`}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              {/* TRACK 2: CELLULAR */}
-              <div className="flex items-center gap-2">
-                <div className="w-16 shrink-0 text-[11px] font-semibold text-slate-700 dark:text-slate-300 truncate">
-                  Cellular
-                </div>
-                <div
-                  className="flex-1 grid gap-0.5 sm:gap-1"
-                  style={{ gridTemplateColumns: `repeat(${dailyMultiTrack.length}, minmax(0, 1fr))` }}
-                >
-                  {dailyMultiTrack.map((item) => (
-                    <div
-                      key={item.day}
-                      onClick={() => {
-                        if (item.isFuture) return;
-                        if (selectedEventDate === item.dateKey) {
-                          setSelectedEventDate("ALL");
-                        } else {
-                          setSelectedEventDate(item.dateKey);
-                        }
-                      }}
-                      onMouseEnter={() => !item.isFuture && setHoveredDay(item)}
-                      onMouseLeave={() => setHoveredDay(null)}
-                      className={`h-5.5 rounded-xs transition-all ${
-                        item.isFuture
-                          ? "bg-slate-200/30 dark:bg-slate-800/30 cursor-default"
-                          : item.cellStatus === "offline"
-                          ? "bg-[#e2445c] hover:bg-[#ff4d6d] cursor-pointer"
-                          : "bg-[#00c875] hover:bg-[#05e287] cursor-pointer"
-                      } ${
-                        item.isToday && !item.isFuture
-                          ? "ring-1.5 ring-blue-500 shadow-xs"
-                          : ""
-                      } ${
-                        selectedEventDate === item.dateKey
-                          ? "ring-2 ring-amber-400 scale-105"
-                          : !item.isFuture ? "hover:scale-105" : ""
-                      }`}
-                      title={item.isFuture ? `${item.fullDate}` : `Cellular ${item.dayNumStr} ${periodInfo.monthStr}: ${item.cellStatus === "offline" ? "Offline" : "Online"}`}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              {/* TRACK 3: DVR */}
-              <div className="flex items-center gap-2">
-                <div className="w-16 shrink-0 text-[11px] font-semibold text-slate-700 dark:text-slate-300 truncate">
-                  DVR
-                </div>
-                <div
-                  className="flex-1 grid gap-0.5 sm:gap-1"
-                  style={{ gridTemplateColumns: `repeat(${dailyMultiTrack.length}, minmax(0, 1fr))` }}
-                >
-                  {dailyMultiTrack.map((item) => (
-                    <div
-                      key={item.day}
-                      onClick={() => {
-                        if (item.isFuture) return;
-                        if (selectedEventDate === item.dateKey) {
-                          setSelectedEventDate("ALL");
-                        } else {
-                          setSelectedEventDate(item.dateKey);
-                        }
-                      }}
-                      onMouseEnter={() => !item.isFuture && setHoveredDay(item)}
-                      onMouseLeave={() => setHoveredDay(null)}
-                      className={`h-5.5 rounded-xs transition-all ${
-                        item.isFuture
-                          ? "bg-slate-200/30 dark:bg-slate-800/30 cursor-default"
-                          : item.dvrStatus === "offline"
-                          ? "bg-[#e2445c] hover:bg-[#ff4d6d] cursor-pointer"
-                          : "bg-[#00c875] hover:bg-[#05e287] cursor-pointer"
-                      } ${
-                        item.isToday && !item.isFuture
-                          ? "ring-1.5 ring-blue-500 shadow-xs"
-                          : ""
-                      } ${
-                        selectedEventDate === item.dateKey
-                          ? "ring-2 ring-amber-400 scale-105"
-                          : !item.isFuture ? "hover:scale-105" : ""
-                      }`}
-                      title={item.isFuture ? `${item.fullDate}` : `DVR ${item.dayNumStr} ${periodInfo.monthStr}: ${item.dvrStatus === "offline" ? "Offline" : "Online"}`}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              {/* Hover / Selected Day Real-Time Info Bar */}
-              <div className="mt-3 pt-2.5 border-t border-slate-200/70 dark:border-slate-800/70 flex items-center justify-between text-xs min-h-7">
-                {hoveredDay ? (
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-slate-800 dark:text-slate-200">
-                      {hoveredDay.fullDate}
-                      {hoveredDay.isToday && (
-                        <span className="ml-1.5 px-1.5 py-0.2 rounded text-[10px] font-bold bg-blue-500/20 text-blue-500">
-                          Today
-                        </span>
-                      )}
-                      :
-                    </span>
-                    <span className="text-[11px] text-slate-600 dark:text-slate-300">
-                      Gateway:{" "}
-                      <strong className={hoveredDay.gwStatus === "offline" ? "text-[#e2445c]" : "text-[#00c875]"}>
-                        {hoveredDay.gwStatus === "offline" ? "Offline" : "Online"}
-                      </strong>
-                      {" | "}
-                      Cellular:{" "}
-                      <strong className={hoveredDay.cellStatus === "offline" ? "text-[#e2445c]" : "text-[#00c875]"}>
-                        {hoveredDay.cellStatus === "offline" ? "Offline" : "Online"}
-                      </strong>
-                      {" | "}
-                      DVR:{" "}
-                      <strong className={hoveredDay.dvrStatus === "offline" ? "text-[#e2445c]" : "text-[#00c875]"}>
-                        {hoveredDay.dvrStatus === "offline" ? "Offline" : "Online"}
-                      </strong>
-                      {hoveredDay.eventsCount > 0 && ` (${hoveredDay.eventsCount} incident events)`}
-                    </span>
-                  </div>
-                ) : (
-                  <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between w-full">
-                    <span>Hover or click a date ({dailyMultiTrack[0]?.dayNumStr || "01"} - {dailyMultiTrack[dailyMultiTrack.length - 1]?.dayNumStr || "30"}) to filter incident details.</span>
-
-                    {selectedEventDate !== "ALL" && (
-                      <button
-                        onClick={() => setSelectedEventDate("ALL")}
-                        className="text-blue-500 hover:underline text-[11px] font-medium cursor-pointer"
-                      >
-                        Reset Filter
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
+            <div>
+              <h4 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                Telemetry Usage Trend
+                <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400">
+                  {dayStats.isDaySelected ? `(Hourly Trend • Range: 00:00 - ${dayStats.maxHourLabel || "23:00"})` : `(Daily Average Overview)`}
+                </span>
+              </h4>
             </div>
           </div>
-        </div>        {/* Right Column (lg:col-span-6): Incident History Table with Date Selector & Scrollable 10 Rows */}
-        <div className="lg:col-span-6 bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 flex flex-col justify-between shadow-xs">
-          <div>
-            <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200 dark:border-slate-800/60">
-              <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-[#070e1c] p-1 rounded-lg border border-slate-200 dark:border-slate-800/80">
-                <button
-                  type="button"
-                  onClick={() => setActiveEventTab("all")}
-                  className={`px-2.5 py-1 rounded text-xs font-semibold transition-all cursor-pointer ${
-                    activeEventTab === "all"
-                      ? "bg-[#0073ea] text-white shadow-xs"
-                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-                  }`}
-                >
-                  All Incidents ({rawEvents.length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveEventTab("downtime")}
-                  className={`px-2.5 py-1 rounded text-xs font-semibold transition-all cursor-pointer ${
-                    activeEventTab === "downtime"
-                      ? "bg-[#e2445c] text-white shadow-xs"
-                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-                  }`}
-                >
-                  Offline Incidents ({downtimeCount})
-                </button>
-              </div>
 
-              {/* Date Selector Dropdown for Daily Filtering */}
-              <div className="flex items-center gap-1.5">
-                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Filter Date:</span>
-                <select
-                  value={selectedEventDate}
-                  onChange={(e) => setSelectedEventDate(e.target.value)}
-                  className="text-xs font-medium bg-white dark:bg-[#070e1d] border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer shadow-xs"
-                >
-                  <option value="ALL">All Dates ({rawEvents.length})</option>
-                  {uniqueDates.map((dateStr) => {
-                    const count = rawEvents.filter((e: any) => e.start_time?.startsWith(dateStr)).length;
-                    return (
-                      <option key={dateStr} value={dateStr}>
-                        {dateStr} ({count} events)
-                      </option>
-                    );
-                  })}
-                </select>
-              </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Filter Day:</span>
+            <select
+              value={selectedEventDate}
+              onChange={(e) => setSelectedEventDate(e.target.value)}
+              className="text-xs font-medium bg-white dark:bg-[#070e1d] border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer shadow-xs"
+            >
+              <option value="ALL">All Days (Full Month)</option>
+              {availableDays.map((d) => (
+                <option key={d.dateKey} value={d.dateKey}>
+                  {d.label}
+                </option>
+              ))}
+            </select>
+            {dayStats.isDaySelected && (
+              <button
+                type="button"
+                onClick={() => setSelectedEventDate("ALL")}
+                className="text-xs text-blue-500 hover:underline font-medium cursor-pointer ml-1"
+              >
+                Reset Filter
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* 3 Line Trend Charts - Spanning Full Width (grid-cols-1 md:grid-cols-3) */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+          {/* Chart 1: CPU Usage */}
+          <div className="bg-white dark:bg-[#070e1d] border border-slate-200/90 dark:border-slate-800/80 rounded-xl p-3 shadow-2xs">
+            <div className="flex items-center justify-between pb-1.5 text-xs">
+              <span className="font-bold text-slate-900 dark:text-white">CPU Usage (%)</span>
+              <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                Avg: <strong className="text-slate-900 dark:text-white">{dayStats.cpuAvg}%</strong> | Peak: {dayStats.cpuMax}%
+              </span>
             </div>
+            <div className="h-36 w-full mt-1.5">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={filteredCpuTrend} margin={{ top: 5, right: 12, left: -22, bottom: 0 }}>
+                  <XAxis dataKey="displayDate" tick={{ fontSize: 9, fill: "#94a3b8" }} axisLine={{ stroke: "#94a3b8" }} tickLine={false} />
+                  <YAxis domain={[0, 100]} ticks={[0, 25, 50, 75, 100]} tick={{ fontSize: 9, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
+                  <Tooltip content={<CustomChartTooltip unit="%" color="#00c875" />} />
+                  <Line
+                    type="monotone"
+                    dataKey="value"
+                    stroke="#00c875"
+                    strokeWidth={2}
+                    dot={filteredCpuTrend.length <= 25 ? { r: 2.5, fill: "#00c875" } : false}
+                    activeDot={{ r: 4 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
 
-            {/* Scrollable Compact Table (max 10 rows visible) */}
-            <div className="overflow-x-auto mt-2 max-h-87.5 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead className="sticky top-0 z-10 bg-slate-100 dark:bg-[#0a1224] shadow-xs">
-                  <tr className="text-[11px] text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800/60 font-semibold">
-                    <th className="py-2.5 px-2 text-center w-8">No.</th>
-                    <th className="py-2.5 px-3">Incident Time</th>
-                    <th className="py-2.5 px-3">Incident / Issue</th>
-                    <th className="py-2.5 px-3 text-center">Duration</th>
-                    <th className="py-2.5 px-3 text-center">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200 dark:divide-slate-800/40 text-[11px]">
-                  {filteredEvents.map((event: any, idx: number) => {
-                    const isResolved = (event.status || "").toLowerCase() === "resolved";
-                    const isOngoing = (event.status || "").toLowerCase() === "active" || (event.end_time || "").includes("Active") || event.end_time === "-";
-                    return (
-                      <tr
-                        key={event.no || idx}
-                        className="hover:bg-slate-100/80 dark:hover:bg-slate-800/30 transition-colors"
-                      >
-                        <td className="py-2.5 px-2 text-center text-slate-500 dark:text-slate-400 font-mono">
-                          {idx + 1}
-                        </td>
-                        <td className="py-2.5 px-3 text-slate-700 dark:text-slate-300 font-mono whitespace-nowrap">
-                          <div>{event.start_time}</div>
-                          <div className="text-[10px] text-slate-500 dark:text-slate-400">to {event.end_time}</div>
-                        </td>
-                        <td className="py-2.5 px-3 font-semibold text-slate-900 dark:text-white">
-                          {event.title || event.description || event.cause}
-                        </td>
-                        <td className="py-2.5 px-3 text-center whitespace-nowrap">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-md font-bold text-xs ${
-                            isOngoing
-                              ? "bg-rose-500/15 text-rose-500 dark:text-rose-400 border border-rose-500/30 animate-pulse"
-                              : "bg-amber-500/10 dark:bg-amber-500/20 text-[#f59e0b] border border-amber-500/30"
-                          }`}>
-                            {event.duration}
-                          </span>
-                        </td>
-                        <td className="py-2.5 px-3 text-center whitespace-nowrap">
-                          {isOngoing ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/15 text-[#e2445c] border border-rose-500/30 animate-pulse">
-                              Active
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-[#00c875] border border-emerald-500/30">
-                              Resolved
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  {filteredEvents.length === 0 && (
-                    <tr>
-                      <td colSpan={5} className="py-6 text-center text-slate-500 dark:text-slate-400 text-xs">
-                        No incident history found for the selected filter.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-                {activeEventTab === "downtime" && filteredEvents.length > 0 && (
-                  <tfoot className="border-t-2 border-slate-300 dark:border-slate-700/80 bg-slate-100 dark:bg-[#081022] font-semibold text-xs text-slate-800 dark:text-slate-200">
-                    <tr>
-                      <td colSpan={2} className="py-2 px-2 text-right text-slate-500 dark:text-slate-400">Total Cumulative Downtime:</td>
-                      <td className="py-2 px-2 text-slate-900 dark:text-white font-medium">-</td>
-                      <td className="py-2 px-2 text-center text-[#e2445c] font-bold font-mono">{downtimeDurationText}</td>
-                      <td className="py-2 px-2 text-slate-600 dark:text-slate-300 font-mono text-[11px] text-center">
-                        Remaining: <strong className="text-[#00a862] dark:text-[#00c875]">{uptimeDurationText} ({uptimePctNum}%)</strong>
-                      </td>
-                    </tr>
-                  </tfoot>
-                )}
-              </table>
+          {/* Chart 2: RAM Usage */}
+          <div className="bg-white dark:bg-[#070e1d] border border-slate-200/90 dark:border-slate-800/80 rounded-xl p-3 shadow-2xs">
+            <div className="flex items-center justify-between pb-1.5 text-xs">
+              <span className="font-bold text-slate-900 dark:text-white">RAM Usage (%)</span>
+              <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                Avg: <strong className="text-[#00a862] dark:text-[#00c875]">{dayStats.ramAvg}%</strong> | Peak: {dayStats.ramMax}%
+              </span>
+            </div>
+            <div className="h-36 w-full mt-1.5">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={filteredRamTrend} margin={{ top: 5, right: 12, left: -22, bottom: 0 }}>
+                  <XAxis dataKey="displayDate" tick={{ fontSize: 9, fill: "#94a3b8" }} axisLine={{ stroke: "#94a3b8" }} tickLine={false} />
+                  <YAxis domain={[0, 100]} ticks={[0, 25, 50, 75, 100]} tick={{ fontSize: 9, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
+                  <Tooltip content={<CustomChartTooltip unit="%" color="#f59e0b" />} />
+                  <Line
+                    type="monotone"
+                    dataKey="value"
+                    stroke="#f59e0b"
+                    strokeWidth={2}
+                    dot={filteredRamTrend.length <= 25 ? { r: 2.5, fill: "#f59e0b" } : false}
+                    activeDot={{ r: 4 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Chart 3: Storage Usage (Disk /) */}
+          <div className="bg-white dark:bg-[#070e1d] border border-slate-200/90 dark:border-slate-800/80 rounded-xl p-3 shadow-2xs">
+            <div className="flex items-center justify-between pb-1.5 text-xs">
+              <span className="font-bold text-slate-900 dark:text-white">Storage Usage (Disk /) (%)</span>
+              <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                Avg: <strong className="text-[#0073ea] dark:text-[#38bdf8]">{dayStats.sdAvg}%</strong> | Peak: {dayStats.sdMax}%
+              </span>
+            </div>
+            <div className="h-36 w-full mt-1.5">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={filteredStorageTrend} margin={{ top: 5, right: 12, left: -22, bottom: 0 }}>
+                  <XAxis dataKey="displayDate" tick={{ fontSize: 9, fill: "#94a3b8" }} axisLine={{ stroke: "#94a3b8" }} tickLine={false} />
+                  <YAxis domain={[0, 100]} ticks={[0, 25, 50, 75, 100]} tick={{ fontSize: 9, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
+                  <Tooltip content={<CustomChartTooltip unit="%" color="#0073ea" />} />
+                  <Line
+                    type="monotone"
+                    dataKey="value"
+                    stroke="#0073ea"
+                    strokeWidth={2}
+                    dot={filteredStorageTrend.length <= 25 ? { r: 2.5, fill: "#0073ea" } : false}
+                    activeDot={{ r: 4 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
             </div>
           </div>
         </div>

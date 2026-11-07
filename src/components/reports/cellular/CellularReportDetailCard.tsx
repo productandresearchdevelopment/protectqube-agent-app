@@ -20,6 +20,36 @@ import {
 import { SmartBoxIsometricIllustration } from "@/components/ui/SmartBoxIllustration";
 import { parseReportPeriod } from "@/lib/reportPeriodUtils";
 
+const formatDurationEn = (dur?: string) => {
+  if (!dur) return "-";
+  return dur
+    .replace(/menit/gi, "m")
+    .replace(/jam/gi, "h")
+    .replace(/detik/gi, "s")
+    .trim();
+};
+
+const formatIncidentEn = (text?: string) => {
+  if (!text) return "Normal Operation (No incidents detected)";
+  return text
+    .replace(/Komunikasi\s+Port\s+USB\s+Modem\s+dengan\s+CPU\s+Terputus/gi, "Modem USB Port Communication Lost")
+    .replace(/Koneksi\s+Jaringan\s+Seluler\s+Terputus/gi, "Cellular Network Connection Disconnected")
+    .replace(/Aliran\s+Data\s+Internet\s+Mati/gi, "No Internet Data")
+    .replace(/Komunikasi\s+Gateway\s+CPU\s+ke\s+NVR\s+Surveillance\s+Terputus/gi, "Gateway CPU to NVR Communication Lost")
+    .replace(/Kamera\s+Hilang\s+Sinyal\s*\/\s*No\s+Video/gi, "Camera Signal Loss / No Video")
+    .replace(/Kamera\s+Terputus\s*\/\s*Offline/gi, "Camera Disconnected / Offline")
+    .replace(/Gangguan\s+Jaringan/gi, "Network Disruption")
+    .replace(/Gangguan/gi, "Incident")
+    .replace(/selama\s+(\d+)\s*Menit/gi, "for $1m")
+    .replace(/selama\s+(\d+)\s*Jam\s*(\d+)\s*Menit/gi, "for $1h $2m")
+    .replace(/selama\s+(\d+)\s*Jam/gi, "for $1h")
+    .replace(/(\d+)\s*Menit/gi, "$1m")
+    .replace(/(\d+)\s*Jam/gi, "$1h")
+    .replace(/Normal\s+Operation\s*\(No incidents detected\)/gi, "Normal Operation (No incidents detected)")
+    .replace(/Operasi\s+Normal/gi, "Normal Operation")
+    .trim();
+};
+
 interface CellularReportDetailCardProps {
   gatewayId: string | null;
   dateRange?: string;
@@ -978,11 +1008,11 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
                           <div className="text-[10px] text-slate-500 dark:text-slate-400">to {event.end_time}</div>
                         </td>
                         <td className="py-2.5 px-3 font-semibold text-slate-900 dark:text-slate-100">
-                          {event.title || event.description || event.cause}
+                          {formatIncidentEn(event.title || event.description || event.cause)}
                         </td>
                         <td className="py-2.5 px-3 text-center whitespace-nowrap">
                           <span className="inline-flex items-center px-2 py-0.5 rounded-md font-bold text-xs bg-amber-500/10 dark:bg-amber-500/20 text-[#f59e0b] border border-amber-500/30">
-                            {event.duration}
+                            {formatDurationEn(event.duration)}
                           </span>
                         </td>
                         <td className="py-2.5 px-3 text-center whitespace-nowrap">

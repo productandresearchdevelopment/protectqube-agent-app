@@ -31,6 +31,36 @@ import {
 } from "@/store/api/monitoring";
 import { formatToWIB } from "@/utils/common";
 
+const formatDurationEn = (dur?: string) => {
+  if (!dur) return "-";
+  return dur
+    .replace(/menit/gi, "m")
+    .replace(/jam/gi, "h")
+    .replace(/detik/gi, "s")
+    .trim();
+};
+
+const formatIncidentEn = (text?: string) => {
+  if (!text) return "Normal Operation (No incidents detected)";
+  return text
+    .replace(/Komunikasi\s+Port\s+USB\s+Modem\s+dengan\s+CPU\s+Terputus/gi, "Modem USB Port Communication Lost")
+    .replace(/Koneksi\s+Jaringan\s+Seluler\s+Terputus/gi, "Cellular Network Connection Disconnected")
+    .replace(/Aliran\s+Data\s+Internet\s+Mati/gi, "No Internet Data")
+    .replace(/Komunikasi\s+Gateway\s+CPU\s+ke\s+NVR\s+Surveillance\s+Terputus/gi, "Gateway CPU to NVR Communication Lost")
+    .replace(/Kamera\s+Hilang\s+Sinyal\s*\/\s*No\s+Video/gi, "Camera Signal Loss / No Video")
+    .replace(/Kamera\s+Terputus\s*\/\s*Offline/gi, "Camera Disconnected / Offline")
+    .replace(/Gangguan\s+Jaringan/gi, "Network Disruption")
+    .replace(/Gangguan/gi, "Incident")
+    .replace(/selama\s+(\d+)\s*Menit/gi, "for $1m")
+    .replace(/selama\s+(\d+)\s*Jam\s*(\d+)\s*Menit/gi, "for $1h $2m")
+    .replace(/selama\s+(\d+)\s*Jam/gi, "for $1h")
+    .replace(/(\d+)\s*Menit/gi, "$1m")
+    .replace(/(\d+)\s*Jam/gi, "$1h")
+    .replace(/Normal\s+Operation\s*\(No incidents detected\)/gi, "Normal Operation (No incidents detected)")
+    .replace(/Operasi\s+Normal/gi, "Normal Operation")
+    .trim();
+};
+
 interface DVRDeviceDetailCardProps {
   gatewayId: string | null;
   onClose?: () => void;
@@ -485,10 +515,6 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
-          <button className="bg-[#0073ea] hover:bg-blue-600 active:scale-95 text-white text-xs font-semibold px-3.5 py-1.5 rounded-lg flex items-center gap-1.5 transition-all shadow-xs cursor-pointer">
-            <span>Remote Action</span>
-            <ChevronDown className="size-3.5" />
-          </button>
           {onClose && (
             <button
               onClick={onClose}
@@ -758,12 +784,12 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                       </span>
                       <span
                         className={`font-semibold font-sans text-[11px] px-2 py-0.5 rounded-full ${
-                          d.recording_storage.status === "Normal"
+                          d.recording_storage.status === "Recording" || d.recording_storage.status === "Normal"
                             ? "bg-emerald-500/15 text-[#00a862] dark:text-emerald-400 border border-emerald-500/30"
-                            : "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30"
+                            : "bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30"
                         }`}
                       >
-                        {d.recording_storage.status}
+                        {d.recording_storage.status === "Normal" ? "Recording" : d.recording_storage.status}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
@@ -1117,11 +1143,23 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                   NVR Recording Status
                 </span>
                 <div className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <span className="size-3 rounded-full bg-emerald-500 animate-pulse" />
-                  <span>{d.recording_storage.status}</span>
+                  <span
+                    className={`size-3 rounded-full ${
+                      d.recording_storage.status === "Recording" || d.recording_storage.status === "Normal"
+                        ? "bg-emerald-500 animate-pulse"
+                        : "bg-rose-500"
+                    }`}
+                  />
+                  <span>{d.recording_storage.status === "Normal" ? "Recording" : d.recording_storage.status}</span>
                 </div>
-                <div className="text-xs text-emerald-500 font-semibold">
-                  Continuous Mode (CMR 24/7)
+                <div className={`text-xs font-semibold ${
+                  d.recording_storage.status === "Recording" || d.recording_storage.status === "Normal"
+                    ? "text-emerald-500"
+                    : "text-rose-500"
+                }`}>
+                  {d.recording_storage.status === "Recording" || d.recording_storage.status === "Normal"
+                    ? "Continuous Mode (CMR 24/7)"
+                    : "Recording Stopped / Inactive"}
                 </div>
               </div>
               <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-2">
@@ -1182,11 +1220,14 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
           <div className="space-y-4 animate-in fade-in duration-200">
             <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-3">
               <div className="flex items-center justify-between">
-                <div className="text-xs font-bold text-slate-900 dark:text-white">
-                  DVR Event History & Activity
+                <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <span>DVR Event History & Activity</span>
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-500/15 text-[#0073ea] dark:text-[#00d2ff]">
+                    Today Only
+                  </span>
                 </div>
                 <span className="text-[11px] text-slate-400">
-                  Total {(d.events && d.events.length) || 0} Recent Logs
+                  Total {(d.events && d.events.length) || 0} Incident Logs
                 </span>
               </div>
               <div className="divide-y divide-slate-200 dark:divide-slate-800/60 text-xs">
@@ -1209,17 +1250,24 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                           }`}
                         />
                         <span className="text-slate-800 dark:text-slate-200 font-medium truncate">
-                          {evt.title}
+                          {formatIncidentEn(evt.title)}
                         </span>
                       </div>
-                      <span className="text-slate-400 font-mono text-[11px] whitespace-nowrap shrink-0">
-                        {evt.time}
-                      </span>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {evt.duration && evt.duration !== "-" && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-200/80 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-mono">
+                            {formatDurationEn(evt.duration)}
+                          </span>
+                        )}
+                        <span className="text-slate-400 font-mono text-[11px] whitespace-nowrap">
+                          {evt.time}
+                        </span>
+                      </div>
                     </div>
                   ))
                 ) : (
-                  <div className="py-4 text-center text-slate-400 text-xs">
-                    No DVR telemetry logs recorded for this gateway yet.
+                  <div className="py-5 text-center text-slate-400 text-xs">
+                    No DVR telemetry incidents recorded for this gateway today.
                   </div>
                 )}
               </div>

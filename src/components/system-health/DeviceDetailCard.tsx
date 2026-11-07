@@ -9,7 +9,6 @@ import {
   HardDrive,
   ShieldCheck,
   Clock,
-  ChevronDown,
   CheckCircle2,
   AlertTriangle,
   AlertCircle,
@@ -21,7 +20,6 @@ import {
   Activity,
   CheckCheck,
   Thermometer,
-  Layers,
   Info,
   TrendingDown,
   TrendingUp,
@@ -34,6 +32,35 @@ import {
 } from "@/store/api/monitoring";
 import { getCurrentMonthPeriodStr } from "@/lib/reportPeriodUtils";
 
+const formatDurationEn = (dur?: string) => {
+  if (!dur) return "-";
+  return dur
+    .replace(/menit/gi, "m")
+    .replace(/jam/gi, "h")
+    .replace(/detik/gi, "s")
+    .trim();
+};
+
+const formatIncidentEn = (text?: string) => {
+  if (!text) return "Normal Operation (No incidents detected)";
+  return text
+    .replace(/Komunikasi\s+Port\s+USB\s+Modem\s+dengan\s+CPU\s+Terputus/gi, "Modem USB Port Communication Lost")
+    .replace(/Koneksi\s+Jaringan\s+Seluler\s+Terputus/gi, "Cellular Network Connection Disconnected")
+    .replace(/Aliran\s+Data\s+Internet\s+Mati/gi, "No Internet Data")
+    .replace(/Komunikasi\s+Gateway\s+CPU\s+ke\s+NVR\s+Surveillance\s+Terputus/gi, "Gateway CPU to NVR Communication Lost")
+    .replace(/Kamera\s+Hilang\s+Sinyal\s*\/\s*No\s+Video/gi, "Camera Signal Loss / No Video")
+    .replace(/Kamera\s+Terputus\s*\/\s*Offline/gi, "Camera Disconnected / Offline")
+    .replace(/Gangguan\s+Jaringan/gi, "Network Disruption")
+    .replace(/Gangguan/gi, "Incident")
+    .replace(/selama\s+(\d+)\s*Menit/gi, "for $1m")
+    .replace(/selama\s+(\d+)\s*Jam\s*(\d+)\s*Menit/gi, "for $1h $2m")
+    .replace(/selama\s+(\d+)\s*Jam/gi, "for $1h")
+    .replace(/(\d+)\s*Menit/gi, "$1m")
+    .replace(/(\d+)\s*Jam/gi, "$1h")
+    .replace(/Normal\s+Operation\s*\(No incidents detected\)/gi, "Normal Operation (No incidents detected)")
+    .replace(/Operasi\s+Normal/gi, "Normal Operation")
+    .trim();
+};
 
 interface DeviceDetailCardProps {
   gatewayId: string | null;
@@ -291,10 +318,9 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
   const [activeTab, setActiveTab] = useState<
     | "Overview"
     | "CPU & RAM"
-    | "SD Card"
+    | "Storage"
     | "Uptime"
     | "Temperature"
-    | "Proses"
     | "Event Log"
   >("Overview");
 
@@ -327,18 +353,16 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
   const tabs: Array<
     | "Overview"
     | "CPU & RAM"
-    | "SD Card"
+    | "Storage"
     | "Uptime"
     | "Temperature"
-    | "Proses"
     | "Event Log"
   > = [
     "Overview",
     "CPU & RAM",
-    "SD Card",
+    "Storage",
     "Uptime",
     "Temperature",
-    "Proses",
     "Event Log",
   ];
 
@@ -397,98 +421,44 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
       ? `Downtime exceeded tolerance limit by ${formatHoursMinutes(downtimeDiffHours)}`
       : `Downtime within tolerance limit (${formatHoursMinutes(Math.abs(downtimeDiffHours))} remaining)`;
 
-  const downtimeEvents: IDowntimeEvent[] =
-    d.downtime_events && d.downtime_events.length > 0
-      ? d.downtime_events
-      : [
-          {
-            no: 1,
-            start_time: "04 Oct 2026 02:15",
-            end_time: "04 Oct 2026 08:30",
-            duration: "6h 15m",
-            accumulated_hours: "6h 15m",
-            category: "Listrik Padam (PLN)",
-            reason: "Grid power outage in Pondok Aren area",
-            sla_impact_pct: 0.84,
-            status: "Resolved",
-          },
-          {
-            no: 2,
-            start_time: "12 Oct 2026 11:20",
-            end_time: "12 Oct 2026 15:05",
-            duration: "3h 45m",
-            accumulated_hours: "10h 00m",
-            category: "MCB / Power Trip",
-            reason: "Store MCB switch tripped during peak load",
-            sla_impact_pct: 0.5,
-            status: "Resolved",
-          },
-          {
-            no: 3,
-            start_time: "19 Oct 2026 23:40",
-            end_time: "20 Oct 2026 09:10",
-            duration: "9h 30m",
-            accumulated_hours: "19h 30m",
-            category: "Maintenance Gedung",
-            reason: "Store electrical & power panel maintenance",
-            sla_impact_pct: 1.28,
-            status: "Resolved",
-          },
-          {
-            no: 4,
-            start_time: "27 Oct 2026 14:10",
-            end_time: "27 Oct 2026 18:25",
-            duration: "4h 15m",
-            accumulated_hours: "23h 45m",
-            category: "Hard Reboot & OS Recovery",
-            reason: "Automatic system recovery following voltage drop",
-            sla_impact_pct: 0.57,
-            status: "Resolved",
-          },
-        ];
+  const downtimeEvents: IDowntimeEvent[] = d.downtime_events || [];
 
-  // 31-Day operational calendar data (1-31 Oct 2026)
-  const daysInMonth = Array.from({ length: 31 }, (_, i) => {
+  // Dynamic operational calendar data for current month
+  const nowObj = new Date();
+  const currentMonthName = nowObj.toLocaleDateString("en-US", { month: "short" });
+  const currentMonthNum = nowObj.getMonth() + 1;
+  const currentYear = nowObj.getFullYear();
+  const daysInCurrentMonth = new Date(currentYear, currentMonthNum, 0).getDate();
+  const currentDay = nowObj.getDate();
+
+  const daysInMonth = Array.from({ length: daysInCurrentMonth }, (_, i) => {
     const day = i + 1;
     let isDown = false;
     let downDuration = "";
     let upDuration = "24 Hours";
     let incident = "";
 
-    if (day === 4) {
+    const evForDay = downtimeEvents.find((ev) => {
+      if (!ev.start_time) return false;
+      const m = ev.start_time.match(/(\d{1,2})\s+([A-Za-z]+)/);
+      if (m && parseInt(m[1], 10) === day) return true;
+      return false;
+    });
+
+    if (evForDay) {
       isDown = true;
-      downDuration = "6h 15m Downtime";
-      upDuration = "17h 45m Uptime";
-      incident = "PLN Outage (02:15 - 08:30)";
-    } else if (day === 12) {
-      isDown = true;
-      downDuration = "3h 45m Downtime";
-      upDuration = "20h 15m Uptime";
-      incident = "MCB Trip (11:20 - 15:05)";
-    } else if (day === 19) {
-      isDown = true;
-      downDuration = "0h 20m Downtime";
-      upDuration = "23h 40m Uptime";
-      incident = "Gedung Maintenance (23:40 - 24:00)";
-    } else if (day === 20) {
-      isDown = true;
-      downDuration = "9h 10m Downtime";
-      upDuration = "14h 50m Uptime";
-      incident = "Gedung Maintenance (00:00 - 09:10)";
-    } else if (day === 27) {
-      isDown = true;
-      downDuration = "4h 15m Downtime";
-      upDuration = "19h 45m Uptime";
-      incident = "Hard Reboot (14:10 - 18:25)";
+      downDuration = `${evForDay.duration} Downtime`;
+      incident = `${evForDay.category} (${evForDay.start_time} - ${evForDay.end_time || "Now"})`;
     }
 
     return {
       day,
-      dateLabel: `${day.toString().padStart(2, "0")} Oct`,
+      dateLabel: `${day.toString().padStart(2, "0")} ${currentMonthName}`,
       isDown,
       downDuration,
       upDuration,
       incident,
+      isFuture: day > currentDay,
     };
   });
 
@@ -537,12 +507,8 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
           })}
         </div>
 
-        {/* Right: Remote Action Menu & Close */}
+        {/* Right: Close Button */}
         <div className="flex items-center gap-2">
-          <button className="bg-[#0073ea] hover:bg-blue-600 active:scale-95 text-white text-xs font-semibold px-3.5 py-1.5 rounded-lg flex items-center gap-1.5 transition-all shadow-xs cursor-pointer">
-            <span>Remote Action</span>
-            <ChevronDown className="size-3.5" />
-          </button>
           {onClose && (
             <button
               onClick={onClose}
@@ -683,7 +649,7 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                 </div>
               </div>
 
-              {/* Kolom 2 (col-3): SD Card Health Card */}
+              {/* Kolom 2 (col-3): Storage Health Card */}
               <div className="lg:col-span-3 col-span-12 bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-3.5 flex flex-col justify-between">
                 <div>
                   {/* Header */}
@@ -691,7 +657,7 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                     <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300 font-medium text-xs">
                       <ShieldCheck className="size-3.5 text-emerald-500 dark:text-emerald-400" />
                       <span className="font-semibold text-slate-800 dark:text-slate-200">
-                        SD Card Health
+                        Storage Health
                       </span>
                     </div>
                     <span
@@ -810,7 +776,7 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                   {/* Monthly Period & SLA Target */}
                   <div className="flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-400 mt-2 mb-1">
                     <span className="font-medium">
-                      Oct 2026 ({totalMonthHours} Hours)
+                      {currentMonthName} {currentYear} ({totalMonthHours} Hours &bull; Cutoff Day {currentDay})
                     </span>
                     <span className="font-mono text-slate-700 dark:text-slate-300">
                       Target 99.5%
@@ -889,7 +855,7 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                         }`}
                       >
                         {isSLAMet
-                          ? `Tercapai (+${slaDiffPct}%)`
+                          ? `Achieved (+${slaDiffPct}%)`
                           : `Over: +${formatHoursMinutes(downtimeDiffHours)}`}
                       </span>
                     </div>
@@ -902,7 +868,9 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                   onClick={() => setActiveTab("Uptime")}
                   className="w-full mt-2 py-1 px-2 bg-blue-500/10 hover:bg-blue-500/20 active:scale-[0.99] border border-blue-500/25 hover:border-blue-500/40 rounded-lg text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs group"
                 >
-                  <span>Downtime Incident Details ({downtimeEvents.length})</span>
+                  <span>
+                    Downtime Incident Details ({downtimeEvents.length})
+                  </span>
                   <ArrowRight className="size-3 group-hover:translate-x-0.5 transition-transform" />
                 </button>
               </div>
@@ -952,11 +920,11 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                 </div>
               </div>
 
-              {/* Kolom 3 dari 3: SD Card Usage */}
+              {/* Kolom 3 dari 3: Storage Usage */}
               <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 flex flex-col justify-between">
                 <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300 font-medium text-xs">
                   <HardDrive className="size-3.5 text-purple-500 dark:text-purple-400" />
-                  <span className="font-semibold">SD Card Usage</span>
+                  <span className="font-semibold">Storage Usage</span>
                 </div>
 
                 <CircularGauge
@@ -1006,7 +974,7 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                       className={`size-1.5 rounded-full ${isSLAMet ? "bg-[#00c875]" : "bg-rose-500 animate-pulse"}`}
                     />
                     {isSLAMet
-                      ? `SLA 99.5% Tercapai (+${slaDiffPct}%)`
+                      ? `SLA 99.5% Achieved (+${slaDiffPct}%)`
                       : `SLA 99.5% Breach (${slaDiffPct}%)`}
                   </span>
                 </div>
@@ -1015,12 +983,11 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                   <strong className="text-slate-800 dark:text-slate-200">
                     {d.month_period || getCurrentMonthPeriodStr()}
                   </strong>{" "}
-
                   &bull; Total Periode:{" "}
                   <strong className="text-slate-800 dark:text-slate-200">
                     {totalMonthHours} Hours
                   </strong>{" "}
-                  (31 Days &times; 24 Hours)
+                  ({daysInCurrentMonth} Days &times; 24 Hours &bull; Cutoff: Day {currentDay})
                 </p>
               </div>
 
@@ -1065,7 +1032,7 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                   </div>
                 </div>
                 <div className="text-[10px] text-slate-500 dark:text-slate-400 border-t border-slate-200 dark:border-slate-800/50 pt-1.5">
-                  Formula: {totalMonthHours} Hours &times; 99.5% = 740.28 Hours
+                  Formula: {totalMonthHours} Hours &times; 99.5% = {slaMinUptimeHours.toFixed(1)} Hours
                 </div>
               </div>
 
@@ -1158,9 +1125,7 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                   <div
                     className={`text-xs font-semibold mt-1 ${isSLAMet ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}
                   >
-                    {isSLAMet
-                      ? "SLA Target Achieved"
-                      : "SLA Breach (Not Met)"}
+                    {isSLAMet ? "SLA Target Achieved" : "SLA Breach (Not Met)"}
                   </div>
                 </div>
                 <div
@@ -1177,7 +1142,8 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
               <div className="flex items-center justify-between text-xs font-semibold">
                 <span className="text-slate-900 dark:text-white flex items-center gap-1.5">
                   <Activity className="size-3.5 text-blue-600 dark:text-blue-400" />
-                  Accumulated Uptime vs Downtime Ratio in {totalMonthHours} Hours
+                  Accumulated Uptime vs Downtime Ratio in {totalMonthHours}{" "}
+                  Hours
                 </span>
                 <span className="text-amber-600 dark:text-yellow-400 font-mono text-[11px]">
                   Target SLA: 99.5% (Min. {slaTargetHoursText})
@@ -1231,16 +1197,16 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
               </div>
             </div>
 
-            {/* Visual 31-Day Operational Calendar Strip */}
+            {/* Visual Operational Calendar Strip */}
             <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-3 shadow-xs">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <h4 className="text-xs font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
                     <Calendar className="size-3.5 text-blue-600 dark:text-blue-400" />
-                    Daily Uptime Calendar (01 Oct – 31 Oct 2026)
+                    Daily Uptime Calendar ({d.month_period || `01 ${currentMonthName} – ${daysInCurrentMonth} ${currentMonthName} ${currentYear}`})
                   </h4>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                    Daily operational status for this month (31 Days). Red boxes
+                    Daily operational status for this month ({daysInCurrentMonth} Days &bull; Cutoff Day {currentDay}). Red boxes
                     indicate days with power outages or downtime incidents.
                   </p>
                 </div>
@@ -1341,10 +1307,10 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                           {evt.end_time}
                         </td>
                         <td className="py-2.5 px-3 font-mono font-bold text-[#e2445c] whitespace-nowrap">
-                          {evt.duration}
+                          {formatDurationEn(evt.duration)}
                         </td>
                         <td className="py-2.5 px-3 font-mono font-semibold text-rose-600 dark:text-rose-300 whitespace-nowrap">
-                          {evt.accumulated_hours}
+                          {formatDurationEn(evt.accumulated_hours)}
                         </td>
                         <td className="py-2.5 px-3 whitespace-nowrap">
                           <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700/60">
@@ -1352,7 +1318,7 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                           </span>
                         </td>
                         <td className="py-2.5 px-3 text-slate-600 dark:text-slate-300 min-w-50">
-                          {evt.reason}
+                          {formatIncidentEn(evt.reason || evt.description || evt.title)}
                         </td>
                         <td className="py-2.5 px-3 font-mono text-rose-600 dark:text-rose-400 whitespace-nowrap">
                           -{evt.sla_impact_pct}%
@@ -1405,14 +1371,14 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                   Conclusion & 99.5% SLA Achievement Analysis
                 </div>
                 <p className="text-slate-700 dark:text-slate-300 leading-relaxed">
-                  Based on the <strong>99.5%</strong> SLA standard, the gateway must be
-                  active for a minimum of <strong>{slaTargetHoursText}</strong> with a
-                  maximum downtime tolerance of{" "}
-                  <strong>{slaDowntimeAllowedText}</strong> out of total{" "}
-                  <strong>{totalMonthHours} Hours</strong> monthly. Gateway{" "}
-                  <strong>{d.id}</strong> recorded cumulative downtime of{" "}
-                  <strong>{downtimeDurationText}</strong> (exceeding tolerance
-                  limit by{" "}
+                  Based on the <strong>99.5%</strong> SLA standard, the gateway
+                  must be active for a minimum of{" "}
+                  <strong>{slaTargetHoursText}</strong> with a maximum downtime
+                  tolerance of <strong>{slaDowntimeAllowedText}</strong> out of
+                  total <strong>{totalMonthHours} Hours</strong> monthly.
+                  Gateway <strong>{d.id}</strong> recorded cumulative downtime
+                  of <strong>{downtimeDurationText}</strong> (exceeding
+                  tolerance limit by{" "}
                   <strong>{formatHoursMinutes(downtimeDiffHours)}</strong>),
                   resulting in a final performance of{" "}
                   <strong>{uptimePctNum}% (Status: SLA Breach)</strong>.
@@ -1421,8 +1387,8 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                   &bull; Primary downtime contributor was grid power outages (6h
                   15m) and building power panel maintenance (9h 30m), accounting
                   for 66.3% of total downtime. The SmartBox gateway successfully
-                  performed autonomous recovery as soon as power supply returned to
-                  normal.
+                  performed autonomous recovery as soon as power supply returned
+                  to normal.
                 </p>
               </div>
             </div>
@@ -1526,14 +1492,14 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
         )}
 
         {/* ========================================================= */}
-        {/* TAB 4: SD CARD */}
+        {/* TAB 3: STORAGE */}
         {/* ========================================================= */}
-        {activeTab === "SD Card" && (
+        {activeTab === "Storage" && (
           <div className="space-y-4 animate-in fade-in duration-200">
             <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
               <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <HardDrive className="size-4 text-purple-600 dark:text-purple-400" />
-                Telemetri SD Card Storage & Health Check
+                Storage Telemetry & Health Check
               </h3>
               <button
                 type="button"
@@ -1557,7 +1523,7 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                   <div className="flex justify-between">
                     <span>Total Storage:</span>
                     <strong className="text-slate-800 dark:text-slate-200">
-                      {d.sd_total_gb} GB Class 10 U3
+                      {d.sd_total_gb} GB Flash Storage
                     </strong>
                   </div>
                   <div className="flex justify-between">
@@ -1569,7 +1535,7 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                   <div className="flex justify-between">
                     <span>Sisa Ruang:</span>
                     <strong className="text-[#00a862] dark:text-emerald-400">
-                      {d.sd_total_gb - d.sd_used_gb} GB Bebas
+                      {Math.max(0, d.sd_total_gb - d.sd_used_gb)} GB Bebas
                     </strong>
                   </div>
                 </div>
@@ -1627,15 +1593,17 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
         )}
 
         {/* ========================================================= */}
-        {/* TAB 5: TEMPERATURE */}
+        {/* TAB 4: TEMPERATURE */}
         {/* ========================================================= */}
         {activeTab === "Temperature" && (
           <div className="space-y-4 animate-in fade-in duration-200">
             <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <div className="flex items-center gap-2">
                 <Thermometer className="size-4 text-amber-500 dark:text-amber-400" />
-                Thermal Telemetry & Temperature Sensor
-              </h3>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                  CPU Temperature
+                </h3>
+              </div>
               <button
                 type="button"
                 onClick={() => setActiveTab("Overview")}
@@ -1647,35 +1615,35 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
               <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 text-center space-y-1 shadow-xs">
                 <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                  Current Sensor Temperature
+                  CPU Temperature
                 </span>
                 <div className="text-3xl font-bold text-[#00a862] dark:text-emerald-400 font-mono">
                   {d.sd_health.temperature}
                 </div>
                 <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                  Normal Thermal Status
+                  Normal (&lt; 70°C)
                 </span>
               </div>
               <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 text-center space-y-1 shadow-xs">
                 <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                  Warning Threshold Limit
+                  Batas Peringatan (Warning)
                 </span>
                 <div className="text-3xl font-bold text-amber-600 dark:text-yellow-400 font-mono">
                   70°C
                 </div>
                 <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                  High Temp Warning
+                  Peringatan Suhu Tinggi
                 </span>
               </div>
               <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 text-center space-y-1 shadow-xs">
                 <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                  Thermal Throttling Target
+                  Batas Bahaya (Kritis)
                 </span>
                 <div className="text-3xl font-bold text-[#e2445c] font-mono">
                   85°C
                 </div>
                 <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                  Auto Frequency Throttling
+                  Suhu Kritis / Overheat
                 </span>
               </div>
             </div>
@@ -1683,176 +1651,80 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
         )}
 
         {/* ========================================================= */}
-        {/* TAB 6: PROSES */}
-        {/* ========================================================= */}
-        {activeTab === "Proses" && (
-          <div className="space-y-4 animate-in fade-in duration-200">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <Layers className="size-4 text-blue-600 dark:text-blue-400" />
-                Daftar Proses & Service Aktif (Daemon Telemetry)
-              </h3>
-              <button
-                type="button"
-                onClick={() => setActiveTab("Overview")}
-                className="text-xs text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white px-2.5 py-1 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/60 shadow-xs cursor-pointer"
-              >
-                &larr; Overview
-              </button>
-            </div>
-            <div className="bg-white dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl overflow-hidden shadow-xs">
-              <table className="w-full text-left text-xs text-slate-700 dark:text-slate-300">
-                <thead className="bg-slate-100 dark:bg-[#081022] text-slate-600 dark:text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-200 dark:border-slate-800">
-                  <tr>
-                    <th className="py-2.5 px-3">PID</th>
-                    <th className="py-2.5 px-3">Nama Service</th>
-                    <th className="py-2.5 px-3">CPU %</th>
-                    <th className="py-2.5 px-3">RAM Usage</th>
-                    <th className="py-2.5 px-3">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200 dark:divide-slate-800/60 font-mono">
-                  <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                    <td className="py-2.5 px-3 text-slate-500 dark:text-slate-400">
-                      1024
-                    </td>
-                    <td className="py-2.5 px-3 text-slate-900 dark:text-white font-sans font-medium">
-                      pq-aiops-agent.service
-                    </td>
-                    <td className="py-2.5 px-3 text-[#00a862] dark:text-emerald-400">
-                      4.2%
-                    </td>
-                    <td className="py-2.5 px-3 text-slate-700 dark:text-slate-300">
-                      128 MB
-                    </td>
-                    <td className="py-2.5 px-3 font-sans">
-                      <span className="text-[#00a862] dark:text-[#00c875] text-[11px] font-semibold">
-                        Active (Running)
-                      </span>
-                    </td>
-                  </tr>
-                  <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                    <td className="py-2.5 px-3 text-slate-500 dark:text-slate-400">
-                      1102
-                    </td>
-                    <td className="py-2.5 px-3 text-slate-900 dark:text-white font-sans font-medium">
-                      quectel-cm.service (Cellular)
-                    </td>
-                    <td className="py-2.5 px-3 text-[#00a862] dark:text-emerald-400">
-                      0.8%
-                    </td>
-                    <td className="py-2.5 px-3 text-slate-700 dark:text-slate-300">
-                      34 MB
-                    </td>
-                    <td className="py-2.5 px-3 font-sans">
-                      <span className="text-[#00a862] dark:text-[#00c875] text-[11px] font-semibold">
-                        Active (Connected)
-                      </span>
-                    </td>
-                  </tr>
-                  <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                    <td className="py-2.5 px-3 text-slate-500 dark:text-slate-400">
-                      1240
-                    </td>
-                    <td className="py-2.5 px-3 text-slate-900 dark:text-white font-sans font-medium">
-                      rtsp-dvr-streamer.service
-                    </td>
-                    <td className="py-2.5 px-3 text-amber-600 dark:text-amber-400">
-                      14.5%
-                    </td>
-                    <td className="py-2.5 px-3 text-slate-700 dark:text-slate-300">
-                      256 MB
-                    </td>
-                    <td className="py-2.5 px-3 font-sans">
-                      <span className="text-[#00a862] dark:text-[#00c875] text-[11px] font-semibold">
-                        Active (Streaming)
-                      </span>
-                    </td>
-                  </tr>
-                  <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                    <td className="py-2.5 px-3 text-slate-500 dark:text-slate-400">
-                      980
-                    </td>
-                    <td className="py-2.5 px-3 text-slate-900 dark:text-white font-sans font-medium">
-                      mosquitto-client.service
-                    </td>
-                    <td className="py-2.5 px-3 text-[#00a862] dark:text-emerald-400">
-                      0.2%
-                    </td>
-                    <td className="py-2.5 px-3 text-slate-700 dark:text-slate-300">
-                      18 MB
-                    </td>
-                    <td className="py-2.5 px-3 font-sans">
-                      <span className="text-[#00a862] dark:text-[#00c875] text-[11px] font-semibold">
-                        Active (Idle)
-                      </span>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* ========================================================= */}
-        {/* TAB 7: EVENT LOG */}
+        {/* TAB 5: EVENT LOG */}
         {/* ========================================================= */}
         {activeTab === "Event Log" && (
           <div className="space-y-4 animate-in fade-in duration-200">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <Activity className="size-4 text-purple-600 dark:text-purple-400" />
-                System & Hardware Event History Log
-              </h3>
-              <button
-                type="button"
-                onClick={() => setActiveTab("Overview")}
-                className="text-xs text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white px-2.5 py-1 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/60 shadow-xs cursor-pointer"
-              >
-                &larr; Overview
-              </button>
-            </div>
-            <div className="bg-white dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-3.5 space-y-2.5 text-xs shadow-xs">
-              <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-start justify-between shadow-2xs">
-                <div>
-                  <span className="font-semibold text-slate-900 dark:text-white">
-                    System Auto-Recovery Complete
+            <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                    <Activity className="size-3.5 text-purple-500" />
+                    System & Hardware Event History Log
+                  </div>
+                  <span className="text-[10px] font-semibold bg-blue-500/10 text-[#0073ea] dark:text-[#00d2ff] border border-blue-500/20 px-2 py-0.5 rounded-full">
+                    Today Only (
+                    {new Date().toLocaleDateString("id-ID", {
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                    })}
+                    )
                   </span>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Device automatically recovered after external power outage
-                    toko.
-                  </p>
                 </div>
-                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
-                  27 Oct 18:25
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] text-slate-400">
+                    Total {(d.events && d.events.length) || 0} Events Today
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("Overview")}
+                    className="text-xs text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white px-2.5 py-1 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/60 shadow-xs cursor-pointer ml-2"
+                  >
+                    &larr; Overview
+                  </button>
+                </div>
               </div>
-              <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-start justify-between shadow-2xs">
-                <div>
-                  <span className="font-semibold text-slate-900 dark:text-white">
-                    SD Card Health Check Passed
-                  </span>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Integritas filesystem ext4 OK, 0 bad sector, wear level 12%.
-                  </p>
-                </div>
-                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
-                  26 Oct 00:00
-                </span>
-              </div>
-              <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-start justify-between shadow-2xs">
-                <div>
-                  <span className="font-semibold text-slate-900 dark:text-white">
-                    Memory Pool Reclaimed
-                  </span>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Buffer cache dibersihkan oleh kernel, 1.2 GB memori
-                    dibebaskan.
-                  </p>
-                </div>
-                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
-                  22 Oct 10:15
-                </span>
+              <div className="divide-y divide-slate-200 dark:divide-slate-800/60 text-xs">
+                {d.events && d.events.length > 0 ? (
+                  d.events.map((evt, idx) => (
+                    <div
+                      key={evt.id || idx}
+                      className="py-2.5 flex items-center justify-between gap-4"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span
+                          className={`size-2 rounded-full shrink-0 ${
+                            evt.status === "error"
+                              ? "bg-rose-500"
+                              : evt.status === "warning"
+                                ? "bg-amber-500"
+                                : evt.status === "info"
+                                  ? "bg-sky-500"
+                                  : "bg-emerald-500"
+                          }`}
+                        />
+                        <span className="text-slate-800 dark:text-slate-200 font-medium truncate">
+                          {formatIncidentEn(evt.title)}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {evt.duration && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                            {formatDurationEn(evt.duration)}
+                          </span>
+                        )}
+                        <span className="text-slate-400 font-mono text-[11px] whitespace-nowrap">
+                          {evt.time}
+                        </span>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="py-4 text-center text-slate-400 text-xs">
+                    No hardware or system events recorded for this gateway today.
+                  </div>
+                )}
               </div>
             </div>
           </div>

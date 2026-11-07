@@ -22,9 +22,7 @@ export default function ReportDVRPage() {
   const [filters, setFilters] = useState<IDVRReportFilters>({
     search: "",
     type: "All Types",
-    dvr_brand: "All DVR Brands",
-    location: "All Locations",
-    date_range: "01 Nov 2026 - 04 Nov 2026",
+    date_range: getCurrentMonthPeriodStr(),
 
     page: 1,
     pageSize: 50,
@@ -99,31 +97,6 @@ export default function ReportDVRPage() {
         { label: "All Types", value: "All Types" },
         { label: "SmartBox Black", value: "SmartBox Hitam" },
         { label: "SmartBox White", value: "SmartBox Putih" },
-      ],
-    },
-    {
-      id: "dvr_brand",
-      value: filters.dvr_brand || "All DVR Brands",
-      onChange: (val) => handleFilterChange("dvr_brand", val),
-      options: [
-        { label: "All DVR Brands", value: "All DVR Brands" },
-        { label: "Hikvision", value: "Hikvision" },
-        { label: "Dahua", value: "Dahua" },
-        { label: "Uniview", value: "Uniview" },
-      ],
-    },
-    {
-      id: "location",
-      value: filters.location || "All Locations",
-      onChange: (val) => handleFilterChange("location", val),
-      options: [
-        { label: "All Locations", value: "All Locations" },
-        { label: "Alfa Mart", value: "Alfa" },
-        { label: "Indomaret", value: "IDM" },
-        { label: "SPBU", value: "SPBU" },
-        { label: "Cileungsi", value: "Cileungsi" },
-        { label: "Cinere", value: "Cinere" },
-        { label: "Sawangan", value: "Sawangan" },
       ],
     },
   ];
@@ -255,31 +228,34 @@ export default function ReportDVRPage() {
         header: "Loss",
         align: "center",
         className: "bg-cyan-500/[0.025] dark:bg-cyan-500/[0.04]",
-        cell: (gw) => (
-          <span
-            className={`font-bold whitespace-nowrap ${
-              gw.kamera_offline > 0 ? "text-[#e2445c]" : "text-slate-400"
-            }`}
-          >
-            {gw.kamera_offline}
-          </span>
-        ),
+        cell: (gw) => {
+          const lossCount =
+            gw.kamera_offline !== undefined && gw.kamera_offline !== null
+              ? gw.kamera_offline
+              : Math.max(0, (gw.kamera_total || 0) - (gw.kamera_online || 0));
+          return (
+            <span
+              className={`font-bold whitespace-nowrap ${
+                lossCount > 0 ? "text-[#e2445c]" : "text-slate-400"
+              }`}
+            >
+              {lossCount}
+            </span>
+          );
+        },
       },
       {
-        id: "kamera_loss_pct",
-        header: "Loss (%)",
+        id: "kamera_success_rate",
+        header: "Success Rate",
         align: "center",
         className: "bg-cyan-500/[0.025] dark:bg-cyan-500/[0.04] border-r-2 border-r-cyan-300 dark:border-r-cyan-700/80",
         cell: (gw) => {
-          const lossCount = (gw.kamera_offline || 0) + (gw.kamera_no_video || 0);
-          const lossPct = Math.round((lossCount / (gw.kamera_total || 1)) * 100);
+          const tot = gw.kamera_total || 0;
+          const on = gw.kamera_online || 0;
+          const sr = tot > 0 ? Number(((on / tot) * 100).toFixed(1)) : 100.0;
           return (
-            <span
-              className={`whitespace-nowrap font-medium ${
-                lossPct > 0 ? "text-[#e2445c]" : "text-slate-400"
-              }`}
-            >
-              {lossPct}%
+            <span className="text-slate-800 dark:text-slate-200 whitespace-nowrap font-medium">
+              {sr}%
             </span>
           );
         },
@@ -287,7 +263,7 @@ export default function ReportDVRPage() {
       // Group 3: Recording Status (Apple Amber Group)
       {
         id: "rec_uptime",
-        header: "Normal",
+        header: "Record",
         align: "center",
         className: "bg-amber-500/[0.025] dark:bg-amber-500/[0.04]",
         cell: (gw) => (
@@ -298,13 +274,13 @@ export default function ReportDVRPage() {
       },
       {
         id: "rec_tidak_merekam",
-        header: "Corrupt",
+        header: "Not Record",
         align: "center",
         className: "bg-amber-500/[0.025] dark:bg-amber-500/[0.04]",
         cell: (gw) => (
           <span
             className={`font-bold whitespace-nowrap ${
-              gw.rec_tidak_merekam !== "0m" && gw.rec_tidak_merekam !== "0h" ? "text-[#fdab3d]" : "text-slate-400"
+              gw.rec_tidak_merekam !== "0m" && gw.rec_tidak_merekam !== "0h" ? "text-[#e2445c]" : "text-slate-400"
             }`}
           >
             {gw.rec_tidak_merekam}
@@ -312,19 +288,18 @@ export default function ReportDVRPage() {
         ),
       },
       {
-        id: "rec_error",
-        header: "Loss",
+        id: "rec_success_rate",
+        header: "Success Rate",
         align: "center",
         className: "bg-amber-500/[0.025] dark:bg-amber-500/[0.04] border-r-2 border-r-amber-300 dark:border-r-amber-700/80",
-        cell: (gw) => (
-          <span
-            className={`font-bold whitespace-nowrap ${
-              gw.rec_error !== "0m" && gw.rec_error !== "0h" ? "text-[#e2445c]" : "text-slate-400"
-            }`}
-          >
-            {gw.rec_error}
-          </span>
-        ),
+        cell: (gw) => {
+          const sr = gw.rec_success_rate ?? 100.0;
+          return (
+            <span className="text-slate-800 dark:text-slate-200 whitespace-nowrap font-medium">
+              {sr}%
+            </span>
+          );
+        },
       },
       // Group 4: DVR Storage (Apple Teal Group)
       {
@@ -367,31 +342,40 @@ export default function ReportDVRPage() {
           </span>
         ),
       },
-      // Trailing Group: Periode Gangguan (Apple Purple Group)
+      // Trailing Group: SLA (Combined: CPU-DVR, Camera Status, Recording Status)
       {
-        id: "jumlah_event",
-        header: "Total Events",
+        id: "sla",
+        header: "SLA",
         align: "center",
-        className: "bg-purple-500/[0.025] dark:bg-purple-500/[0.04]",
-        cell: (gw) => (
-          <span
-            className={`font-bold whitespace-nowrap ${
-              gw.jumlah_event > 0 ? "text-[#e2445c]" : "text-slate-400"
-            }`}
-          >
-            {gw.jumlah_event} event
-          </span>
-        ),
-      },
-      {
-        id: "terakhir_offline",
-        header: "Last Update",
         className: "bg-purple-500/[0.025] dark:bg-purple-500/[0.04] border-r-2 border-r-purple-300 dark:border-r-purple-700/80",
-        cell: (gw) => (
-          <span className="text-slate-500 dark:text-slate-400 whitespace-nowrap font-mono text-[11px]">
-            {gw.terakhir_offline}
-          </span>
-        ),
+        cell: (gw) => {
+          const cpuSr = Number(gw.cpu_dvr_success_rate ?? 100);
+          const camTotal = gw.kamera_total ?? 0;
+          const camOnline = gw.kamera_online ?? 0;
+          const camSr = camTotal > 0 ? (camOnline / camTotal) * 100 : 100;
+          const recSr = Number(gw.rec_success_rate ?? 100);
+          const calculatedSla = Number(((cpuSr + camSr + recSr) / 3).toFixed(1));
+          const finalSla = gw.sla !== undefined ? gw.sla : calculatedSla;
+
+          const isAchieved = finalSla >= 98.0;
+          const isWarning = finalSla >= 85.0 && finalSla < 98.0;
+
+          return (
+            <div className="flex items-center justify-center">
+              <span
+                className={`inline-flex items-center justify-center px-2.5 py-0.5 rounded-full font-bold text-xs font-mono border whitespace-nowrap ${
+                  isAchieved
+                    ? "bg-[#00c875]/15 text-[#00c875] border-[#00c875]/30"
+                    : isWarning
+                    ? "bg-[#fdab3d]/15 text-[#fdab3d] border-[#fdab3d]/30"
+                    : "bg-[#e2445c]/15 text-[#e2445c] border-[#e2445c]/30"
+                }`}
+              >
+                {finalSla}%
+              </span>
+            </div>
+          );
+        },
       },
     ],
     []
@@ -454,12 +438,9 @@ export default function ReportDVRPage() {
           DVR Storage
         </th>
 
-        {/* Individual Trailing Columns (Apple Purple) */}
-        <th rowSpan={2} className="py-2.5 px-3 text-center whitespace-nowrap border-r border-purple-200/60 dark:border-purple-900/50 font-bold bg-[#f5f0ff] dark:bg-[#1a0f30] text-purple-900 dark:text-purple-200">
-          Total Events
-        </th>
-        <th rowSpan={2} className="py-2.5 px-3.5 whitespace-nowrap border-r-2 border-r-purple-300 dark:border-r-purple-700 bg-[#f5f0ff] dark:bg-[#1a0f30] text-purple-900 dark:text-purple-200">
-          Last Update
+        {/* Individual Trailing Column: SLA (Apple Purple) */}
+        <th rowSpan={2} className="py-2.5 px-4 text-center whitespace-nowrap border-r-2 border-r-purple-300 dark:border-r-purple-700 font-bold bg-[#f5f0ff] dark:bg-[#1a0f30] text-purple-900 dark:text-purple-200">
+          SLA
         </th>
       </tr>
 
@@ -474,15 +455,15 @@ export default function ReportDVRPage() {
         <th className="py-2 px-2 text-center text-[#00d2d3] bg-[#effcf8] dark:bg-[#041a18] border-r border-cyan-200/60 dark:border-cyan-900/50">Total</th>
         <th className="py-2 px-2 text-center text-[#00c875] bg-[#effcf8] dark:bg-[#041a18] border-r border-cyan-200/60 dark:border-cyan-900/50">Online</th>
         <th className="py-2 px-2 text-center text-[#e2445c] bg-[#effcf8] dark:bg-[#041a18] border-r border-cyan-200/60 dark:border-cyan-900/50">Loss</th>
-        <th className="py-2 px-2 text-center text-cyan-900 dark:text-cyan-200 bg-[#effcf8] dark:bg-[#041a18] border-r-2 border-r-cyan-300 dark:border-r-cyan-700">
-          Loss Pct (%)
+        <th className="py-2 px-2 text-center whitespace-nowrap text-cyan-900 dark:text-cyan-200 bg-[#effcf8] dark:bg-[#041a18] border-r-2 border-r-cyan-300 dark:border-r-cyan-700">
+          Success Rate
         </th>
 
         {/* Under Recording Status (Amber Sub-headers) */}
-        <th className="py-2 px-2.5 text-center text-[#00c875] bg-[#fffdf5] dark:bg-[#1a0f02] border-r border-amber-200/60 dark:border-amber-900/50">Normal</th>
-        <th className="py-2 px-2.5 text-center text-[#fdab3d] bg-[#fffdf5] dark:bg-[#1a0f02] border-r border-amber-200/60 dark:border-amber-900/50">Corrupt</th>
-        <th className="py-2 px-2.5 text-center text-[#e2445c] bg-[#fffdf5] dark:bg-[#1a0f02] border-r-2 border-r-amber-300 dark:border-r-amber-700">
-          Loss
+        <th className="py-2 px-2.5 text-center text-[#00c875] bg-[#fffdf5] dark:bg-[#1a0f02] border-r border-amber-200/60 dark:border-amber-900/50">Record</th>
+        <th className="py-2 px-2.5 text-center text-[#e2445c] bg-[#fffdf5] dark:bg-[#1a0f02] border-r border-amber-200/60 dark:border-amber-900/50">Not Record</th>
+        <th className="py-2 px-2.5 text-center whitespace-nowrap text-amber-900 dark:text-amber-200 bg-[#fffdf5] dark:bg-[#1a0f02] border-r-2 border-r-amber-300 dark:border-r-amber-700">
+          Success Rate
         </th>
 
         {/* Under DVR Storage (Teal Sub-headers) */}
@@ -505,7 +486,7 @@ export default function ReportDVRPage() {
           onSearchChange={(val) => handleFilterChange("search", val)}
           searchPlaceholder="Search Gateway ID / Location..."
           filters={filterConfigs}
-          timeframe={filters.date_range || "01 Nov 2026 - 04 Nov 2026"}
+          timeframe={filters.date_range || getCurrentMonthPeriodStr()}
 
           onDateRangeChange={(range) => handleFilterChange("date_range", range)}
           onExportClick={handleExport}
