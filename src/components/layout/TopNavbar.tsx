@@ -15,6 +15,7 @@ import {
 import { useTheme } from "next-themes";
 import { useGatewayHealth, useTriggerInspection } from "@/store/api/monitoring";
 import { toast } from "sonner";
+import { NotificationBell } from "./NotificationBell";
 
 interface TopNavbarProps {
   title: string;
@@ -101,6 +102,8 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({ title, onOpenMobile }) => 
           />
           <span className="hidden sm:inline">Inspect Now</span>
         </button>
+
+        <NotificationBell />
 
         {/* Theme Toggle */}
         <button

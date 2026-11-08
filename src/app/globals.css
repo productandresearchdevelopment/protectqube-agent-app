@@ -54,3 +54,7 @@
     min-height: 100vh;
   }
 }
+
+[data-sonner-toast] [data-icon] {
+  display: none !important;
+}

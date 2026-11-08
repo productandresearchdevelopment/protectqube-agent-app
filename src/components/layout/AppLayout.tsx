@@ -18,12 +18,15 @@ import {
   Moon,
   LogOut,
   ChevronDown,
+  Boxes,
+  Bell,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useCurrentUser } from "@/store/api/auth";
 import { getToken, removeToken } from "@/utils/common";
 import { toast } from "sonner";
 import { AIPreventiveLogo } from "@/components/ui/AIPreventiveLogo";
+import { NotificationBell } from "@/components/layout/NotificationBell";
 
 interface AppLayoutProps {
   title?: string;
@@ -242,6 +245,36 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
               )}
             </AnimatePresence>
           </div>
+
+          <Link
+            href="/integrations"
+            title="Integrations"
+            className={`flex items-center ${
+              isCollapsed ? "justify-center px-2 py-2.5" : "gap-3 px-3.5 py-2.5"
+            } text-sm font-medium rounded-xl transition-all ${
+              pathname.startsWith("/integrations")
+                ? "bg-[#0073ea] text-white shadow-md shadow-blue-500/25 font-semibold"
+                : "text-slate-200 hover:text-white hover:bg-white/10"
+            }`}
+          >
+            <Boxes className="size-5 shrink-0" />
+            {!isCollapsed && <span>Integrations</span>}
+          </Link>
+
+          <Link
+            href="/notifications"
+            title="Notifications"
+            className={`flex items-center ${
+              isCollapsed ? "justify-center px-2 py-2.5" : "gap-3 px-3.5 py-2.5"
+            } text-sm font-medium rounded-xl transition-all ${
+              pathname.startsWith("/notifications")
+                ? "bg-[#0073ea] text-white shadow-md shadow-blue-500/25 font-semibold"
+                : "text-slate-200 hover:text-white hover:bg-white/10"
+            }`}
+          >
+            <Bell className="size-5 shrink-0" />
+            {!isCollapsed && <span>Notifications</span>}
+          </Link>
         </nav>
       </div>
 
@@ -330,40 +363,37 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
       </AnimatePresence>
 
       <main className="flex-1 min-h-screen flex flex-col overflow-x-hidden">
-        {(title || headerRight) && (
-          <div className="h-16 px-4 md:px-6 flex items-center justify-between gap-3 shrink-0">
-            <div className="flex items-center gap-2.5 shrink-0">
-              <button
-                onClick={() => setMobileOpen(true)}
-                className="md:hidden text-slate-600 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-800 p-1.5 rounded-lg transition-colors cursor-pointer"
-                aria-label="Open mobile menu"
-              >
-                <Menu className="size-5" />
-              </button>
+        <div className="h-16 px-4 md:px-6 flex items-center justify-between gap-3 shrink-0">
+          <div className="flex items-center gap-2.5 shrink-0">
+            <button
+              onClick={() => setMobileOpen(true)}
+              className="md:hidden text-slate-600 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-800 p-1.5 rounded-lg transition-colors cursor-pointer"
+              aria-label="Open mobile menu"
+            >
+              <Menu className="size-5" />
+            </button>
 
-              <button
-                onClick={() => setDesktopCollapsed((prev) => !prev)}
-                className="hidden md:flex items-center justify-center p-1.5 rounded-lg text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                title={desktopCollapsed ? "Expand sidebar" : "Minimize sidebar"}
-                aria-label="Toggle sidebar collapse"
-              >
-                <PanelLeft className="size-5" />
-              </button>
+            <button
+              onClick={() => setDesktopCollapsed((prev) => !prev)}
+              className="hidden md:flex items-center justify-center p-1.5 rounded-lg text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              title={desktopCollapsed ? "Expand sidebar" : "Minimize sidebar"}
+              aria-label="Toggle sidebar collapse"
+            >
+              <PanelLeft className="size-5" />
+            </button>
 
-              {title && (
-                <h1 className="text-base sm:text-[17px] font-bold text-slate-900 dark:text-white tracking-tight">
-                  {title}
-                </h1>
-              )}
-            </div>
-
-            {headerRight && (
-              <div className="flex items-center gap-2 flex-wrap sm:ml-auto">
-                {headerRight}
-              </div>
+            {title && (
+              <h1 className="text-base sm:text-[17px] font-bold text-slate-900 dark:text-white tracking-tight">
+                {title}
+              </h1>
             )}
           </div>
-        )}
+
+          <div className="flex items-center gap-2 sm:ml-auto">
+            <NotificationBell />
+            {headerRight}
+          </div>
+        </div>
 
         <div className="flex-1 px-4 md:px-6 pb-6 overflow-y-auto">
           {children}
