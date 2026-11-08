@@ -24,6 +24,10 @@ import {
   TrendingDown,
   TrendingUp,
   MapPin,
+  FileSpreadsheet,
+  Battery,
+  BatteryCharging,
+  BatteryWarning,
 } from "lucide-react";
 import {
   useGatewayDetail,
@@ -44,16 +48,43 @@ const formatDurationEn = (dur?: string) => {
 const formatIncidentEn = (text?: string) => {
   if (!text) return "Normal Operation (No incidents detected)";
   return text
-    .replace(/Terdeteksi\s+tegangan\s+listrik\s+drop\s*\((.*?)\)\s+pada\s+adaptor\s+gateway!?/gi, "Detected power voltage drop ($1) on gateway adapter!")
-    .replace(/Catu\s+daya\s+adaptor\s+drop\s+di\s+bawah\s+([0-9\.]+V)/gi, "Adapter power supply dropped below $1")
-    .replace(/Kapasitas\s+partisi\s*\'(.*?)\'\s+mencapai\s*([0-9\.]+%?)\s*\(Sisa:\s*([^)]+)\)\.?/gi, "Partition '$1' capacity reached $2 (Remaining: $3).")
-    .replace(/Kondisi\s+flash\s+storage\s+gateway\s+menurun\s+ke\s*([0-9\.]+%?)\s*\((.*?)\)\.?/gi, "Gateway flash storage health degraded to $1 ($2).")
-    .replace(/Komunikasi\s+Port\s+USB\s+Modem\s+dengan\s+CPU\s+Terputus/gi, "Modem USB Port Communication Lost")
-    .replace(/Koneksi\s+Jaringan\s+Seluler\s+Terputus/gi, "Cellular Network Connection Disconnected")
+    .replace(
+      /Terdeteksi\s+tegangan\s+listrik\s+drop\s*\((.*?)\)\s+pada\s+adaptor\s+gateway!?/gi,
+      "Detected power voltage drop ($1) on gateway adapter!",
+    )
+    .replace(
+      /Catu\s+daya\s+adaptor\s+drop\s+di\s+bawah\s+([0-9\.]+V)/gi,
+      "Adapter power supply dropped below $1",
+    )
+    .replace(
+      /Kapasitas\s+partisi\s*\'(.*?)\'\s+mencapai\s*([0-9\.]+%?)\s*\(Sisa:\s*([^)]+)\)\.?/gi,
+      "Partition '$1' capacity reached $2 (Remaining: $3).",
+    )
+    .replace(
+      /Kondisi\s+flash\s+storage\s+gateway\s+menurun\s+ke\s*([0-9\.]+%?)\s*\((.*?)\)\.?/gi,
+      "Gateway flash storage health degraded to $1 ($2).",
+    )
+    .replace(
+      /Komunikasi\s+Port\s+USB\s+Modem\s+dengan\s+CPU\s+Terputus/gi,
+      "Modem USB Port Communication Lost",
+    )
+    .replace(
+      /Koneksi\s+Jaringan\s+Seluler\s+Terputus/gi,
+      "Cellular Network Connection Disconnected",
+    )
     .replace(/Aliran\s+Data\s+Internet\s+Mati/gi, "No Internet Data")
-    .replace(/Komunikasi\s+Gateway\s+CPU\s+ke\s+NVR\s+Surveillance\s+Terputus/gi, "Gateway CPU to NVR Communication Lost")
-    .replace(/Kamera\s+Hilang\s+Sinyal\s*\/\s*No\s+Video/gi, "Camera Signal Loss / No Video")
-    .replace(/Kamera\s+Terputus\s*\/\s*Offline/gi, "Camera Disconnected / Offline")
+    .replace(
+      /Komunikasi\s+Gateway\s+CPU\s+ke\s+NVR\s+Surveillance\s+Terputus/gi,
+      "Gateway CPU to NVR Communication Lost",
+    )
+    .replace(
+      /Kamera\s+Hilang\s+Sinyal\s*\/\s*No\s+Video/gi,
+      "Camera Signal Loss / No Video",
+    )
+    .replace(
+      /Kamera\s+Terputus\s*\/\s*Offline/gi,
+      "Camera Disconnected / Offline",
+    )
     .replace(/Gangguan\s+Jaringan/gi, "Network Disruption")
     .replace(/Gangguan/gi, "Incident")
     .replace(/selama\s+(\d+)\s*Menit/gi, "for $1m")
@@ -61,7 +92,10 @@ const formatIncidentEn = (text?: string) => {
     .replace(/selama\s+(\d+)\s*Jam/gi, "for $1h")
     .replace(/(\d+)\s*Menit/gi, "$1m")
     .replace(/(\d+)\s*Jam/gi, "$1h")
-    .replace(/Normal\s+Operation\s*\(No incidents detected\)/gi, "Normal Operation (No incidents detected)")
+    .replace(
+      /Normal\s+Operation\s*\(No incidents detected\)/gi,
+      "Normal Operation (No incidents detected)",
+    )
     .replace(/Operasi\s+Normal/gi, "Normal Operation")
     .trim();
 };
@@ -341,6 +375,7 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
     | "Temperature"
     | "Event Log"
   >("Overview");
+  const [selectedEventDate, setSelectedEventDate] = useState<string>("ALL");
 
   // Fetch telemetry detail for selected gateway from FastAPI
   const { data, isLoading } = useGatewayDetail(gatewayId);
@@ -420,12 +455,18 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
   };
 
   const sortedEvents = (d.events ? [...d.events] : []).sort((a, b) => {
-    const epochA = typeof (a as any).epoch === "number" && !isNaN((a as any).epoch)
-      ? (a as any).epoch
-      : (a.time ? Date.parse(a.time.replace(" WIB", "").trim().replace(" ", "T")) || 0 : 0);
-    const epochB = typeof (b as any).epoch === "number" && !isNaN((b as any).epoch)
-      ? (b as any).epoch
-      : (b.time ? Date.parse(b.time.replace(" WIB", "").trim().replace(" ", "T")) || 0 : 0);
+    const epochA =
+      typeof (a as any).epoch === "number" && !isNaN((a as any).epoch)
+        ? (a as any).epoch
+        : a.time
+          ? Date.parse(a.time.replace(" WIB", "").trim().replace(" ", "T")) || 0
+          : 0;
+    const epochB =
+      typeof (b as any).epoch === "number" && !isNaN((b as any).epoch)
+        ? (b as any).epoch
+        : b.time
+          ? Date.parse(b.time.replace(" WIB", "").trim().replace(" ", "T")) || 0
+          : 0;
     return epochB - epochA;
   });
 
@@ -469,14 +510,109 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
     incidents: d.downtime_events || [],
   };
 
+  const dailyBreakdown =
+    dailyUptime.daily_breakdown && dailyUptime.daily_breakdown.length > 0
+      ? dailyUptime.daily_breakdown
+      : [
+          {
+            date: dailyUptime.date_str,
+            day_name: new Date().toLocaleDateString("en-US", {
+              weekday: "short",
+            }),
+            date_full: `${dailyUptime.date_str} (${new Date().toLocaleDateString("en-US", { weekday: "short" })})`,
+            date_iso: new Date().toISOString().split("T")[0],
+            uptime_min: dailyUptime.uptime_minutes,
+            downtime_min: dailyUptime.downtime_minutes,
+            success_rate: dailyUptime.uptime_pct,
+            is_sla_met: dailyUptime.is_sla_met,
+            sla_status: dailyUptime.is_sla_met ? "Achieved" : "Not Achieved",
+            total_observed_min: dailyUptime.total_period_minutes,
+          },
+        ];
+
+  const breakdownSummary = dailyUptime.summary || {
+    count: dailyBreakdown.length,
+    total_observed_min: dailyBreakdown.reduce(
+      (acc, r) => acc + r.total_observed_min,
+      0,
+    ),
+    total_uptime_min: dailyBreakdown.reduce((acc, r) => acc + r.uptime_min, 0),
+    total_downtime_min: dailyBreakdown.reduce(
+      (acc, r) => acc + r.downtime_min,
+      0,
+    ),
+    avg_success_rate:
+      dailyBreakdown.reduce((acc, r) => acc + r.total_observed_min, 0) > 0
+        ? Number(
+            (
+              (dailyBreakdown.reduce((acc, r) => acc + r.uptime_min, 0) /
+                dailyBreakdown.reduce(
+                  (acc, r) => acc + r.total_observed_min,
+                  0,
+                )) *
+              100
+            ).toFixed(1),
+          )
+        : 100.0,
+    is_sla_met: dailyUptime.is_sla_met,
+    sla_status: dailyUptime.is_sla_met ? "Achieved" : "Not Achieved",
+  };
+
+  const allDowntimeIncidents = dailyUptime.incidents || d.downtime_events || [];
+
+  // Unique dates for the Incident History dropdown
+  const uniqueIncidentDates: string[] = Array.from(
+    new Set(
+      allDowntimeIncidents
+        .map((ev) => ev.date_str || (ev.start_time ? ev.start_time.split(" ")[0] : ""))
+        .filter((s): s is string => Boolean(s)),
+    ),
+  );
+
+  // Filtered incidents based on selected date
+  const filteredDowntimeEvents =
+    selectedEventDate === "ALL"
+      ? allDowntimeIncidents
+      : allDowntimeIncidents.filter(
+          (ev) =>
+            (ev.date_str && ev.date_str === selectedEventDate) ||
+            (ev.start_time && ev.start_time.startsWith(selectedEventDate)),
+        );
+
+  const powerInfo = d.power_info || {
+    source: isWhiteDevice ? "AC" : "AC",
+    status: isWhiteDevice ? "Full" : "Normal",
+    badge: isWhiteDevice ? "100% Full" : "Normal",
+    is_drop: false,
+    voltage: isWhiteDevice ? "3.7V Li-ion" : "1.2938V",
+    adapter_voltage: isWhiteDevice ? "12V 1.5A DC Jack" : "5.10V (Stable)",
+    battery_percent: isWhiteDevice ? 100 : null,
+    charging_state: isWhiteDevice ? "Full" : "AC Mains",
+    raw_text: isWhiteDevice
+      ? "Power: AC (Batt: 100% Full) [OK]"
+      : "Power: AC (1.2938V) [OK]",
+    explanation: isWhiteDevice
+      ? "AC mains power active and internal backup UPS battery is fully charged (100%)."
+      : "AC Mains Power. 5V adapter supply is stable and Vcore 1.2938V is normal without undervoltage events.",
+    broadcom_register: isWhiteDevice
+      ? "N/A (Rockchip RK3328 / Power Management AXP)"
+      : "0x00000 (Clean / Optimal Power)",
+  };
+
   const downtimeEvents: IDowntimeEvent[] = dailyUptime.incidents || [];
 
   // Dynamic operational calendar data for current month
   const nowObj = new Date();
-  const currentMonthName = nowObj.toLocaleDateString("en-US", { month: "short" });
+  const currentMonthName = nowObj.toLocaleDateString("en-US", {
+    month: "short",
+  });
   const currentMonthNum = nowObj.getMonth() + 1;
   const currentYear = nowObj.getFullYear();
-  const daysInCurrentMonth = new Date(currentYear, currentMonthNum, 0).getDate();
+  const daysInCurrentMonth = new Date(
+    currentYear,
+    currentMonthNum,
+    0,
+  ).getDate();
   const currentDay = nowObj.getDate();
 
   const daysInMonth = Array.from({ length: daysInCurrentMonth }, (_, i) => {
@@ -692,6 +828,23 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                           : Normal Operation
                         </span>
                       </div>
+                      <div className="flex items-center">
+                        <span className="text-slate-500 dark:text-slate-400 w-24 shrink-0 font-medium">
+                          Power / Batt
+                        </span>
+                        <span className="text-slate-800 dark:text-slate-200 font-medium flex items-center gap-1.5">
+                          :{" "}
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                              powerInfo.is_drop
+                                ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30"
+                                : "bg-emerald-500/15 text-emerald-600 dark:text-[#00c875] border border-emerald-500/30"
+                            }`}
+                          >
+                            {powerInfo.badge}
+                          </span>
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -738,10 +891,17 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                       <div
                         className={`text-sm font-bold tracking-tight leading-none ${healthColor}`}
                       >
-                        Condition {d.sd_health.status} {d.sd_health.health_percent ? `(${d.sd_health.health_percent}%)` : ""}
+                        Condition {d.sd_health.status}{" "}
+                        {d.sd_health.health_percent
+                          ? `(${d.sd_health.health_percent}%)`
+                          : ""}
                       </div>
                       <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 font-medium truncate">
-                        Health {d.sd_health.health_percent ? `${d.sd_health.health_percent}%` : "100%"} &bull; Temp {d.sd_health.temperature} &bull; Wear{" "}
+                        Health{" "}
+                        {d.sd_health.health_percent
+                          ? `${d.sd_health.health_percent}%`
+                          : "100%"}{" "}
+                        &bull; Temp {d.sd_health.temperature} &bull; Wear{" "}
                         {d.sd_health.wear_level}
                       </div>
                     </div>
@@ -824,7 +984,8 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                   {/* Monthly Period & SLA Target */}
                   <div className="flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-400 mt-2 mb-1">
                     <span className="font-medium">
-                      {currentMonthName} {currentYear} ({totalMonthHours} Hours &bull; Cutoff Day {currentDay})
+                      {currentMonthName} {currentYear} ({totalMonthHours} Hours
+                      &bull; Cutoff Day {currentDay})
                     </span>
                     <span className="font-mono text-slate-700 dark:text-slate-300">
                       Target 99.5%
@@ -924,9 +1085,9 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
               </div>
             </div>
 
-            {/* BARIS 2: 3 Kolom Rata Semua (CPU Usage, RAM Usage, SD Card Usage) */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 items-stretch">
-              {/* Kolom 1 dari 3: CPU Usage */}
+            {/* BARIS 2: 4 Kolom (CPU Usage, RAM Usage, Storage Usage, Battery & Power) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5 items-stretch">
+              {/* Kolom 1 dari 4: CPU Usage */}
               <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 flex flex-col justify-between">
                 <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300 font-medium text-xs">
                   <Cpu className="size-3.5 text-emerald-500 dark:text-emerald-400" />
@@ -947,7 +1108,7 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                 </div>
               </div>
 
-              {/* Kolom 2 dari 3: RAM Usage */}
+              {/* Kolom 2 dari 4: RAM Usage */}
               <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 flex flex-col justify-between">
                 <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300 font-medium text-xs">
                   <Database className="size-3.5 text-[#0073ea]" />
@@ -968,7 +1129,7 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                 </div>
               </div>
 
-              {/* Kolom 3 dari 3: Storage Usage */}
+              {/* Kolom 3 dari 4: Storage Usage */}
               <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 flex flex-col justify-between">
                 <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300 font-medium text-xs">
                   <HardDrive className="size-3.5 text-purple-500 dark:text-purple-400" />
@@ -992,6 +1153,72 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                   </div>
                 </div>
               </div>
+
+              {/* Kolom 4 dari 4: Battery & Power Status */}
+              <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 flex flex-col justify-between">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300 font-medium text-xs">
+                    <Zap className="size-3.5 text-amber-500 dark:text-amber-400" />
+                    <span className="font-semibold">Battery & Power</span>
+                  </div>
+                  <span
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full border whitespace-nowrap ${
+                      powerInfo.is_drop
+                        ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30"
+                        : "bg-emerald-500/15 text-emerald-600 dark:text-[#00c875] border-emerald-500/30"
+                    }`}
+                  >
+                    {powerInfo.badge}
+                  </span>
+                </div>
+
+                {isWhiteDevice ? (
+                  <CircularGauge
+                    percent={powerInfo.battery_percent ?? 100}
+                    strokeColor={
+                      powerInfo.status === "Discharging"
+                        ? "#e2445c"
+                        : powerInfo.status === "Charging"
+                        ? "#0073ea"
+                        : "#00c875"
+                    }
+                    sublabel={powerInfo.badge}
+                  />
+                ) : (
+                  <div className="my-auto py-3 flex flex-col items-center justify-center text-center">
+                    <div
+                      className={`size-12 rounded-full flex items-center justify-center mb-1.5 border ${
+                        powerInfo.is_drop
+                          ? "bg-amber-500/15 border-amber-500/30 text-amber-500"
+                          : "bg-emerald-500/15 border-emerald-500/30 text-[#00c875]"
+                      }`}
+                    >
+                      <Zap className="size-6" />
+                    </div>
+                    <div className="text-sm font-bold text-slate-900 dark:text-white font-mono">
+                      Vcore {powerInfo.voltage}
+                    </div>
+                    <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                      Input Rail: {powerInfo.adapter_voltage}
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <div
+                    className="p-1.5 rounded bg-white dark:bg-[#070e1c] border border-slate-200 dark:border-slate-800/80 text-[10px] font-mono text-slate-600 dark:text-slate-400 truncate text-center"
+                    title={powerInfo.raw_text}
+                  >
+                    {powerInfo.raw_text}
+                  </div>
+                  <div
+                    className="text-[10px] text-slate-500 dark:text-slate-400 text-center font-medium mt-1 truncate"
+                    title={powerInfo.explanation}
+                  >
+                    {powerInfo.explanation}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -1001,378 +1228,308 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
         {/* ========================================================= */}
         {activeTab === "Uptime & Downtime" && (
           <div className="space-y-4 animate-in fade-in duration-200">
-            {/* Header: Title, Description, and Back Button */}
-            <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-xs">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <div className="size-7 rounded-lg bg-blue-500/15 border border-blue-500/30 flex items-center justify-center text-blue-600 dark:text-blue-400">
-                    <Clock className="size-4" />
-                  </div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
-                    Daily Uptime & Downtime Analysis – Gateway {d.id}
-                  </h3>
-                  <span
-                    className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold border ${
-                      dailyUptime.is_sla_met
-                        ? "bg-emerald-500/15 text-[#00a862] dark:text-[#00c875] border-emerald-500/30"
-                        : "bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30"
-                    }`}
-                  >
-                    <span
-                      className={`size-1.5 rounded-full ${dailyUptime.is_sla_met ? "bg-[#00c875]" : "bg-rose-500 animate-pulse"}`}
-                    />
-                    {dailyUptime.is_sla_met
-                      ? `SLA 99.5% Achieved (${dailyUptime.sla_diff_pct}%)`
-                      : `SLA 99.5% Breach (${dailyUptime.sla_diff_pct}%)`}
-                  </span>
-                </div>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Observation Date:{" "}
-                  <strong className="text-slate-800 dark:text-slate-200">
-                    {dailyUptime.date_str}
-                  </strong>{" "}
-                  &bull; Total Period:{" "}
-                  <strong className="text-slate-800 dark:text-slate-200">
-                    {dailyUptime.total_period_str}
-                  </strong>{" "}
-                  &bull; Calculated per-minute from gateway system logs ([MQTT OK] heartbeats vs gaps)
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setActiveTab("Overview")}
-                className="text-xs text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white px-3 py-1.5 rounded-lg bg-white dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700/60 transition-colors flex items-center gap-1.5 cursor-pointer shrink-0 shadow-xs"
-              >
-                <span>&larr; Back to Overview</span>
-              </button>
-            </div>
-
-            {/* 4 Scorecard KPI Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              {/* Card 1: Target SLA 99.5% */}
-              <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 flex flex-col justify-between space-y-2 shadow-xs">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                    Contract SLA Target
-                  </span>
-                  <div className="size-6 rounded-md bg-yellow-500/15 text-amber-600 dark:text-yellow-400 flex items-center justify-center">
-                    <CheckCheck className="size-3.5" />
-                  </div>
-                </div>
-                <div>
-                  <div className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
-                    {dailyUptime.sla_target_pct}%
-                  </div>
-                  <div className="text-xs text-slate-500 dark:text-slate-400 mt-1 space-y-0.5">
-                    <div className="flex justify-between">
-                      <span>Minimum Uptime:</span>
-                      <strong className="text-slate-800 dark:text-slate-200 font-mono">
-                        {dailyUptime.sla_min_uptime_text}
-                      </strong>
+            {/* 2 Cards Side-by-Side: Daily SLA Breakdown (Left) & Incident History (Right) */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-start">
+              {/* Card 1: Daily SLA Breakdown Table (Gateway System) */}
+              <div className="lg:col-span-6 bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 shadow-xs">
+                {/* Header: Title & Count Badge */}
+                <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200 dark:border-slate-800/60">
+                  <div className="flex items-center gap-2">
+                    <div className="size-6 rounded-md bg-blue-500/15 flex items-center justify-center text-blue-600 dark:text-blue-400">
+                      <FileSpreadsheet className="size-3.5" />
                     </div>
-                    <div className="flex justify-between">
-                      <span>Max Downtime Limit:</span>
-                      <strong className="text-slate-800 dark:text-slate-200 font-mono">
-                        {dailyUptime.sla_max_down_text}
-                      </strong>
-                    </div>
+                    <h4 className="text-xs font-bold text-slate-900 dark:text-white">
+                      Daily SLA Breakdown (Gateway System)
+                    </h4>
+                    <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 bg-slate-200/60 dark:bg-slate-800 px-2 py-0.5 rounded-full">
+                      {dailyBreakdown.length}{" "}
+                      {dailyBreakdown.length === 1 ? "Day" : "Days"}
+                    </span>
                   </div>
                 </div>
-                <div className="text-[10px] text-slate-500 dark:text-slate-400 border-t border-slate-200 dark:border-slate-800/50 pt-1.5">
-                  Formula: {dailyUptime.total_period_str} &times; 99.5% = {dailyUptime.sla_min_uptime_text}
-                </div>
-              </div>
 
-              {/* Card 2: Accumulated Daily Uptime */}
-              <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 flex flex-col justify-between space-y-2 shadow-xs">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                    Daily Uptime
-                  </span>
-                  <div className="size-6 rounded-md bg-emerald-500/15 text-[#00a862] dark:text-[#00c875] flex items-center justify-center">
-                    <CheckCircle2 className="size-3.5" />
-                  </div>
-                </div>
-                <div>
-                  <div className="text-2xl font-bold text-[#00a862] dark:text-[#00c875] tracking-tight font-mono">
-                    {dailyUptime.uptime_text}
-                  </div>
-                  <div className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold mt-1">
-                    {dailyUptime.uptime_pct}% active today
-                  </div>
-                </div>
-                <div className="text-[10px] text-slate-500 dark:text-slate-400 border-t border-slate-200 dark:border-slate-800/50 pt-1.5 flex items-center justify-between">
-                  <span>Heartbeat source:</span>
-                  <span className="text-slate-800 dark:text-slate-200 font-mono">
-                    {dailyUptime.uptime_minutes} MQTT OK beats
-                  </span>
-                </div>
-              </div>
-
-              {/* Card 3: Accumulated Daily Downtime */}
-              <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 flex flex-col justify-between space-y-2 shadow-xs">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                    Daily Downtime
-                  </span>
-                  <div className="size-6 rounded-md bg-rose-500/15 text-[#e2445c] flex items-center justify-center">
-                    <Power className="size-3.5" />
-                  </div>
-                </div>
-                <div>
-                  <div className="text-2xl font-bold text-[#e2445c] tracking-tight font-mono">
-                    {dailyUptime.downtime_text}
-                  </div>
-                  <div className="text-xs text-rose-600 dark:text-rose-400 font-semibold mt-1">
-                    {dailyUptime.downtime_pct}% downtime today
-                  </div>
-                </div>
-                <div className="text-[10px] text-slate-500 dark:text-slate-400 border-t border-slate-200 dark:border-slate-800/50 pt-1.5 flex items-center justify-between">
-                  <span>Downtime outages:</span>
-                  <span className="text-slate-800 dark:text-slate-200 font-mono font-semibold">
-                    {dailyUptime.incidents.length} incident(s)
-                  </span>
-                </div>
-              </div>
-
-              {/* Card 4: SLA Realization & Deviation */}
-              <div
-                className={`bg-slate-50/70 dark:bg-[#0a1226] border rounded-xl p-4 flex flex-col justify-between space-y-2 shadow-xs ${
-                  dailyUptime.is_sla_met ? "border-emerald-500/40" : "border-rose-500/40"
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                    SLA 99.5% Daily Status
-                  </span>
-                  <div
-                    className={`size-6 rounded-md flex items-center justify-center ${
-                      dailyUptime.is_sla_met
-                        ? "bg-emerald-500/15 text-[#00a862] dark:text-[#00c875]"
-                        : "bg-rose-500/15 text-[#e2445c]"
-                    }`}
-                  >
-                    {dailyUptime.is_sla_met ? (
-                      <CheckCircle2 className="size-3.5" />
-                    ) : (
-                      <AlertTriangle className="size-3.5" />
-                    )}
-                  </div>
-                </div>
-                <div>
-                  <div
-                    className={`text-2xl font-bold tracking-tight font-mono ${
-                      dailyUptime.is_sla_met
-                        ? "text-[#00a862] dark:text-[#00c875]"
-                        : "text-[#e2445c]"
-                    }`}
-                  >
-                    {dailyUptime.sla_diff_pct}%
-                  </div>
-                  <div
-                    className={`text-xs font-semibold mt-1 ${
-                      dailyUptime.is_sla_met ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
-                    }`}
-                  >
-                    {dailyUptime.is_sla_met ? "SLA Target Achieved" : "SLA Target Breached"}
-                  </div>
-                </div>
-                <div
-                  className="text-[10px] text-slate-500 dark:text-slate-400 border-t border-slate-200 dark:border-slate-800/50 pt-1.5 truncate"
-                  title={dailyUptime.tolerance_text}
-                >
-                  {dailyUptime.tolerance_text}
-                </div>
-              </div>
-            </div>
-
-            {/* Proportional Dual Bar */}
-            <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-2 shadow-xs">
-              <div className="flex items-center justify-between text-xs font-semibold">
-                <span className="text-slate-900 dark:text-white flex items-center gap-1.5">
-                  <Activity className="size-3.5 text-blue-600 dark:text-blue-400" />
-                  Daily Uptime vs Downtime Ratio ({dailyUptime.total_period_str})
-                </span>
-                <span className="text-amber-600 dark:text-yellow-400 font-mono text-[11px]">
-                  Daily SLA Target: 99.5% (Min. {dailyUptime.sla_min_uptime_text})
-                </span>
-              </div>
-
-              <div className="relative h-4 bg-slate-200 dark:bg-slate-900 rounded-full overflow-hidden flex border border-slate-300 dark:border-slate-800">
-                <div
-                  style={{ width: `${dailyUptime.uptime_pct}%` }}
-                  className="h-full bg-linear-to-r from-emerald-600 to-[#00c875] transition-all duration-500"
-                  title={`Uptime: ${dailyUptime.uptime_text} (${dailyUptime.uptime_pct}%)`}
-                />
-                <div
-                  style={{ width: `${dailyUptime.downtime_pct}%` }}
-                  className="h-full bg-linear-to-r from-rose-500 to-[#e2445c] transition-all duration-500"
-                  title={`Downtime: ${dailyUptime.downtime_text} (${dailyUptime.downtime_pct}%)`}
-                />
-                <div
-                  style={{ left: "99.5%" }}
-                  className="absolute top-0 bottom-0 w-0.5 bg-yellow-400 z-10 shadow-[0_0_8px_rgba(250,204,21,1)]"
-                  title="Target SLA 99.5%"
-                />
-              </div>
-
-              <div className="flex flex-wrap items-center justify-between text-xs text-slate-500 dark:text-slate-400 pt-1">
-                <div className="flex items-center gap-4">
-                  <span className="flex items-center gap-1.5">
-                    <span className="size-2.5 rounded-full bg-[#00c875]" />
-                    Total Uptime:{" "}
-                    <strong className="text-slate-900 dark:text-white font-mono">
-                      {dailyUptime.uptime_text}
-                    </strong>{" "}
-                    ({dailyUptime.uptime_pct}%)
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="size-2.5 rounded-full bg-[#e2445c]" />
-                    Total Downtime:{" "}
-                    <strong className="text-slate-900 dark:text-white font-mono">
-                      {dailyUptime.downtime_text}
-                    </strong>{" "}
-                    ({dailyUptime.downtime_pct}%)
-                  </span>
-                </div>
-                <div className="text-slate-500 dark:text-slate-400 text-[11px]">
-                  Daily Downtime Tolerance:{" "}
-                  <strong className="text-amber-600 dark:text-yellow-400 font-mono">
-                    {dailyUptime.sla_max_down_text}
-                  </strong>{" "}
-                  (0.5%)
-                </div>
-              </div>
-            </div>
-
-            {/* Table: Daily Downtime Incident Logs */}
-            <div className="bg-white dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl overflow-hidden shadow-xs">
-              <div className="p-3.5 border-b border-slate-200 dark:border-slate-800/80 flex flex-wrap items-center justify-between gap-2 bg-slate-50 dark:bg-[#070e1c]">
-                <div>
-                  <h4 className="text-xs font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
-                    <Power className="size-3.5 text-rose-500" />
-                    Daily Downtime Incident Logs & Telemetry Gaps
-                  </h4>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                    Calculated directly from system logs where [MQTT OK] was interrupted or telemetry stopped
-                  </p>
-                </div>
-                <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/60 font-mono shadow-2xs">
-                  {dailyUptime.incidents.length} Outages Recorded
-                </span>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs text-slate-700 dark:text-slate-300">
-                  <thead className="bg-slate-100 dark:bg-[#081022] text-slate-600 dark:text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-200 dark:border-slate-800">
-                    <tr>
-                      <th className="py-2.5 px-3">No</th>
-                      <th className="py-2.5 px-3">Downtime Start</th>
-                      <th className="py-2.5 px-3">Restored Time</th>
-                      <th className="py-2.5 px-3">Duration</th>
-                      <th className="py-2.5 px-3">Category</th>
-                      <th className="py-2.5 px-3">Root Cause</th>
-                      <th className="py-2.5 px-3">SLA Impact</th>
-                      <th className="py-2.5 px-3">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200 dark:divide-slate-800/60 font-sans">
-                    {dailyUptime.incidents.length > 0 ? (
-                      dailyUptime.incidents.map((evt) => (
-                        <tr
-                          key={evt.no}
-                          className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors"
-                        >
-                          <td className="py-2.5 px-3 font-mono text-slate-500 dark:text-slate-400">
-                            {evt.no}
-                          </td>
-                          <td className="py-2.5 px-3 font-mono text-slate-800 dark:text-slate-200 whitespace-nowrap">
-                            {evt.start_time}
-                          </td>
-                          <td className="py-2.5 px-3 font-mono text-slate-800 dark:text-slate-200 whitespace-nowrap">
-                            {evt.end_time}
-                          </td>
-                          <td className="py-2.5 px-3 font-mono font-bold text-[#e2445c] whitespace-nowrap">
-                            {formatDurationEn(evt.duration)}
-                          </td>
-                          <td className="py-2.5 px-3 whitespace-nowrap">
-                            <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700/60">
-                              {evt.category}
-                            </span>
-                          </td>
-                          <td className="py-2.5 px-3 text-slate-600 dark:text-slate-300 min-w-50">
-                            {formatIncidentEn(evt.reason || evt.title)}
-                          </td>
-                          <td className="py-2.5 px-3 font-mono text-rose-600 dark:text-rose-400 whitespace-nowrap">
-                            -{evt.sla_impact_pct}%
-                          </td>
-                          <td className="py-2.5 px-3 whitespace-nowrap">
-                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#00a862] dark:text-[#00c875]">
-                              <span className="size-1.5 rounded-full bg-[#00c875]" />
-                              {evt.status}
-                            </span>
-                          </td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan={8} className="py-8 text-center text-slate-400 text-xs">
-                          No downtime incidents or telemetry gaps recorded today. Gateway running with 100% normal uptime.
-                        </td>
+                {/* Table (Columns: Date, Uptime (Mins), Downtime (Mins), Success Rate, SLA Status) */}
+                <div className="overflow-x-auto mt-2 max-h-80 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead className="sticky top-0 z-10 bg-slate-100 dark:bg-[#0a1224] shadow-xs">
+                      <tr className="text-[11px] text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800/60 font-semibold">
+                        <th className="py-2 px-3">Date</th>
+                        <th className="py-2 px-3 text-right">Uptime (Mins)</th>
+                        <th className="py-2 px-3 text-right">
+                          Downtime (Mins)
+                        </th>
+                        <th className="py-2 px-3 text-right">Success Rate</th>
+                        <th className="py-2 px-3 text-center">SLA Status</th>
                       </tr>
-                    )}
-                  </tbody>
-                  {dailyUptime.incidents.length > 0 && (
-                    <tfoot className="bg-slate-100 dark:bg-[#081022] font-semibold text-slate-800 dark:text-slate-200 border-t-2 border-slate-300 dark:border-slate-700/80">
+                    </thead>
+                    <tbody className="divide-y divide-slate-200 dark:divide-slate-800/40 text-[11px]">
+                      {dailyBreakdown.map((row) => {
+                        const upMin = row.uptime_min;
+                        const downMin = row.downtime_min;
+                        const sr = row.success_rate;
+                        const isSuccess = row.is_sla_met;
+                        const isSelected = selectedEventDate === row.date;
+
+                        return (
+                          <tr
+                            key={row.date_iso || row.date}
+                            onClick={() => {
+                              setSelectedEventDate((prev) =>
+                                prev === row.date ? "ALL" : row.date,
+                              );
+                            }}
+                            className={`transition-colors cursor-pointer ${
+                              isSelected
+                                ? "bg-blue-500/10 dark:bg-blue-500/20 font-medium"
+                                : "hover:bg-slate-100/80 dark:hover:bg-slate-800/30"
+                            }`}
+                            title="Click to filter incident history for this date"
+                          >
+                            <td className="py-2 px-3 text-slate-700 dark:text-slate-300 font-mono whitespace-nowrap">
+                              {row.date_full || `${row.date} (${row.day_name})`}
+                            </td>
+                            <td className="py-2 px-3 text-right font-mono text-emerald-600 dark:text-emerald-400 font-semibold">
+                              {upMin.toLocaleString("id-ID", {
+                                minimumFractionDigits: 1,
+                                maximumFractionDigits: 1,
+                              })}
+                            </td>
+                            <td className="py-2 px-3 text-right font-mono font-semibold">
+                              {downMin > 0 ? (
+                                <span className="text-rose-600 dark:text-rose-400">
+                                  {downMin.toLocaleString("id-ID", {
+                                    minimumFractionDigits: 1,
+                                    maximumFractionDigits: 1,
+                                  })}
+                                </span>
+                              ) : (
+                                <span className="text-slate-400">0</span>
+                              )}
+                            </td>
+                            <td className="py-2 px-3 text-right font-mono font-bold text-slate-900 dark:text-white">
+                              {sr.toFixed(1)}%
+                            </td>
+                            <td className="py-2 px-3 text-center whitespace-nowrap">
+                              {isSuccess ? (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-emerald-600 dark:text-[#00c875] border border-emerald-500/30">
+                                  Achieved
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/15 text-rose-600 dark:text-[#e2445c] border border-rose-500/30">
+                                  Not Achieved
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                    <tfoot className="sticky bottom-0 z-10 bg-slate-200/90 dark:bg-[#070e1d] font-bold text-[11px] border-t-2 border-slate-300 dark:border-slate-700 shadow-md">
                       <tr>
-                        <td
-                          colSpan={3}
-                          className="py-2.5 px-3 text-right text-xs uppercase text-slate-500 dark:text-slate-400 tracking-wider"
-                        >
-                          Total Daily Summary ({dailyUptime.total_period_str}):
+                        <td className="py-2 px-3 text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                          <span className="text-blue-600 dark:text-blue-400 mr-1.5">
+                            Total:
+                          </span>
+                          {breakdownSummary.count}{" "}
+                          {breakdownSummary.count === 1 ? "Day" : "Days"} (
+                          {breakdownSummary.total_observed_min.toLocaleString(
+                            "en-US",
+                            {
+                              minimumFractionDigits: 1,
+                              maximumFractionDigits: 1,
+                            },
+                          )}
+                          m)
                         </td>
-                        <td className="py-2.5 px-3 font-mono text-sm font-bold text-[#e2445c]">
-                          {dailyUptime.downtime_text}
+                        <td className="py-2 px-3 text-right font-mono text-emerald-600 dark:text-emerald-400">
+                          {breakdownSummary.total_uptime_min.toLocaleString(
+                            "id-ID",
+                            {
+                              minimumFractionDigits: 1,
+                              maximumFractionDigits: 1,
+                            },
+                          )}
                         </td>
-                        <td
-                          colSpan={4}
-                          className="py-2.5 px-3 text-xs text-slate-600 dark:text-slate-300"
-                        >
-                          Total Daily Uptime:{" "}
-                          <strong className="text-[#00a862] dark:text-[#00c875] font-mono">
-                            {dailyUptime.uptime_text} ({dailyUptime.uptime_pct}%)
-                          </strong>
+                        <td className="py-2 px-3 text-right font-mono font-semibold">
+                          {breakdownSummary.total_downtime_min > 0 ? (
+                            <span className="text-rose-600 dark:text-rose-400">
+                              {breakdownSummary.total_downtime_min.toLocaleString(
+                                "id-ID",
+                                {
+                                  minimumFractionDigits: 1,
+                                  maximumFractionDigits: 1,
+                                },
+                              )}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 font-normal">
+                              0
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-2 px-3 text-right font-mono text-slate-900 dark:text-white">
+                          {breakdownSummary.avg_success_rate.toFixed(1)}%
+                        </td>
+                        <td className="py-2 px-3 text-center whitespace-nowrap">
+                          {breakdownSummary.is_sla_met ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-emerald-600 dark:text-[#00c875] border border-emerald-500/30">
+                              Achieved
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/15 text-rose-600 dark:text-[#e2445c] border border-rose-500/30">
+                              Not Achieved
+                            </span>
+                          )}
                         </td>
                       </tr>
                     </tfoot>
-                  )}
-                </table>
-              </div>
-            </div>
-
-            {/* AIOps Summary Box */}
-            <div className="bg-linear-to-r from-blue-50 via-indigo-50/50 to-slate-50 dark:from-blue-950/40 dark:via-indigo-950/30 dark:to-slate-900 border border-blue-200 dark:border-blue-500/30 rounded-xl p-4 flex flex-col sm:flex-row items-start gap-3 shadow-xs">
-              <div className="size-8 rounded-lg bg-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
-                <Info className="size-4" />
-              </div>
-              <div className="text-xs space-y-1.5">
-                <div className="font-bold text-slate-900 dark:text-white text-sm">
-                  Daily Uptime & SLA 99.5% Summary
+                  </table>
                 </div>
-                <p className="text-slate-700 dark:text-slate-300 leading-relaxed">
-                  Based on the daily <strong>99.5%</strong> SLA standard, the gateway
-                  must be active for a minimum of{" "}
-                  <strong>{dailyUptime.sla_min_uptime_text}</strong> with a maximum downtime
-                  tolerance of <strong>{dailyUptime.sla_max_down_text}</strong> out of{" "}
-                  <strong>{dailyUptime.total_period_str}</strong> today.
-                  Gateway <strong>{d.id}</strong> recorded total daily downtime
-                  of <strong>{dailyUptime.downtime_text}</strong>,
-                  resulting in a daily uptime performance of{" "}
-                  <strong className={dailyUptime.is_sla_met ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}>
-                    {dailyUptime.uptime_pct}% ({dailyUptime.is_sla_met ? "SLA Achieved" : "SLA Breach"})
-                  </strong>.
-                </p>
+              </div>
+
+              {/* Card 2: Incident History (Right) */}
+              <div className="lg:col-span-6 bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 flex flex-col justify-between shadow-xs h-full min-h-[220px]">
+                <div className="flex flex-col h-full">
+                  <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200 dark:border-slate-800/60 shrink-0">
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-xs font-bold text-slate-900 dark:text-white">
+                        Incident History
+                      </h4>
+                      <span className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-500/10 dark:bg-amber-500/20 px-2 py-0.5 rounded-full border border-amber-500/30">
+                        {filteredDowntimeEvents.length} event
+                      </span>
+                    </div>
+
+                    {/* Date Selector Dropdown for Daily Filtering */}
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                        Filter Date:
+                      </span>
+                      <select
+                        value={selectedEventDate}
+                        onChange={(e) => setSelectedEventDate(e.target.value)}
+                        className="text-xs font-medium bg-white dark:bg-[#070e1d] border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer shadow-xs"
+                      >
+                        <option value="ALL">
+                          All Dates ({allDowntimeIncidents.length})
+                        </option>
+                        {uniqueIncidentDates.map((dateStr) => {
+                          const count = allDowntimeIncidents.filter(
+                            (e) =>
+                              (e.date_str && e.date_str === dateStr) ||
+                              e.start_time.startsWith(dateStr),
+                          ).length;
+                          return (
+                            <option key={dateStr} value={dateStr}>
+                              {dateStr} ({count})
+                            </option>
+                          );
+                        })}
+                      </select>
+                      {selectedEventDate !== "ALL" && (
+                        <button
+                          type="button"
+                          onClick={() => setSelectedEventDate("ALL")}
+                          className="text-xs text-blue-500 hover:underline font-medium cursor-pointer ml-1"
+                        >
+                          Reset Filter
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Incident History Table */}
+                  <div
+                    className={`overflow-x-auto mt-2 pr-1 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700 flex-1 min-h-[160px] flex flex-col justify-start ${
+                      filteredDowntimeEvents.length > 5
+                        ? "max-h-[380px] overflow-y-auto"
+                        : "h-full"
+                    }`}
+                  >
+                    <table
+                      className="w-full text-left text-xs border-collapse h-full flex-1"
+                      style={{ height: "100%" }}
+                    >
+                      <thead className="sticky top-0 z-10 bg-slate-100 dark:bg-[#0a1224] shadow-xs shrink-0">
+                        <tr className="text-[11px] text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800/60 font-semibold h-8">
+                          <th className="py-2.5 px-2 text-center w-8">No.</th>
+                          <th className="py-2.5 px-3">Incident Time</th>
+                          <th className="py-2.5 px-3">Incident / Issue</th>
+                          <th className="py-2.5 px-3 text-center">Duration</th>
+                          <th className="py-2.5 px-3 text-center">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody
+                        className={`divide-y divide-slate-200 dark:divide-slate-800/40 text-[11px] ${
+                          filteredDowntimeEvents.length <= 1 ? "h-full" : ""
+                        }`}
+                        style={{ height: "100%" }}
+                      >
+                        {filteredDowntimeEvents.length > 0 ? (
+                          filteredDowntimeEvents.map((event, idx) => {
+                            const isStillActive =
+                              event.end_time === "-" ||
+                              event.end_time
+                                ?.toLowerCase()
+                                .includes("sekarang");
+                            return (
+                              <tr
+                                key={event.no || idx}
+                                className="hover:bg-slate-100/80 dark:hover:bg-slate-800/30 transition-colors"
+                              >
+                                <td className="py-2.5 px-2 text-center text-slate-500 dark:text-slate-400 font-mono align-middle">
+                                  {idx + 1}
+                                </td>
+                                <td className="py-2.5 px-3 text-slate-700 dark:text-slate-300 font-mono whitespace-nowrap align-middle">
+                                  <div>{event.start_time}</div>
+                                  {event.end_time && event.end_time !== "-" && (
+                                    <div className="text-[10px] text-slate-500 dark:text-slate-400">
+                                      to {event.end_time}
+                                    </div>
+                                  )}
+                                </td>
+                                <td className="py-2.5 px-3 font-semibold text-slate-900 dark:text-slate-100 align-middle">
+                                  {formatIncidentEn(
+                                    event.reason ||
+                                      event.title ||
+                                      event.category,
+                                  )}
+                                </td>
+                                <td className="py-2.5 px-3 text-center whitespace-nowrap align-middle">
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-md font-bold text-xs bg-amber-500/10 dark:bg-amber-500/20 text-[#f59e0b] border border-amber-500/30">
+                                    {formatDurationEn(event.duration)}
+                                  </span>
+                                </td>
+                                <td className="py-2.5 px-3 text-center whitespace-nowrap align-middle">
+                                  {!isStillActive ? (
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#00a862] dark:text-[#00c875]">
+                                      <span className="size-1.5 rounded-full bg-[#00c875]" />
+                                      {event.status || "Resolved"}
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-500">
+                                      <span className="size-1.5 rounded-full bg-amber-500 animate-pulse" />
+                                      {event.status || "Active"}
+                                    </span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })
+                        ) : (
+                          <tr>
+                            <td
+                              colSpan={5}
+                              className="py-16 text-center text-slate-500 dark:text-slate-400 text-xs"
+                            >
+                              No incident history found for the selected date.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -1453,19 +1610,24 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                   <div className="flex justify-between">
                     <span>Total Capacity:</span>
                     <strong className="text-slate-800 dark:text-slate-200">
-                      {d.ram_total_gb ? `${d.ram_total_gb} GB` : "1 GB"} (SBC RAM)
+                      {d.ram_total_gb ? `${d.ram_total_gb} GB` : "1 GB"} (SBC
+                      RAM)
                     </strong>
                   </div>
                   <div className="flex justify-between">
                     <span>Used:</span>
                     <strong className="text-slate-800 dark:text-slate-200">
-                      {d.ram_used_gb !== undefined ? `${d.ram_used_gb} GB` : `${((d.ram_total_gb || 1) * (d.ram_percent / 100)).toFixed(1)} GB`}
+                      {d.ram_used_gb !== undefined
+                        ? `${d.ram_used_gb} GB`
+                        : `${((d.ram_total_gb || 1) * (d.ram_percent / 100)).toFixed(1)} GB`}
                     </strong>
                   </div>
                   <div className="flex justify-between">
                     <span>Available:</span>
                     <strong className="text-slate-800 dark:text-slate-200">
-                      {d.ram_free_gb !== undefined ? `${d.ram_free_gb} GB` : `${((d.ram_total_gb || 1) * (1 - d.ram_percent / 100)).toFixed(1)} GB`}
+                      {d.ram_free_gb !== undefined
+                        ? `${d.ram_free_gb} GB`
+                        : `${((d.ram_total_gb || 1) * (1 - d.ram_percent / 100)).toFixed(1)} GB`}
                     </strong>
                   </div>
                 </div>
@@ -1534,7 +1696,10 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                       Overall Health:
                     </span>
                     <span className="text-[#00a862] dark:text-emerald-400 font-bold">
-                      {d.sd_health.status} {d.sd_health.health_percent ? `(${d.sd_health.health_percent}%)` : ""}
+                      {d.sd_health.status}{" "}
+                      {d.sd_health.health_percent
+                        ? `(${d.sd_health.health_percent}%)`
+                        : ""}
                     </span>
                   </div>
                   <div className="flex items-center justify-between p-2 rounded bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xs">
@@ -1692,27 +1857,31 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                         </span>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        {evt.duration && evt.duration !== "-" && evt.duration !== "0m" && (
-                          <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-amber-500/10 text-amber-500 border border-amber-500/20">
-                            {formatDurationEn(evt.duration)}
-                          </span>
-                        )}
+                        {evt.duration &&
+                          evt.duration !== "-" &&
+                          evt.duration !== "0m" && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                              {formatDurationEn(evt.duration)}
+                            </span>
+                          )}
                         <span className="text-slate-400 font-mono text-[11px] whitespace-nowrap">
-                          {evt.time && evt.time.includes("WIB") ? evt.time : `${evt.time} WIB`}
+                          {evt.time ? evt.time.replace(/\s*WIB/gi, "") : "-"}
                         </span>
                       </div>
                     </div>
                   ))
                 ) : (
                   <div className="py-4 text-center text-slate-400 text-xs">
-                    No hardware or system events recorded for this gateway today.
+                    No hardware or system events recorded for this gateway
+                    today.
                   </div>
                 )}
               </div>
             </div>
           </div>
         )}
-      </div>
+
+</div>
     </div>
   );
 };

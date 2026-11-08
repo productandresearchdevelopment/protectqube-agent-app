@@ -21,7 +21,7 @@ import {
   downloadReportFile,
 } from "@/store/api/monitoring";
 import { SmartBoxIsometricIllustration } from "@/components/ui/SmartBoxIllustration";
-import { parseReportPeriod } from "@/lib/reportPeriodUtils";
+import { parseReportPeriod, MONTH_NAMES } from "@/lib/reportPeriodUtils";
 
 const formatDurationEn = (dur?: string) => {
   if (!dur) return "-";
@@ -246,6 +246,7 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
     const minDay = minActiveDay;
     const maxDay = periodInfo.endDay || periodInfo.effectiveDays;
     const month = periodInfo.monthStr.toLowerCase();
+    const targetMonthNum = MONTH_NAMES.findIndex((m) => m.toLowerCase() === month) + 1;
 
     return rawEvents.filter((ev) => {
       // Metric filter based on active tab [CPU - Modem] vs [Cellular / Network]
@@ -258,7 +259,22 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
         if (!isCell) return false;
       }
 
-      const parts = (ev.start_time || "").trim().split(" ");
+      const trimmed = (ev.start_time || "").trim();
+      if (!trimmed) return true;
+
+      // Handle ISO format: "YYYY-MM-DD ..."
+      const isoMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (isoMatch) {
+        const dNum = parseInt(isoMatch[3], 10);
+        const mNum = parseInt(isoMatch[2], 10);
+        if (targetMonthNum > 0 && mNum !== targetMonthNum) {
+          return false;
+        }
+        return dNum >= minDay && dNum <= maxDay;
+      }
+
+      // Handle legacy format: "DD MMM YYYY ..."
+      const parts = trimmed.split(" ");
       if (parts.length >= 2) {
         const dNum = parseInt(parts[0], 10);
         const mStr = parts[1].toLowerCase().replace(".", "");
@@ -278,7 +294,13 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
   const uniqueDates = useMemo(() => {
     const set = new Set<string>();
     rangeFilteredEvents.forEach((ev) => {
-      const parts = ev.start_time.trim().split(" ");
+      const trimmed = (ev.start_time || "").trim();
+      const isoMatch = trimmed.match(/^(\d{4}-\d{2}-\d{2})/);
+      if (isoMatch) {
+        set.add(isoMatch[1]);
+        return;
+      }
+      const parts = trimmed.split(" ");
       if (parts.length >= 2) {
         set.add(`${parts[0]} ${parts[1]}`);
       }
@@ -291,16 +313,30 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
     if (selectedBarDay !== null) {
       const dayNumStr = selectedBarDay < 10 ? `0${selectedBarDay}` : `${selectedBarDay}`;
       const prefix = `${dayNumStr} ${periodInfo.monthStr}`;
+      const mIdx = MONTH_NAMES.findIndex((m) => m.toLowerCase() === periodInfo.monthStr.toLowerCase());
+      const mNum = mIdx !== -1 ? String(mIdx + 1).padStart(2, "0") : "11";
+      const isoPrefix = `${periodInfo.yearStr}-${mNum}-${dayNumStr}`;
       return rangeFilteredEvents.filter((ev) => {
         const trimmed = (ev.start_time || "").trim();
-        return trimmed.startsWith(prefix) || trimmed.startsWith(`${selectedBarDay} ${periodInfo.monthStr}`);
+        return (
+          trimmed.startsWith(isoPrefix) ||
+          trimmed.startsWith(prefix) ||
+          trimmed.startsWith(`${selectedBarDay} ${periodInfo.monthStr}`) ||
+          (ev.date_str && (ev.date_str === isoPrefix || ev.date_str.startsWith(prefix)))
+        );
       });
     }
     if (selectedEventDate === "ALL") {
       return rangeFilteredEvents;
     }
-    return rangeFilteredEvents.filter((ev) => ev.start_time.trim().startsWith(selectedEventDate));
-  }, [rangeFilteredEvents, selectedEventDate, selectedBarDay, periodInfo.monthStr]);
+    return rangeFilteredEvents.filter((ev) => {
+      const trimmed = (ev.start_time || "").trim();
+      return (
+        trimmed.startsWith(selectedEventDate) ||
+        (ev.date_str && ev.date_str === selectedEventDate)
+      );
+    });
+  }, [rangeFilteredEvents, selectedEventDate, selectedBarDay, periodInfo.monthStr, periodInfo.yearStr]);
 
   // Filter Rincian SLA to only show active days between minActiveDay and effectiveDays
   const activeDailyBreakdown = useMemo(() => {

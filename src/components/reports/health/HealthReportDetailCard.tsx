@@ -30,7 +30,7 @@ import {
   downloadReportFile,
 } from "@/store/api/monitoring";
 import { SmartBoxIsometricIllustration } from "@/components/ui/SmartBoxIllustration";
-import { parseReportPeriod } from "@/lib/reportPeriodUtils";
+import { parseReportPeriod, MONTH_NAMES } from "@/lib/reportPeriodUtils";
 
 const formatDurationEn = (dur?: string) => {
   if (!dur) return "-";
@@ -132,18 +132,44 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
 
   // Filter events by period / selected date for Incident History table
   const rangeFilteredEvents = useMemo(() => {
+    const minDay = periodInfo.startDay;
+    const maxDay = periodInfo.effectiveDays;
+    const month = periodInfo.monthStr.toLowerCase();
+    const targetMonthNum = MONTH_NAMES.findIndex((m) => m.toLowerCase() === month) + 1;
+
     return rawEvents.filter((ev: any) => {
-      const parts = (ev.start_time || "").split(" ");
+      const trimmed = (ev.start_time || "").trim();
+      if (!trimmed) return true;
+
+      // Handle ISO format: "YYYY-MM-DD ..."
+      const isoMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (isoMatch) {
+        const dNum = parseInt(isoMatch[3], 10);
+        const mNum = parseInt(isoMatch[2], 10);
+        if (targetMonthNum > 0 && mNum !== targetMonthNum) {
+          return false;
+        }
+        return dNum >= minDay && dNum <= maxDay;
+      }
+
+      // Handle legacy format: "DD MMM YYYY ..."
+      const parts = trimmed.split(" ");
       const dayNum = parseInt(parts[0], 10);
       if (isNaN(dayNum)) return true;
-      return dayNum >= periodInfo.startDay && dayNum <= periodInfo.effectiveDays;
+      return dayNum >= minDay && dayNum <= maxDay;
     });
   }, [rawEvents, periodInfo]);
 
   const uniqueDates = useMemo(() => {
     const dates = new Set<string>();
     rangeFilteredEvents.forEach((e: any) => {
-      const match = (e.start_time || "").match(/^(\d{1,2}\s+[A-Za-z]{3})/);
+      const trimmed = (e.start_time || "").trim();
+      const isoMatch = trimmed.match(/^(\d{4}-\d{2}-\d{2})/);
+      if (isoMatch) {
+        dates.add(isoMatch[1]);
+        return;
+      }
+      const match = trimmed.match(/^(\d{1,2}\s+[A-Za-z]{3})/);
       if (match) dates.add(match[1]);
     });
     return Array.from(dates);
@@ -152,9 +178,10 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
   const filteredEvents = useMemo(() => {
     if (selectedEventDate === "ALL") return rangeFilteredEvents;
     const target = selectedEventDate.trim().toLowerCase();
-    return rangeFilteredEvents.filter((e: any) =>
-      (e.start_time || "").trim().toLowerCase().startsWith(target)
-    );
+    return rangeFilteredEvents.filter((e: any) => {
+      const trimmed = (e.start_time || "").trim().toLowerCase();
+      return trimmed.startsWith(target) || (e.date_str && e.date_str.toLowerCase() === target);
+    });
   }, [rangeFilteredEvents, selectedEventDate]);
 
   // Memoized dynamic trend data for CPU, RAM, and Storage Usage based on selected date (per jam / hourly when day is selected)

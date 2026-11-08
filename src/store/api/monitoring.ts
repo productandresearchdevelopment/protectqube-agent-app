@@ -107,6 +107,12 @@ export interface IGatewayItem {
   uptime: string;
   status: "Healthy" | "Warning" | "Critical" | string;
   last_update: string;
+  power_source?: string;
+  power_status?: string;
+  power_badge?: string;
+  power_text?: string;
+  battery_percent?: number | null;
+  is_power_drop?: boolean;
 }
 
 export interface ISystemHealthDashboardData {
@@ -1060,6 +1066,7 @@ export interface ISDHealthDetails {
 
 export interface IDowntimeEvent {
   no: number;
+  date_str?: string;
   start_time: string;
   end_time: string;
   duration: string;
@@ -1082,6 +1089,29 @@ export interface ISystemHealthEventItem {
   epoch?: number;
 }
 
+export interface IDailyBreakdownRow {
+  date: string;
+  day_name: string;
+  date_full: string;
+  date_iso: string;
+  uptime_min: number;
+  downtime_min: number;
+  success_rate: number;
+  is_sla_met: boolean;
+  sla_status: string;
+  total_observed_min: number;
+}
+
+export interface IDailySummary {
+  count: number;
+  total_observed_min: number;
+  total_uptime_min: number;
+  total_downtime_min: number;
+  avg_success_rate: number;
+  is_sla_met: boolean;
+  sla_status: string;
+}
+
 export interface IDailyUptime {
   date_str: string;
   total_period_hours: number;
@@ -1100,6 +1130,22 @@ export interface IDailyUptime {
   sla_diff_pct: string;
   tolerance_text: string;
   incidents: IDowntimeEvent[];
+  daily_breakdown?: IDailyBreakdownRow[];
+  summary?: IDailySummary;
+}
+
+export interface IPowerInfo {
+  source: string;
+  status: string;
+  badge: string;
+  is_drop: boolean;
+  voltage: string;
+  adapter_voltage: string;
+  battery_percent: number | null;
+  charging_state: string;
+  raw_text: string;
+  explanation: string;
+  broadcom_register: string;
 }
 
 export interface IGatewayDetailData {
@@ -1144,6 +1190,7 @@ export interface IGatewayDetailData {
   downtime_events?: IDowntimeEvent[];
   events?: ISystemHealthEventItem[];
   daily_uptime?: IDailyUptime;
+  power_info?: IPowerInfo;
 }
 
 export const fetchGatewayDetail = async (

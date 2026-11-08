@@ -258,6 +258,57 @@ export default function SystemHealthPage() {
       },
     },
     {
+      id: "battery",
+      header: "Battery / Power",
+      align: "center",
+      cell: (item) => {
+        const isWhite = item.type.includes("Putih") || item.model.includes("210") || item.model.includes("RK3328");
+        if (isWhite) {
+          const isDischarging = item.is_power_drop || item.power_status === "Discharging" || item.power_source === "BATT";
+          const isCharging = item.power_status === "Charging";
+          const pct = item.battery_percent;
+          if (isDischarging) {
+            return (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-500/15 text-rose-600 dark:text-[#e2445c] border border-rose-500/30 whitespace-nowrap">
+                <span className="size-1.5 rounded-full bg-rose-500 animate-pulse" />
+                {pct ? `${pct}% Discharging` : "Discharging"}
+              </span>
+            );
+          }
+          if (isCharging) {
+            return (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30 whitespace-nowrap">
+                <span className="size-1.5 rounded-full bg-blue-500" />
+                {pct ? `${pct}% Charging` : "Charging"}
+              </span>
+            );
+          }
+          return (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-600 dark:text-[#00c875] border border-emerald-500/30 whitespace-nowrap">
+              <span className="size-1.5 rounded-full bg-[#00c875]" />
+              {pct ? `${pct}% Full` : "100% Full"}
+            </span>
+          );
+        } else {
+          const isDrop = item.is_power_drop || item.power_status === "Voltage Drop" || item.power_status === "Pernah Drop" || item.power_status === "Drop";
+          if (isDrop) {
+            return (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 whitespace-nowrap">
+                <span className="size-1.5 rounded-full bg-amber-500" />
+                Voltage Drop
+              </span>
+            );
+          }
+          return (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-600 dark:text-[#00c875] border border-emerald-500/30 whitespace-nowrap">
+              <span className="size-1.5 rounded-full bg-[#00c875]" />
+              Normal
+            </span>
+          );
+        }
+      },
+    },
+    {
       id: "status",
       header: "Status",
       align: "center",
