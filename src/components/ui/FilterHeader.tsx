@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Search, ChevronDown, Download, Calendar, Filter, X, LucideIcon } from "lucide-react";
+import { Search, ChevronDown, Download, Calendar, Filter, X, LucideIcon, Loader2 } from "lucide-react";
 import { DateRangePicker } from "./DateRangePicker";
 
 export interface IFilterOption {
@@ -128,9 +128,17 @@ export const FilterHeader: React.FC<FilterHeaderProps> = ({
             type="button"
             disabled={exportLoading}
             onClick={onExportClick}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-[#0073ea] hover:bg-blue-600 active:scale-95 rounded-xl transition-all shadow-xs disabled:opacity-50 cursor-pointer"
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white rounded-xl transition-all shadow-xs cursor-pointer ${
+              exportLoading
+                ? "bg-[#0073ea]/80 cursor-wait"
+                : "bg-[#0073ea] hover:bg-blue-600 active:scale-95"
+            }`}
           >
-            <Download className="size-3.5" />
+            {exportLoading ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <Download className="size-3.5" />
+            )}
             <span>{exportLoading ? "Exporting..." : exportLabel}</span>
           </button>
         )}
@@ -195,9 +203,17 @@ export const FilterHeader: React.FC<FilterHeaderProps> = ({
                   type="button"
                   disabled={exportLoading}
                   onClick={onExportClick}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-[#0073ea] hover:bg-blue-600 active:scale-95 rounded-lg transition-all shadow-xs disabled:opacity-50 cursor-pointer"
+                  className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white rounded-lg transition-all shadow-xs cursor-pointer ${
+                    exportLoading
+                      ? "bg-[#0073ea]/80 cursor-wait"
+                      : "bg-[#0073ea] hover:bg-blue-600 active:scale-95"
+                  }`}
                 >
-                  <Download className="size-3.5" />
+                  {exportLoading ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : (
+                    <Download className="size-3.5" />
+                  )}
                   <span>{exportLoading ? "Exporting..." : exportLabel}</span>
                 </button>
               )}
@@ -318,9 +334,17 @@ export const FilterHeader: React.FC<FilterHeaderProps> = ({
                 type="button"
                 disabled={exportLoading}
                 onClick={onExportClick}
-                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-white bg-[#0073ea] hover:bg-blue-600 active:scale-95 rounded-lg transition-all shadow-xs disabled:opacity-50 cursor-pointer"
+                className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-white rounded-lg transition-all shadow-xs cursor-pointer ${
+                  exportLoading
+                    ? "bg-[#0073ea]/80 cursor-wait"
+                    : "bg-[#0073ea] hover:bg-blue-600 active:scale-95"
+                }`}
               >
-                <Download className="size-3.5" />
+                {exportLoading ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <Download className="size-3.5" />
+                )}
                 <span>{exportLoading ? "Exporting..." : exportLabel}</span>
               </button>
             )}

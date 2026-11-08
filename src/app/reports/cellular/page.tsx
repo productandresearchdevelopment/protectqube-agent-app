@@ -465,6 +465,7 @@ export default function ReportCellularPage() {
 
           onDateRangeChange={(range) => handleFilterChange("date_range", range)}
           onExportClick={handleExport}
+          exportLoading={isExporting}
         />
       }
     >

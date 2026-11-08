@@ -510,8 +510,9 @@ export default function ReportHealthPage() {
           filters={filterConfigs}
           timeframe={filters.date_range || getCurrentMonthPeriodStr()}
 
-          onTimeframeClick={() => {}}
+          onDateRangeChange={(range) => handleFilterChange("date_range", range)}
           onExportClick={handleExport}
+          exportLoading={isExporting}
         />
       }
     >

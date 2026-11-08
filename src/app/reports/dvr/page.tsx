@@ -487,6 +487,7 @@ export default function ReportDVRPage() {
 
           onDateRangeChange={(range) => handleFilterChange("date_range", range)}
           onExportClick={handleExport}
+          exportLoading={isExporting}
         />
       }
     >
