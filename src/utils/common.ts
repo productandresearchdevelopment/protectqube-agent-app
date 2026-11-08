@@ -276,6 +276,8 @@ export const formatToWIB = (dateInput?: string | number | Date | null): string =
         str = str.replace(" UTC", "Z");
       } else if (/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(:\d{2})?$/.test(str)) {
         str = str.replace(" ", "T") + "+07:00";
+      } else if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?$/.test(str)) {
+        str += "Z";
       }
       date = new Date(str);
     } else {
