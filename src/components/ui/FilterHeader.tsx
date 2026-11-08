@@ -29,6 +29,7 @@ interface FilterHeaderProps {
   onDateRangeChange?: (range: string) => void;
   onExportClick?: () => void;
   exportLoading?: boolean;
+  exportLabel?: string;
   title?: string;
   titleIcon?: LucideIcon;
   totalCount?: number;
@@ -48,6 +49,7 @@ export const FilterHeader: React.FC<FilterHeaderProps> = ({
   onDateRangeChange,
   onExportClick,
   exportLoading = false,
+  exportLabel = "Export",
   title,
   titleIcon: TitleIcon,
   totalCount,
@@ -129,7 +131,7 @@ export const FilterHeader: React.FC<FilterHeaderProps> = ({
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-[#0073ea] hover:bg-blue-600 active:scale-95 rounded-xl transition-all shadow-xs disabled:opacity-50 cursor-pointer"
           >
             <Download className="size-3.5" />
-            <span>{exportLoading ? "Exporting..." : "Export CSV"}</span>
+            <span>{exportLoading ? "Exporting..." : exportLabel}</span>
           </button>
         )}
       </div>
@@ -196,7 +198,7 @@ export const FilterHeader: React.FC<FilterHeaderProps> = ({
                   className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-[#0073ea] hover:bg-blue-600 active:scale-95 rounded-lg transition-all shadow-xs disabled:opacity-50 cursor-pointer"
                 >
                   <Download className="size-3.5" />
-                  <span>{exportLoading ? "Exporting..." : "Export CSV"}</span>
+                  <span>{exportLoading ? "Exporting..." : exportLabel}</span>
                 </button>
               )}
             </div>
@@ -319,7 +321,7 @@ export const FilterHeader: React.FC<FilterHeaderProps> = ({
                 className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-white bg-[#0073ea] hover:bg-blue-600 active:scale-95 rounded-lg transition-all shadow-xs disabled:opacity-50 cursor-pointer"
               >
                 <Download className="size-3.5" />
-                <span>{exportLoading ? "Exporting..." : "Export CSV"}</span>
+                <span>{exportLoading ? "Exporting..." : exportLabel}</span>
               </button>
             )}
           </div>

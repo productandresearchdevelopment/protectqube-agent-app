@@ -294,8 +294,12 @@ export interface IDVRSummary {
   total_gateways: number;
   recording_normal: number;
   recording_normal_percent: number;
+  good?: number;
+  good_percent?: number;
   issue: number;
   issue_percent: number;
+  warning?: number;
+  warning_percent?: number;
   offline: number;
   offline_percent: number;
   total_kamera: number;
@@ -469,14 +473,21 @@ export const useCellularReport = (filters?: ICellularReportFilters) => {
   });
 };
 
-export const exportCellularReportCsvUrl = (filters?: ICellularReportFilters) => {
+export const exportCellularReportExcelUrl = (filters?: ICellularReportFilters) => {
   const params = new URLSearchParams();
   if (filters?.search) params.append("search", filters.search);
   if (filters?.type && !filters.type.startsWith("Semua") && !filters.type.startsWith("All")) params.append("gateway_type", filters.type);
   if (filters?.provider && !filters.provider.startsWith("Semua") && !filters.provider.startsWith("All")) params.append("provider", filters.provider);
   if (filters?.location && !filters.location.startsWith("Semua") && !filters.location.startsWith("All")) params.append("location", filters.location);
   if (filters?.date_range) params.append("date_range", filters.date_range);
-  return `${API_BASE_URL}/monitoring/reports/cellular/export?${params.toString()}`;
+  return `${API_BASE_URL}/monitoring/reports/cellular/export-excel?${params.toString()}`;
+};
+export const exportCellularReportCsvUrl = exportCellularReportExcelUrl;
+
+export const exportCellularDetailPdfUrl = (gatewayId: string, dateRange?: string) => {
+  const params = new URLSearchParams();
+  if (dateRange) params.append("date_range", dateRange);
+  return `${API_BASE_URL}/monitoring/reports/cellular/gateway/${gatewayId}/export-pdf?${params.toString()}`;
 };
 
 export interface ITroubleEventItem {
@@ -715,14 +726,21 @@ export const useDVRReport = (filters?: IDVRReportFilters) => {
   });
 };
 
-export const exportDVRReportCsvUrl = (filters?: IDVRReportFilters) => {
+export const exportDVRReportExcelUrl = (filters?: IDVRReportFilters) => {
   const params = new URLSearchParams();
   if (filters?.search) params.append("search", filters.search);
   if (filters?.type && filters.type !== "Semua Tipe") params.append("gateway_type", filters.type);
   if (filters?.dvr_brand && !filters.dvr_brand.startsWith("Semua") && !filters.dvr_brand.startsWith("All")) params.append("dvr_brand", filters.dvr_brand);
   if (filters?.location && !filters.location.startsWith("Semua") && !filters.location.startsWith("All")) params.append("location", filters.location);
   if (filters?.date_range) params.append("date_range", filters.date_range);
-  return `${API_BASE_URL}/monitoring/reports/dvr/export?${params.toString()}`;
+  return `${API_BASE_URL}/monitoring/reports/dvr/export-excel?${params.toString()}`;
+};
+export const exportDVRReportCsvUrl = exportDVRReportExcelUrl;
+
+export const exportDVRDetailPdfUrl = (gatewayId: string, dateRange?: string) => {
+  const params = new URLSearchParams();
+  if (dateRange) params.append("date_range", dateRange);
+  return `${API_BASE_URL}/monitoring/reports/dvr/gateway/${encodeURIComponent(gatewayId)}/export-pdf?${params.toString()}`;
 };
 
 export interface IDVRTroubleEventItem {
@@ -903,12 +921,20 @@ export const useHealthReport = (filters?: IHealthReportFilters) => {
   });
 };
 
-export const exportHealthReportCsvUrl = (filters?: IHealthReportFilters) => {
+export const exportHealthReportExcelUrl = (filters?: IHealthReportFilters) => {
   const params = new URLSearchParams();
   if (filters?.search) params.append("search", filters.search);
   if (filters?.type && filters.type !== "Semua Tipe") params.append("gateway_type", filters.type);
   if (filters?.location && !filters.location.startsWith("Semua") && !filters.location.startsWith("All")) params.append("location", filters.location);
-  return `${API_BASE_URL}/monitoring/reports/health/export?${params.toString()}`;
+  if (filters?.date_range) params.append("date_range", filters.date_range);
+  return `${API_BASE_URL}/monitoring/reports/health/export-excel?${params.toString()}`;
+};
+export const exportHealthReportCsvUrl = exportHealthReportExcelUrl;
+
+export const exportHealthDetailPdfUrl = (gatewayId: string, dateRange?: string) => {
+  const params = new URLSearchParams();
+  if (dateRange) params.append("date_range", dateRange);
+  return `${API_BASE_URL}/monitoring/reports/health/gateway/${encodeURIComponent(gatewayId)}/export-pdf?${params.toString()}`;
 };
 
 export interface IHealthTrendPoint {
@@ -1185,6 +1211,7 @@ export interface ICellularGatewayDetailData {
   sim_card: string;
   ip_address: string;
   last_update: string;
+  status?: string;
   service_status: string;
   cpu_modem: ICPUModemDetail;
   signal_strength: ISignalStrengthDetail;
@@ -1295,6 +1322,7 @@ export interface IDVRGatewayDetailData {
   dvr_model: string;
   ip_address: string;
   last_update: string;
+  status?: string;
   service_status: string;
   cpu_dvr: ICPUDVRDetail;
   camera_status: ICameraStatusDetail;
@@ -1333,6 +1361,46 @@ export const useDVRGatewayDetail = (gatewayId: string | null) => {
     refetchInterval: 10000,
   });
 };
+
+/**
+ * Client-side file downloader that carries authorization token headers,
+ * extracts filename from Content-Disposition if present, and triggers browser save.
+ */
+export const downloadReportFile = async (url: string, defaultFilename = "report_export"): Promise<void> => {
+  const token = getToken();
+  const headers: HeadersInit = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const response = await fetch(url, { headers });
+  if (!response.ok) {
+    let errorMsg = `Download failed with status ${response.status}`;
+    try {
+      const errJson = await response.json();
+      if (errJson.detail) errorMsg = errJson.detail;
+    } catch {}
+    throw new Error(errorMsg);
+  }
+
+  let filename = defaultFilename;
+  const disposition = response.headers.get("Content-Disposition");
+  if (disposition && disposition.includes("filename=")) {
+    const match = disposition.match(/filename=(?:"([^"]+)"|([^;]+))/);
+    if (match && (match[1] || match[2])) {
+      filename = (match[1] || match[2]).trim();
+    }
+  }
+
+  const blob = await response.blob();
+  const downloadUrl = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = downloadUrl;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  window.URL.revokeObjectURL(downloadUrl);
+};
+
 
 
 

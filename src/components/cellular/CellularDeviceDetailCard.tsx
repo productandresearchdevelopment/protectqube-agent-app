@@ -44,6 +44,15 @@ const formatIncidentEn = (text?: string) => {
     .replace(/Komunikasi\s+Gateway\s+CPU\s+ke\s+NVR\s+Surveillance\s+Terputus/gi, "Gateway CPU to NVR Communication Lost")
     .replace(/Kamera\s+Hilang\s+Sinyal\s*\/\s*No\s+Video/gi, "Camera Signal Loss / No Video")
     .replace(/Kamera\s+Terputus\s*\/\s*Offline/gi, "Camera Disconnected / Offline")
+    .replace(/CPU\s+terhubung\s+ke\s+Quectel\s+Modem\s+via\s+serial\s+ports/gi, "CPU connected to Quectel Modem via serial ports")
+    .replace(/Komunikasi\s+dengan\s+modem\s+terputus/gi, "Communication with modem lost")
+    .replace(/Tidak\s+ada\s+telemetri\s+masuk/gi, "No incoming telemetry")
+    .replace(/Modem\s+USB\s+tidak\s+terdeteksi/gi, "Modem USB not detected")
+    .replace(/Kartu\s+SIM\s+tidak\s+terpasang/gi, "SIM Card not inserted")
+    .replace(/Kartu\s+SIM\s+tidak\s+terdeteksi/gi, "SIM Card not detected")
+    .replace(/Sinyal\s+seluler\s+hilang/gi, "Cellular signal lost")
+    .replace(/Sinyal\s+lemah/gi, "Weak cellular signal")
+    .replace(/Tidak\s+ada\s+sinyal/gi, "No signal")
     .replace(/Gangguan\s+Jaringan/gi, "Network Disruption")
     .replace(/Gangguan/gi, "Incident")
     .replace(/selama\s+(\d+)\s*Menit/gi, "for $1m")
@@ -51,8 +60,11 @@ const formatIncidentEn = (text?: string) => {
     .replace(/selama\s+(\d+)\s*Jam/gi, "for $1h")
     .replace(/(\d+)\s*Menit/gi, "$1m")
     .replace(/(\d+)\s*Jam/gi, "$1h")
+    .replace(/(\d+)m\s+lalu/gi, "$1m ago")
     .replace(/Normal\s+Operation\s*\(No incidents detected\)/gi, "Normal Operation (No incidents detected)")
     .replace(/Operasi\s+Normal/gi, "Normal Operation")
+    .replace(/Aktif/gi, "Active")
+    .replace(/Tidak\s+Terdeteksi/gi, "Not Detected")
     .trim();
 };
 
@@ -120,7 +132,17 @@ const SparklineWave = ({
   color: string;
   id: string;
 }) => {
-  const points = data && data.length > 0 ? data : [20, 25, 22, 28, 30, 26, 28];
+  let points = Array.isArray(data)
+    ? data.filter((v) => typeof v === "number" && !isNaN(v))
+    : [];
+
+  if (points.length === 0) {
+    points = [20, 25, 22, 28, 30, 26, 28];
+  } else if (points.length === 1) {
+    // Duplicate single point so points.length >= 2, avoiding division by zero (NaN cx)
+    points = [points[0], points[0]];
+  }
+
   const max = Math.max(...points);
   const min = Math.min(...points);
   const range = max - min || 1;
@@ -129,15 +151,19 @@ const SparklineWave = ({
   const height = 24;
 
   const coords = points.map((val, idx) => {
-    const x = (idx / (points.length - 1)) * width;
-    const y = height - ((val - min) / range) * (height - 4) - 2;
+    const divisor = points.length > 1 ? points.length - 1 : 1;
+    const rawX = (idx / divisor) * width;
+    const rawY = height - ((val - min) / range) * (height - 4) - 2;
+    const x = Number.isFinite(rawX) ? Number(rawX.toFixed(1)) : 0;
+    const y = Number.isFinite(rawY) ? Number(rawY.toFixed(1)) : height / 2;
     return { x, y };
   });
 
   const pathD = coords.reduce((acc, curr, idx) => {
     if (idx === 0) return `M ${curr.x} ${curr.y}`;
     const prev = coords[idx - 1];
-    const cx = (prev.x + curr.x) / 2;
+    const rawCx = (prev.x + curr.x) / 2;
+    const cx = Number.isFinite(rawCx) ? Number(rawCx.toFixed(1)) : curr.x;
     return `${acc} C ${cx} ${prev.y}, ${cx} ${curr.y}, ${curr.x} ${curr.y}`;
   }, "");
 
@@ -168,8 +194,8 @@ const SparklineWave = ({
         {coords.map((c, i) => (
           <circle
             key={i}
-            cx={c.x}
-            cy={c.y}
+            cx={Number.isFinite(c.x) ? c.x : 0}
+            cy={Number.isFinite(c.y) ? c.y : 0}
             r="1.5"
             fill={color}
             className="opacity-80"
@@ -381,17 +407,30 @@ export const CellularDeviceDetailCard: React.FC<
           </div>
           <div className="flex items-center gap-2.5">
             <h2 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
-              Device Detail – {d.id}
+              Device Detail
             </h2>
-            <span
-              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                d.service_status === "Running"
-                  ? "bg-emerald-500/20 text-[#00a862] dark:text-[#00c875] border border-emerald-500/30"
-                  : "bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30"
-              }`}
-            >
-              {d.service_status === "Running" ? "Online" : "Degraded"}
-            </span>
+            {(() => {
+              const currentStatus = (d.status || (d.service_status === "Running" ? "Online" : d.service_status === "Stopped" ? "Offline" : "Warning")).toLowerCase();
+              if (currentStatus.includes("online")) {
+                return (
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/20 text-[#00a862] dark:text-[#00c875] border border-emerald-500/30">
+                    Online
+                  </span>
+                );
+              }
+              if (currentStatus.includes("off") || currentStatus.includes("stop")) {
+                return (
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-500/20 text-[#e2445c] border border-rose-500/30">
+                    Offline
+                  </span>
+                );
+              }
+              return (
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                  Warning
+                </span>
+              );
+            })()}
           </div>
         </div>
 
@@ -522,7 +561,7 @@ export const CellularDeviceDetailCard: React.FC<
                       <div className="space-y-2">
                         <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1">
                           <span className="text-slate-500 dark:text-slate-400 font-sans">
-                            Tipe
+                            Type
                           </span>
                           <span className="text-slate-800 dark:text-slate-200 font-sans font-medium text-right truncate">
                             {d.model}
@@ -580,6 +619,8 @@ export const CellularDeviceDetailCard: React.FC<
                               className={`size-2 rounded-full ${
                                 d.service_status === "Running"
                                   ? "bg-emerald-400 animate-pulse"
+                                  : d.service_status === "Stopped"
+                                  ? "bg-rose-500"
                                   : "bg-amber-400"
                               }`}
                             />
@@ -587,6 +628,8 @@ export const CellularDeviceDetailCard: React.FC<
                               className={
                                 d.service_status === "Running"
                                   ? "text-[#00a862] dark:text-emerald-400"
+                                  : d.service_status === "Stopped"
+                                  ? "text-rose-500 dark:text-rose-400"
                                   : "text-amber-600 dark:text-amber-400"
                               }
                             >
@@ -864,7 +907,7 @@ export const CellularDeviceDetailCard: React.FC<
                 <div className="space-y-2 text-xs">
                   <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1.5">
                     <span className="text-slate-500 dark:text-slate-400">
-                      Komunikasi Serial
+                      Serial Communication
                     </span>
                     <span className="font-semibold text-emerald-500 flex items-center gap-1">
                       <CheckCircle2 className="size-3.5" /> {d.cpu_modem.status}
@@ -872,7 +915,7 @@ export const CellularDeviceDetailCard: React.FC<
                   </div>
                   <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1.5">
                     <span className="text-slate-500 dark:text-slate-400">
-                      Port Utama (Active)
+                      Primary Port (Active)
                     </span>
                     <span className="font-mono text-slate-800 dark:text-slate-200 font-semibold">
                       {d.cpu_modem.port}
@@ -880,7 +923,7 @@ export const CellularDeviceDetailCard: React.FC<
                   </div>
                   <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1.5">
                     <span className="text-slate-500 dark:text-slate-400">
-                      Baudrate Serial
+                      Serial Baudrate
                     </span>
                     <span className="font-mono text-slate-800 dark:text-slate-200">
                       {d.cpu_modem.baudrate} bps
@@ -888,7 +931,7 @@ export const CellularDeviceDetailCard: React.FC<
                   </div>
                   <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1.5">
                     <span className="text-slate-500 dark:text-slate-400">
-                      Driver Kernel Linux
+                      Linux Kernel Driver
                     </span>
                     <span className="font-mono text-slate-800 dark:text-slate-200">
                       {d.cpu_modem.driver}
@@ -908,7 +951,7 @@ export const CellularDeviceDetailCard: React.FC<
               <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-3">
                 <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-sm">
                   <Activity className="size-4 text-emerald-500" />
-                  <span>Respon AT Command & Health</span>
+                  <span>AT Command Response & Health</span>
                 </div>
                 <div className="bg-slate-900 text-slate-200 font-mono text-[11px] p-3 rounded-lg space-y-1.5">
                   <div className="text-slate-400">
@@ -921,7 +964,7 @@ export const CellularDeviceDetailCard: React.FC<
                   <div className="text-emerald-400">&gt; AT+CPIN?</div>
                   <div className="text-slate-300">
                     +CPIN: READY (
-                    {d.sim_card === "Aktif" ? "SIM Inserted & Valid" : "No SIM"}
+                    {d.sim_card === "Aktif" || d.sim_card === "Active" || d.sim_card === "Ready" ? "SIM Inserted & Valid" : "No SIM"}
                     )
                   </div>
                   <div className="text-emerald-400">&gt; AT+COPS?</div>
@@ -930,14 +973,14 @@ export const CellularDeviceDetailCard: React.FC<
                   </div>
                 </div>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 italic">
-                  {d.cpu_modem.message}
+                  {formatIncidentEn(d.cpu_modem.message)}
                 </p>
               </div>
             </div>
 
             <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-2">
               <div className="text-xs font-bold text-slate-900 dark:text-white">
-                Mapping Serial Ports Quectel
+                Quectel Serial Port Mapping
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 text-[11px]">
                 <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800">
@@ -1026,7 +1069,7 @@ export const CellularDeviceDetailCard: React.FC<
               <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-3">
                 <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-sm">
                   <Radio className="size-4 text-[#0073ea]" />
-                  <span>Hardware Modem Spesifikasi</span>
+                  <span>Modem Hardware Specifications</span>
                 </div>
                 <div className="space-y-2 text-xs">
                   <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1.5">
@@ -1047,7 +1090,7 @@ export const CellularDeviceDetailCard: React.FC<
                   </div>
                   <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1.5">
                     <span className="text-slate-500 dark:text-slate-400">
-                      Kategori LTE
+                      LTE Category
                     </span>
                     <span className="font-medium text-slate-800 dark:text-slate-200">
                       Cat 4 (150 Mbps DL / 50 Mbps UL)
@@ -1065,7 +1108,15 @@ export const CellularDeviceDetailCard: React.FC<
                     <span className="text-slate-500 dark:text-slate-400">
                       Operation Status
                     </span>
-                    <span className="font-semibold text-emerald-500">
+                    <span
+                      className={`font-semibold ${
+                        d.service_status === "Running"
+                          ? "text-emerald-500"
+                          : d.service_status === "Stopped"
+                          ? "text-rose-500"
+                          : "text-amber-500"
+                      }`}
+                    >
                       {d.service_status}
                     </span>
                   </div>
@@ -1075,7 +1126,7 @@ export const CellularDeviceDetailCard: React.FC<
               <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-3">
                 <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-sm">
                   <Wifi className="size-4 text-emerald-500" />
-                  <span>SIM Card & Selular Provider</span>
+                  <span>SIM Card & Cellular Provider</span>
                 </div>
                 <div className="space-y-2 text-xs">
                   <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1.5">
@@ -1083,12 +1134,12 @@ export const CellularDeviceDetailCard: React.FC<
                       SIM Card Status
                     </span>
                     <span className="font-semibold text-emerald-500 flex items-center gap-1">
-                      <CheckCircle2 className="size-3.5" /> {d.sim_card}
+                      <CheckCircle2 className="size-3.5" /> {d.sim_card === "Aktif" || d.sim_card === "Active" || d.sim_card === "Ready" ? "Ready" : "Not Detected"}
                     </span>
                   </div>
                   <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1.5">
                     <span className="text-slate-500 dark:text-slate-400">
-                      Operator Seluler
+                      Cellular Operator
                     </span>
                     <span className="font-bold text-slate-900 dark:text-white">
                       {d.provider}
@@ -1096,7 +1147,7 @@ export const CellularDeviceDetailCard: React.FC<
                   </div>
                   <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1.5">
                     <span className="text-slate-500 dark:text-slate-400">
-                      Alamat IP Selular
+                      Cellular IP Address
                     </span>
                     <span className="font-mono text-slate-800 dark:text-slate-200 font-semibold">
                       {d.ip_address}
@@ -1105,7 +1156,7 @@ export const CellularDeviceDetailCard: React.FC<
                   {d.network_sim.phone_number && (
                     <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1.5">
                       <span className="text-slate-500 dark:text-slate-400">
-                        MSISDN / No. SIM
+                        MSISDN / SIM Number
                       </span>
                       <span className="font-mono text-slate-800 dark:text-slate-200 font-semibold">
                         {d.network_sim.phone_number}
@@ -1160,12 +1211,12 @@ export const CellularDeviceDetailCard: React.FC<
                 <div className="text-xs text-emerald-500 font-semibold flex items-center gap-1">
                   <CheckCircle2 className="size-3.5" />{" "}
                   {d.signal_strength.rsrp >= -85
-                    ? "Sangat Baik"
+                    ? "Excellent"
                     : d.signal_strength.rsrp >= -95
-                      ? "Baik"
+                      ? "Good"
                       : d.signal_strength.rsrp >= -105
-                        ? "Cukup"
-                        : "Lemah"}{" "}
+                        ? "Fair"
+                        : "Poor"}{" "}
                   {d.signal_strength.csq
                     ? `(CSQ ${d.signal_strength.csq})`
                     : ""}
@@ -1222,7 +1273,7 @@ export const CellularDeviceDetailCard: React.FC<
                   </div>
                   <span className="text-[10px] font-semibold bg-blue-500/10 text-[#0073ea] dark:text-[#00d2ff] border border-blue-500/20 px-2 py-0.5 rounded-full">
                     Today Only (
-                    {new Date().toLocaleDateString("id-ID", {
+                    {new Date().toLocaleDateString("en-US", {
                       day: "numeric",
                       month: "short",
                       year: "numeric",

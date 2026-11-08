@@ -18,12 +18,15 @@ import {
   ChevronDown,
   ChevronsUpDown,
   Layers,
+  FileDown,
 } from "lucide-react";
 import {
   useDVRReportGatewayDetail,
   IDVRReportGatewayDetail,
   IDailySlaRecord,
   IDailySlaSummary,
+  exportDVRDetailPdfUrl,
+  downloadReportFile,
 } from "@/store/api/monitoring";
 import { SmartBoxIsometricIllustration } from "@/components/ui/SmartBoxIllustration";
 import { parseReportPeriod } from "@/lib/reportPeriodUtils";
@@ -79,6 +82,20 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
   const { data, isLoading } = useDVRReportGatewayDetail(gatewayId, dateRange);
   const [selectedEventDate, setSelectedEventDate] = useState<string>("ALL");
   const [selectedBarDay, setSelectedBarDay] = useState<number | null>(null);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
+
+  const handleExportPdf = async () => {
+    if (!gatewayId) return;
+    try {
+      setIsExportingPdf(true);
+      const url = exportDVRDetailPdfUrl(gatewayId, dateRange);
+      await downloadReportFile(url, `dvr_detail_${gatewayId}.pdf`);
+    } catch (err) {
+      console.error("Export dvr detail PDF error:", err);
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
 
   const handleSelectDay = (day: number | null, dateKey?: string) => {
     setSelectedBarDay((prev) => (prev === day ? null : day));
@@ -561,15 +578,28 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
           </span>
         </div>
 
-        {onClose && (
+        <div className="flex items-center gap-2">
           <button
-            onClick={onClose}
-            className="text-slate-400 hover:text-slate-700 dark:hover:text-white p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-colors cursor-pointer"
-            title="Close Details"
+            type="button"
+            onClick={handleExportPdf}
+            disabled={isExportingPdf}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-500/10 hover:bg-blue-500/20 text-[#0073ea] dark:text-[#00d2ff] border border-blue-500/30 transition-all cursor-pointer shadow-xs active:scale-95 disabled:opacity-50"
+            title="Export Device Detail to PDF"
           >
-            <X className="size-4" />
+            <FileDown className="size-3.5" />
+            <span>{isExportingPdf ? "Exporting..." : "Export"}</span>
           </button>
-        )}
+
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="text-slate-400 hover:text-slate-700 dark:hover:text-white p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-colors cursor-pointer"
+              title="Close Details"
+            >
+              <X className="size-4" />
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-3.5 items-stretch">

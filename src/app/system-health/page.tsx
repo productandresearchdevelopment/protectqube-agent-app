@@ -175,15 +175,15 @@ export default function SystemHealthPage() {
     { time: "20:00", value: 46 },
   ];
 
-  const hitamTotal = summary?.smartbox_hitam.total ?? 1050;
-  const hitamHealthy = summary?.smartbox_hitam.healthy ?? 980;
-  const hitamWarning = summary?.smartbox_hitam.warning ?? 55;
-  const hitamCritical = summary?.smartbox_hitam.critical ?? 15;
+  const hitamTotal = summary?.smartbox_hitam.total ?? 0;
+  const hitamHealthy = summary?.smartbox_hitam.healthy ?? 0;
+  const hitamWarning = summary?.smartbox_hitam.warning ?? 0;
+  const hitamCritical = summary?.smartbox_hitam.critical ?? 0;
 
-  const putihTotal = summary?.smartbox_putih.total ?? 950;
-  const putihHealthy = summary?.smartbox_putih.healthy ?? 870;
-  const putihWarning = summary?.smartbox_putih.warning ?? 25;
-  const putihCritical = summary?.smartbox_putih.critical ?? 55;
+  const putihTotal = summary?.smartbox_putih.total ?? 0;
+  const putihHealthy = summary?.smartbox_putih.healthy ?? 0;
+  const putihWarning = summary?.smartbox_putih.warning ?? 0;
+  const putihCritical = summary?.smartbox_putih.critical ?? 0;
 
   // Table Columns
   const columns: ColumnDef<IGatewayItem>[] = [
@@ -303,7 +303,7 @@ export default function SystemHealthPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 pt-1 pb-0.5">
           <SummaryCard
             title="Total Gateway"
-            value={summary ? summary.total_gateways : 2000}
+            value={summary ? summary.total_gateways : 0}
             icon={Server}
             color="blue"
             onClick={() => handleCardFilter("All Statuses")}
@@ -311,28 +311,28 @@ export default function SystemHealthPage() {
           />
           <SummaryCard
             title="Healthy"
-            value={summary ? summary.healthy : 1890}
+            value={summary ? summary.healthy : 0}
             icon={Check}
             color="emerald"
-            percentage={`${summary?.healthy_percent ?? 94.5}%`}
+            percentage={summary ? `${summary.healthy_percent}%` : "0%"}
             onClick={() => handleCardFilter("Healthy")}
             active={statusFilter === "Healthy"}
           />
           <SummaryCard
             title="Warning"
-            value={summary ? summary.warning : 80}
+            value={summary ? summary.warning : 0}
             icon={AlertCircle}
             color="amber"
-            percentage={`${summary?.warning_percent ?? 4.0}%`}
+            percentage={summary ? `${summary.warning_percent}%` : "0%"}
             onClick={() => handleCardFilter("Warning")}
             active={statusFilter === "Warning"}
           />
           <SummaryCard
             title="Critical"
-            value={summary ? summary.critical : 30}
+            value={summary ? summary.critical : 0}
             icon={AlertTriangle}
             color="rose"
-            percentage={`${summary?.critical_percent ?? 1.5}%`}
+            percentage={summary ? `${summary.critical_percent}%` : "0%"}
             onClick={() => handleCardFilter("Critical")}
             active={statusFilter === "Critical"}
           />

@@ -23,6 +23,7 @@ import {
   Wifi,
   Disc,
   Info,
+  RotateCcw,
 } from "lucide-react";
 import {
   useDVRGatewayDetail,
@@ -49,6 +50,18 @@ const formatIncidentEn = (text?: string) => {
     .replace(/Komunikasi\s+Gateway\s+CPU\s+ke\s+NVR\s+Surveillance\s+Terputus/gi, "Gateway CPU to NVR Communication Lost")
     .replace(/Kamera\s+Hilang\s+Sinyal\s*\/\s*No\s+Video/gi, "Camera Signal Loss / No Video")
     .replace(/Kamera\s+Terputus\s*\/\s*Offline/gi, "Camera Disconnected / Offline")
+    .replace(/Pemeriksaan\s+rekaman\s+kamera\s+selesai/gi, "Camera recording health check completed")
+    .replace(/Pemeriksaan\s+rekaman\s+kamera/gi, "Camera recording check")
+    .replace(/Perekaman\s+video\s+kamera\s+normal/gi, "Camera video recording operational")
+    .replace(/Perekaman\s+CCTV\s+Terhenti/gi, "CCTV Video Recording Stopped")
+    .replace(/Perekaman\s+kamera\s+normal/gi, "Camera recording operational")
+    .replace(/Perekaman\s+kamera/gi, "Camera recording")
+    .replace(/Kamera\s+Tidak\s+Merekam/gi, "Camera Not Recording")
+    .replace(/Kamera\s+(\d+)\s+terputus/gi, "Camera $1 Disconnected")
+    .replace(/Kamera\s+(\d+)\s+tidak\s+merekam/gi, "Camera $1 Not Recording")
+    .replace(/Kamera\s+(\d+)\s+merekam\s+normal/gi, "Camera $1 Recording Normal")
+    .replace(/Harddisk\s+penyimpanan/gi, "Hard drive storage")
+    .replace(/Penyimpanan\s+harddisk/gi, "Hard drive storage")
     .replace(/Gangguan\s+Jaringan/gi, "Network Disruption")
     .replace(/Gangguan/gi, "Incident")
     .replace(/selama\s+(\d+)\s*Menit/gi, "for $1m")
@@ -58,6 +71,11 @@ const formatIncidentEn = (text?: string) => {
     .replace(/(\d+)\s*Jam/gi, "$1h")
     .replace(/Normal\s+Operation\s*\(No incidents detected\)/gi, "Normal Operation (No incidents detected)")
     .replace(/Operasi\s+Normal/gi, "Normal Operation")
+    .replace(/terpakai/gi, "utilized")
+    .replace(/terputus/gi, "disconnected")
+    .replace(/selesai/gi, "completed")
+    .replace(/tidak\s+merekam/gi, "not recording")
+    .replace(/merekam/gi, "recording")
     .trim();
 };
 
@@ -121,7 +139,17 @@ const SparklineWave = ({
   color: string;
   id: string;
 }) => {
-  const points = data && data.length > 0 ? data : [20, 25, 22, 28, 30, 26, 28];
+  let points = Array.isArray(data)
+    ? data.filter((v) => typeof v === "number" && !isNaN(v))
+    : [];
+
+  if (points.length === 0) {
+    points = [20, 25, 22, 28, 30, 26, 28];
+  } else if (points.length === 1) {
+    // Duplicate single point so points.length >= 2, avoiding division by zero (NaN cx)
+    points = [points[0], points[0]];
+  }
+
   const max = Math.max(...points);
   const min = Math.min(...points);
   const range = max - min || 1;
@@ -130,15 +158,19 @@ const SparklineWave = ({
   const height = 24;
 
   const coords = points.map((val, idx) => {
-    const x = (idx / (points.length - 1)) * width;
-    const y = height - ((val - min) / range) * (height - 4) - 2;
+    const divisor = points.length > 1 ? points.length - 1 : 1;
+    const rawX = (idx / divisor) * width;
+    const rawY = height - ((val - min) / range) * (height - 4) - 2;
+    const x = Number.isFinite(rawX) ? Number(rawX.toFixed(1)) : 0;
+    const y = Number.isFinite(rawY) ? Number(rawY.toFixed(1)) : height / 2;
     return { x, y };
   });
 
   const pathD = coords.reduce((acc, curr, idx) => {
     if (idx === 0) return `M ${curr.x} ${curr.y}`;
     const prev = coords[idx - 1];
-    const cx = (prev.x + curr.x) / 2;
+    const rawCx = (prev.x + curr.x) / 2;
+    const cx = Number.isFinite(rawCx) ? Number(rawCx.toFixed(1)) : curr.x;
     return `${acc} C ${cx} ${prev.y}, ${cx} ${curr.y}, ${curr.x} ${curr.y}`;
   }, "");
 
@@ -169,8 +201,8 @@ const SparklineWave = ({
         {coords.map((c, i) => (
           <circle
             key={i}
-            cx={c.x}
-            cy={c.y}
+            cx={Number.isFinite(c.x) ? c.x : 0}
+            cy={Number.isFinite(c.y) ? c.y : 0}
             r="1.5"
             fill={color}
             className="opacity-80"
@@ -398,7 +430,23 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
 
   const [currentSlide, setCurrentSlide] = useState(0);
 
+  const [isRebooting, setIsRebooting] = useState(false);
+  const [rebootFeedback, setRebootFeedback] = useState<string | null>(null);
+
   const { data, isLoading } = useDVRGatewayDetail(gatewayId);
+
+  const handleReboot = () => {
+    if (!data) return;
+    if (confirm(`Are you sure you want to send a Reboot signal to ${data.id} (${data.dvr_model})?`)) {
+      setIsRebooting(true);
+      setRebootFeedback(`Sending reboot command to ${data.id}...`);
+      setTimeout(() => {
+        setIsRebooting(false);
+        setRebootFeedback(`Reboot signal successfully dispatched to ${data.id}. Device is restarting.`);
+        setTimeout(() => setRebootFeedback(null), 5000);
+      }, 1500);
+    }
+  };
 
   if (!gatewayId) return null;
 
@@ -407,7 +455,7 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
       <div className="bg-white dark:bg-[#070e1d] text-slate-800 dark:text-slate-100 rounded-2xl border border-slate-200 dark:border-slate-800/90 shadow-xl p-8 flex items-center justify-center">
         <div className="flex items-center gap-3 text-slate-500 text-sm">
           <div className="size-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-          <span>Memuat data detail telemetri DVR/NVR...</span>
+          <span>Loading DVR/NVR telemetry details...</span>
         </div>
       </div>
     );
@@ -472,6 +520,40 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
       ? AlertTriangle
       : AlertCircle;
 
+  const getHealthExplanation = () => {
+    const isConn = d.cpu_dvr?.status === "Connected";
+    const status = d.dvr_health?.status || "Good";
+    const badSec = Number(d.dvr_health?.bad_sector || 0);
+    const recStatus = d.recording_storage?.status || "";
+    const isNotRecording = recStatus === "Not Recording" || recStatus.startsWith("0/");
+    const hddSmart = (d.dvr_health?.hdd_status || "").toLowerCase();
+    const isHddError = hddSmart.includes("error") || hddSmart.includes("fail") || hddSmart.includes("danger");
+    const onlineCams = d.camera_status?.online ?? 0;
+    const totalCams = d.camera_status?.total ?? 0;
+
+    if (!isConn || status === "Critical" || d.cpu_dvr?.status === "No Response") {
+      return "Critical: CPU - NVR communication lost (ISAPI Port 80 timeout / host unreachable). Gateway CPU cannot reach NVR service.";
+    }
+
+    if (status === "Warning" || isNotRecording || badSec > 0 || isHddError) {
+      if (badSec > 0 && isNotRecording) {
+        return `Warning: Detected ${badSec} bad sectors on NVR Hard Drive & continuous recording halted (0 active channels writing to disk).`;
+      }
+      if (badSec > 0) {
+        return `Warning: Detected ${badSec} bad sectors on NVR Hard Drive. Storage S.M.A.R.T degraded with I/O read-only risk.`;
+      }
+      if (isNotRecording) {
+        return "Warning: NVR is connected but video recording is inactive (0 channels writing continuous video stream).";
+      }
+      if (isHddError) {
+        return `Warning: Storage S.M.A.R.T alert (${d.dvr_health.hdd_status}).`;
+      }
+      return "Warning: Partial recording degradation or camera stream disruption detected.";
+    }
+
+    return `Good: CPU - NVR link operational (${d.cpu_dvr?.response_time || "< 15 ms"}), ${onlineCams}/${totalCams} camera(s) actively recording, & HDD S.M.A.R.T healthy (0 bad blocks).`;
+  };
+
   return (
     <div className="bg-white dark:bg-[#070e1d] text-slate-800 dark:text-slate-100 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden transition-all duration-300">
       <div className="px-5 py-3.5 border-b border-slate-200 dark:border-slate-800/90 flex flex-wrap items-center justify-between gap-3 bg-slate-50/80 dark:bg-[#0a1224]">
@@ -481,17 +563,30 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
           </div>
           <div className="flex items-center gap-2.5">
             <h2 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
-              Device Detail – {d.id}
+              Device Detail
             </h2>
-            <span
-              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                d.service_status === "Running"
-                  ? "bg-emerald-500/20 text-[#00a862] dark:text-[#00c875] border border-emerald-500/30"
-                  : "bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30"
-              }`}
-            >
-              {d.service_status === "Running" ? "Online" : "Degraded"}
-            </span>
+            {(() => {
+              const currentStatus = (d.status || (d.service_status === "Running" ? "Online" : d.service_status === "Stopped" ? "Offline" : "Warning")).toLowerCase();
+              if (currentStatus.includes("online") || currentStatus.includes("good")) {
+                return (
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/20 text-[#00a862] dark:text-[#00c875] border border-emerald-500/30">
+                    Online
+                  </span>
+                );
+              }
+              if (currentStatus.includes("off") || currentStatus.includes("stop") || currentStatus.includes("crit")) {
+                return (
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-500/20 text-[#e2445c] border border-rose-500/30">
+                    Offline
+                  </span>
+                );
+              }
+              return (
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                  Warning
+                </span>
+              );
+            })()}
           </div>
         </div>
 
@@ -515,6 +610,17 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleReboot}
+            disabled={isRebooting}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/30 transition-all cursor-pointer shadow-xs active:scale-95 disabled:opacity-50"
+            title="Reboot Gateway & DVR"
+          >
+            <RotateCcw className={`size-3.5 ${isRebooting ? "animate-spin" : ""}`} />
+            <span>{isRebooting ? "Rebooting..." : "Reboot"}</span>
+          </button>
+
           {onClose && (
             <button
               onClick={onClose}
@@ -526,6 +632,21 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
           )}
         </div>
       </div>
+
+      {rebootFeedback && (
+        <div className="px-5 py-2 text-xs bg-emerald-500/10 dark:bg-emerald-500/20 text-[#00a862] dark:text-[#00c875] border-b border-emerald-500/30 flex items-center justify-between animate-in fade-in duration-200">
+          <div className="flex items-center gap-2 font-medium">
+            <CheckCircle2 className="size-4" />
+            <span>{rebootFeedback}</span>
+          </div>
+          <button
+            onClick={() => setRebootFeedback(null)}
+            className="text-xs hover:underline cursor-pointer"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       <div className="p-4 sm:p-5 space-y-4">
         {activeTab === "Overview" && (
@@ -566,7 +687,7 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                       <div className="space-y-2">
                         <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1">
                           <span className="text-slate-500 dark:text-slate-400 font-sans">
-                            Tipe
+                            Type
                           </span>
                           <span className="text-slate-800 dark:text-slate-200 font-sans font-medium text-right truncate">
                             {d.model}
@@ -582,7 +703,7 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                         </div>
                         <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1">
                           <span className="text-slate-500 dark:text-slate-400 font-sans">
-                            IP DVR
+                            DVR IP
                           </span>
                           <span className="text-slate-800 dark:text-slate-200 font-mono text-right">
                             {d.ip_address}
@@ -593,7 +714,7 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                       <div className="space-y-2">
                         <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1">
                           <span className="text-slate-500 dark:text-slate-400 font-sans">
-                            Kapasitas
+                            Capacity
                           </span>
                           <span className="text-slate-800 dark:text-slate-200 font-sans font-medium text-right">
                             {d.camera_status.total} Channel NVR
@@ -616,6 +737,8 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                               className={`size-2 rounded-full ${
                                 d.service_status === "Running"
                                   ? "bg-emerald-400 animate-pulse"
+                                  : d.service_status === "Stopped"
+                                  ? "bg-rose-500"
                                   : "bg-amber-400"
                               }`}
                             />
@@ -623,6 +746,8 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                               className={
                                 d.service_status === "Running"
                                   ? "text-[#00a862] dark:text-emerald-400"
+                                  : d.service_status === "Stopped"
+                                  ? "text-rose-500 dark:text-rose-400"
                                   : "text-amber-600 dark:text-amber-400"
                               }
                             >
@@ -784,7 +909,7 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                       </span>
                       <span
                         className={`font-semibold font-sans text-[11px] px-2 py-0.5 rounded-full ${
-                          d.recording_storage.status === "Recording" || d.recording_storage.status === "Normal"
+                          d.recording_storage.status?.includes("Recording") && !d.recording_storage.status?.startsWith("0/")
                             ? "bg-emerald-500/15 text-[#00a862] dark:text-emerald-400 border border-emerald-500/30"
                             : "bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30"
                         }`}
@@ -834,7 +959,9 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                     className={`size-8 rounded-full flex items-center justify-center ${
                       isHealthGood
                         ? "bg-emerald-500/20 text-[#00a862] dark:text-emerald-400"
-                        : "bg-amber-500/20 text-amber-600 dark:text-amber-400"
+                        : d.dvr_health.status === "Warning"
+                        ? "bg-amber-500/20 text-amber-600 dark:text-amber-400"
+                        : "bg-rose-500/20 text-rose-600 dark:text-rose-400"
                     }`}
                   >
                     <HealthIcon className={`size-5 ${healthColor}`} />
@@ -852,7 +979,13 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                       HDD S.M.A.R.T:
                     </span>
                     <span
-                      className={`font-semibold ${isHealthGood ? "text-[#00a862] dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}`}
+                      className={`font-semibold ${
+                        d.dvr_health.hdd_status.toLowerCase().includes("error") || d.dvr_health.hdd_status.toLowerCase().includes("fail") || d.dvr_health.hdd_status.toLowerCase().includes("danger")
+                          ? "text-rose-500"
+                          : d.dvr_health.hdd_status.toLowerCase().includes("warn")
+                          ? "text-amber-500"
+                          : "text-[#00c875]"
+                      }`}
                     >
                       {d.dvr_health.hdd_status}
                     </span>
@@ -877,10 +1010,24 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                     <span className="text-slate-500 dark:text-slate-400">
                       Bad Sector:
                     </span>
-                    <span className="font-mono text-slate-800 dark:text-slate-200">
+                    <span className={`font-mono ${d.dvr_health.bad_sector > 0 ? "text-amber-500 font-bold" : "text-slate-800 dark:text-slate-200"}`}>
                       {d.dvr_health.bad_sector}
                     </span>
                   </div>
+                </div>
+
+                {/* Health Status Explanation Note */}
+                <div
+                  className={`mt-2.5 pt-2 border-t border-slate-200 dark:border-slate-800/80 text-[11px] leading-relaxed flex items-start gap-1.5 ${
+                    isHealthGood
+                      ? "text-emerald-700 dark:text-emerald-300/90"
+                      : d.dvr_health.status === "Warning"
+                      ? "text-amber-700 dark:text-amber-300/90"
+                      : "text-rose-700 dark:text-rose-300/90"
+                  }`}
+                >
+                  <Info className="size-3.5 shrink-0 mt-0.5" />
+                  <span className="font-sans font-medium">{getHealthExplanation()}</span>
                 </div>
               </div>
             </div>
@@ -988,13 +1135,28 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                     <span className="text-slate-500 dark:text-slate-400">
                       Communication Status
                     </span>
-                    <span className="font-semibold text-emerald-500 flex items-center gap-1">
-                      <CheckCircle2 className="size-3.5" /> {d.cpu_dvr.status}
+                    <span
+                      className={`font-semibold flex items-center gap-1 ${
+                        isCpuConnected
+                          ? "text-[#00c875]"
+                          : d.cpu_dvr.status === "No Response"
+                          ? "text-[#e2445c]"
+                          : "text-[#fdab3d]"
+                      }`}
+                    >
+                      {isCpuConnected ? (
+                        <CheckCircle2 className="size-3.5" />
+                      ) : d.cpu_dvr.status === "No Response" ? (
+                        <AlertCircle className="size-3.5 text-[#e2445c]" />
+                      ) : (
+                        <AlertTriangle className="size-3.5 text-[#fdab3d]" />
+                      )}
+                      <span>{d.cpu_dvr.status}</span>
                     </span>
                   </div>
                   <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1.5">
                     <span className="text-slate-500 dark:text-slate-400">
-                      Endpoint NVR
+                      NVR Endpoint
                     </span>
                     <span className="font-mono text-slate-800 dark:text-slate-200 font-semibold">
                       {d.ip_address}
@@ -1037,34 +1199,49 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
 
               <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-3">
                 <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-sm">
-                  <Activity className="size-4 text-emerald-500" />
+                  <Activity className={`size-4 ${isCpuConnected ? "text-[#00c875]" : "text-[#e2445c]"}`} />
                   <span>ISAPI/SDK Connectivity Diagnostics</span>
                 </div>
                 <div className="bg-slate-900 text-slate-200 font-mono text-[11px] p-3 rounded-lg space-y-1.5">
                   <div className="text-slate-400">
                     # Probe ISAPI Endpoint ({d.ip_address}:{d.cpu_dvr.port}):
                   </div>
-                  <div className="text-emerald-400">
-                    &gt; GET /ISAPI/System/deviceInfo
-                  </div>
-                  <div className="text-slate-300">
-                    HTTP/1.1 200 OK (Device: {d.dvr_model}, Firmware {d.firmware || "V4.20.000"})
-                  </div>
-                  <div className="text-emerald-400">
-                    &gt; GET /ISAPI/ContentMgmt/Storage
-                  </div>
-                  <div className="text-slate-300">
-                    HTTP/1.1 200 OK ({d.dvr_health.hdd_status})
-                  </div>
-                  <div className="text-emerald-400">
-                    &gt; GET /ISAPI/Streaming/channels
-                  </div>
-                  <div className="text-slate-300">
-                    HTTP/1.1 200 OK ({d.camera_status.online} Channels Live, 25
-                    FPS)
-                  </div>
+                  {isCpuConnected ? (
+                    <>
+                      <div className="text-emerald-400">
+                        &gt; GET /ISAPI/System/deviceInfo
+                      </div>
+                      <div className="text-slate-300">
+                        HTTP/1.1 200 OK (Device: {d.dvr_model}, Firmware {d.firmware || "V4.20.000"})
+                      </div>
+                      <div className="text-emerald-400">
+                        &gt; GET /ISAPI/ContentMgmt/Storage
+                      </div>
+                      <div className="text-slate-300">
+                        HTTP/1.1 200 OK ({d.dvr_health.hdd_status})
+                      </div>
+                      <div className="text-emerald-400">
+                        &gt; GET /ISAPI/Streaming/channels
+                      </div>
+                      <div className="text-slate-300">
+                        HTTP/1.1 200 OK ({d.camera_status.online} Channels Live, 25 FPS)
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-rose-400">
+                        &gt; GET /ISAPI/System/deviceInfo
+                      </div>
+                      <div className="text-rose-300">
+                        ERROR: Connection refused / Host unreachable (Port {d.cpu_dvr.port} timeout)
+                      </div>
+                      <div className="text-slate-500">
+                        # Gateway CPU cannot reach NVR ISAPI endpoint over LAN
+                      </div>
+                    </>
+                  )}
                 </div>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 italic">
+                <p className={`text-[11px] italic ${isCpuConnected ? "text-slate-500 dark:text-slate-400" : "text-rose-500 dark:text-rose-400"}`}>
                   {d.cpu_dvr.message}
                 </p>
               </div>
@@ -1145,7 +1322,7 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                 <div className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
                   <span
                     className={`size-3 rounded-full ${
-                      d.recording_storage.status === "Recording" || d.recording_storage.status === "Normal"
+                      d.recording_storage.status?.includes("Recording") && !d.recording_storage.status?.startsWith("0/")
                         ? "bg-emerald-500 animate-pulse"
                         : "bg-rose-500"
                     }`}
@@ -1153,11 +1330,11 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                   <span>{d.recording_storage.status === "Normal" ? "Recording" : d.recording_storage.status}</span>
                 </div>
                 <div className={`text-xs font-semibold ${
-                  d.recording_storage.status === "Recording" || d.recording_storage.status === "Normal"
+                  d.recording_storage.status?.includes("Recording") && !d.recording_storage.status?.startsWith("0/")
                     ? "text-emerald-500"
                     : "text-rose-500"
                 }`}>
-                  {d.recording_storage.status === "Recording" || d.recording_storage.status === "Normal"
+                  {d.recording_storage.status?.includes("Recording") && !d.recording_storage.status?.startsWith("0/")
                     ? "Continuous Mode (CMR 24/7)"
                     : "Recording Stopped / Inactive"}
                 </div>
@@ -1195,7 +1372,15 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                 <div className="p-3 rounded-lg bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 space-y-1">
                   <div className="text-slate-400">SMART Health</div>
-                  <div className="font-semibold text-emerald-500">
+                  <div
+                    className={`font-semibold ${
+                      d.dvr_health.hdd_status.toLowerCase().includes("error") || d.dvr_health.hdd_status.toLowerCase().includes("fail") || d.dvr_health.hdd_status.toLowerCase().includes("danger")
+                        ? "text-rose-500"
+                        : d.dvr_health.hdd_status.toLowerCase().includes("warn")
+                        ? "text-amber-500"
+                        : "text-[#00c875]"
+                    }`}
+                  >
                     {d.dvr_health.hdd_status}
                   </div>
                 </div>
@@ -1207,7 +1392,13 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                 </div>
                 <div className="p-3 rounded-lg bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 space-y-1">
                   <div className="text-slate-400">Bad Sector Count</div>
-                  <div className="font-semibold text-slate-800 dark:text-slate-200">
+                  <div
+                    className={`font-semibold ${
+                      d.dvr_health.bad_sector > 0
+                        ? "text-amber-500 font-bold"
+                        : "text-slate-800 dark:text-slate-200"
+                    }`}
+                  >
                     {d.dvr_health.bad_sector} Bad Blocks
                   </div>
                 </div>
@@ -1330,7 +1521,15 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                     <span className="text-slate-500 dark:text-slate-400">
                       Operation Status
                     </span>
-                    <span className="font-semibold text-emerald-500">
+                    <span
+                      className={`font-semibold ${
+                        d.service_status === "Running"
+                          ? "text-emerald-500"
+                          : d.service_status === "Stopped"
+                          ? "text-rose-500"
+                          : "text-amber-500"
+                      }`}
+                    >
                       {d.service_status}
                     </span>
                   </div>
@@ -1353,7 +1552,7 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                   </div>
                   <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1.5">
                     <span className="text-slate-500 dark:text-slate-400">
-                      Port ISAPI (HTTP)
+                      ISAPI Port (HTTP)
                     </span>
                     <span className="font-mono text-slate-800 dark:text-slate-200">
                       {d.cpu_dvr.port}

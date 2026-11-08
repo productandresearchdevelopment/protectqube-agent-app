@@ -162,71 +162,54 @@ export default function DVRRecordingPage() {
   ];
 
   // Chart Data
-  const cpuDvrData = charts?.cpu_dvr_comm.slices.map((s) => ({
-    name: s.label,
-    value: s.count,
-    percent: s.percent,
-    color: s.color,
-  })) || [
-    { name: "Connected", value: 1850, percent: 92.5, color: "#00c875" },
-    { name: "No Response", value: 80, percent: 4.0, color: "#e2445c" },
-    { name: "Not Detected", value: 40, percent: 2.0, color: "#fdab3d" },
-    { name: "Driver Error", value: 30, percent: 1.5, color: "#579bfc" },
-  ];
+  const cpuDvrData =
+    charts?.cpu_dvr_comm.slices.map((s) => ({
+      name: s.label,
+      value: s.count,
+      percent: s.percent,
+      color: s.color,
+    })) || [];
 
-  const statusKameraData = charts?.status_kamera.slices.map((s) => ({
-    name: s.label,
-    value: s.count,
-    percent: s.percent,
-    color: s.color,
-  })) || [
-    { name: "Online", value: 7350, percent: 90.2, color: "#00c875" },
-    { name: "No Video", value: 480, percent: 5.9, color: "#fdab3d" },
-    { name: "Offline", value: 320, percent: 3.9, color: "#e2445c" },
-  ];
+  const statusKameraData =
+    charts?.status_kamera.slices.map((s) => ({
+      name: s.label,
+      value: s.count,
+      percent: s.percent,
+      color: s.color,
+    })) || [];
 
-  const recordingStatusData = charts?.recording_status.slices.map((s) => ({
-    name: s.label,
-    value: s.count,
-    percent: s.percent,
-    color: s.color,
-  })) || [
-    { name: "Recording", value: 7200, percent: 88.3, color: "#00c875" },
-    { name: "Not Recording", value: 500, percent: 6.1, color: "#fdab3d" },
-    { name: "Recording Error", value: 270, percent: 3.3, color: "#e2445c" },
-    { name: "Storage Full", value: 180, percent: 2.2, color: "#a855f7" },
-  ];
+  const recordingStatusData =
+    charts?.recording_status.slices.map((s) => ({
+      name: s.label,
+      value: s.count,
+      percent: s.percent,
+      color: s.color,
+    })) || [];
 
-  const storageTimeline = charts?.storage_usage.timeline || [
-    { time: "00:00", value: 68 },
-    { time: "04:00", value: 69 },
-    { time: "08:00", value: 71 },
-    { time: "12:00", value: 72 },
-    { time: "16:00", value: 72 },
-    { time: "20:00", value: 73 },
-  ];
+  const storageTimeline = charts?.storage_usage.timeline || [];
 
-  const kameraOnline = summary?.kamera_online ?? 8010;
-  const kameraOffline = (summary?.kamera_no_video ?? 80) + (summary?.kamera_offline ?? 60);
+  const kameraOnline = summary?.kamera_online ?? 0;
+  const kameraOffline = (summary?.kamera_no_video ?? 0) + (summary?.kamera_offline ?? 0);
 
-  const storageUsed = summary?.storage_used_tb ?? 184.2;
-  const storageTotal = summary?.total_storage_tb ?? 256.0;
-  const storagePct = storageTotal > 0 ? Math.round((storageUsed / storageTotal) * 100) : 72;
+  const storageUsed = summary?.storage_used_tb ?? 0;
+  const storageTotal = summary?.total_storage_tb ?? 0;
+  const storagePct = storageTotal > 0 ? Math.round((storageUsed / storageTotal) * 100) : 0;
 
   // Table Columns
   const columns: ColumnDef<IDVRGatewayItem>[] = [
     {
-      id: "id",
-      header: "Gateway ID",
+      id: "location",
+      header: "Location",
+      accessorKey: "location",
       cell: (item) => {
         const isSelected = selectedGatewayId === item.id;
         return (
           <div className="flex items-center gap-1.5">
-            <span className="font-bold text-slate-900 dark:text-white font-mono hover:text-[#0073ea] transition-colors">
-              {item.id}
+            <span className="font-semibold text-slate-900 dark:text-white hover:text-[#0073ea] transition-colors">
+              {item.location}
             </span>
             {isSelected && (
-              <span className="relative flex h-2 w-2">
+              <span className="relative flex h-2 w-2 shrink-0">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#0073ea] opacity-75" />
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-[#0073ea]" />
               </span>
@@ -236,23 +219,13 @@ export default function DVRRecordingPage() {
       },
     },
     {
-      id: "location",
-      header: "Location",
-      accessorKey: "location",
-      cell: (item) => (
-        <span className="text-slate-700 dark:text-slate-300 font-medium">
-          {item.location}
-        </span>
-      ),
-    },
-    {
       id: "type",
       header: "Type",
       cell: (item) => <DeviceTypeBadge type={item.type} />,
     },
     {
       id: "dvr_model",
-      header: "Model DVR",
+      header: "DVR Model",
       accessorKey: "dvr_model",
       cell: (item) => (
         <span className="font-mono text-slate-700 dark:text-slate-300 text-[11px]">
@@ -290,8 +263,8 @@ export default function DVRRecordingPage() {
       },
     },
     {
-      id: "camera_status",
-      header: "Camera Status",
+      id: "camera",
+      header: "Camera",
       align: "center",
       cell: (item) => {
         const isAllUp = item.kamera_online === item.total_kamera;
@@ -311,12 +284,37 @@ export default function DVRRecordingPage() {
       header: "Recording Status",
       align: "center",
       cell: (item) => {
-        const isRec = item.recording_status === "Recording" || item.recording_status === "Normal";
+        const recStr = item.recording_status || "Not Recording";
+        const match = recStr.match(/(\d+)\s*\/\s*(\d+)/);
+        const recCount = match ? parseInt(match[1], 10) : (recStr.toLowerCase().includes("recording") && !recStr.toLowerCase().includes("not") ? item.kamera_online : 0);
+        const totalCount = match ? parseInt(match[2], 10) : item.total_kamera;
+        const isConnected = item.cpu_dvr === "Connected";
+        const isFull = isConnected && recCount === totalCount && totalCount > 0;
+        const isPartial = isConnected && recCount > 0 && recCount < totalCount;
+
+        const displayLabel = recStr;
+
         return (
-          <StatusBadge
-            status={isRec ? "Recording" : "Not Recording"}
-            variant={isRec ? "online" : "critical"}
-          />
+          <span
+            className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold font-mono border ${
+              isFull
+                ? "bg-emerald-50 dark:bg-emerald-500/15 text-[#00c875] border-emerald-200/60 dark:border-emerald-500/25"
+                : isPartial
+                ? "bg-amber-50 dark:bg-amber-500/15 text-[#fdab3d] border-amber-200/60 dark:border-amber-500/25"
+                : "bg-rose-50 dark:bg-rose-500/15 text-[#e2445c] border-rose-200/60 dark:border-rose-500/25"
+            }`}
+          >
+            <span
+              className={`size-1.5 rounded-full ${
+                isFull
+                  ? "bg-[#00c875] animate-pulse"
+                  : isPartial
+                  ? "bg-[#fdab3d]"
+                  : "bg-[#e2445c]"
+              }`}
+            />
+            <span>{displayLabel}</span>
+          </span>
         );
       },
     },
@@ -356,7 +354,7 @@ export default function DVRRecordingPage() {
             setSearch(val);
             setCurrentPage(1);
           }}
-          searchPlaceholder="Search Gateway ID or Location..."
+          searchPlaceholder="Search Location, Gateway ID, Model, IP..."
           filters={filters}
         />
       }
@@ -367,42 +365,42 @@ export default function DVRRecordingPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 pt-1 pb-0.5">
           <SummaryCard
             title="Total Gateway"
-            value={summary ? summary.total_gateways : 2000}
+            value={summary ? summary.total_gateways : 0}
             icon={Server}
             color="blue"
             onClick={() => handleCardFilter("All Statuses")}
             active={statusFilter === "All Statuses"}
           />
           <SummaryCard
-            title="Recording"
-            value={summary ? summary.recording_normal : 1760}
+            title="Good"
+            value={summary ? (summary.good ?? summary.recording_normal) : 0}
             icon={Check}
             color="emerald"
-            percentage={`${summary?.recording_normal_percent ?? 88.0}%`}
-            onClick={() => handleCardFilter("Recording")}
-            active={statusFilter === "Recording"}
+            percentage={summary ? `${summary.good_percent ?? summary.recording_normal_percent}%` : "0%"}
+            onClick={() => handleCardFilter("Good")}
+            active={statusFilter === "Good" || statusFilter === "Recording"}
           />
           <SummaryCard
-            title="Issue"
-            value={summary ? summary.issue : 180}
+            title="Warning"
+            value={summary ? ((summary as any).warning ?? summary.issue) : 0}
             icon={AlertCircle}
             color="amber"
-            percentage={`${summary?.issue_percent ?? 9.0}%`}
-            onClick={() => handleCardFilter("Issue")}
-            active={statusFilter === "Issue"}
+            percentage={summary ? `${(summary as any)?.warning_percent ?? summary?.issue_percent ?? 0}%` : "0%"}
+            onClick={() => handleCardFilter("Warning")}
+            active={statusFilter === "Warning" || statusFilter === "Issue"}
           />
           <SummaryCard
             title="Offline"
-            value={summary ? summary.offline : 60}
+            value={summary ? summary.offline : 0}
             icon={AlertTriangle}
             color="rose"
-            percentage={`${summary?.offline_percent ?? 3.0}%`}
+            percentage={summary ? `${summary.offline_percent}%` : "0%"}
             onClick={() => handleCardFilter("Offline")}
             active={statusFilter === "Offline"}
           />
           <SummaryCard
             title="Total Cameras"
-            value={summary ? summary.total_kamera : 8150}
+            value={summary ? summary.total_kamera : 0}
             icon={Video}
             color="slate"
             footer={

@@ -6,7 +6,8 @@ import {
   useDVRReport,
   IDVRReportFilters,
   IDVRReportItem,
-  exportDVRReportCsvUrl,
+  exportDVRReportExcelUrl,
+  downloadReportFile,
 } from "@/store/api/monitoring";
 import {
   DataTable,
@@ -79,9 +80,17 @@ export default function ReportDVRPage() {
     }, 120);
   };
 
-  const handleExport = () => {
-    const url = exportDVRReportCsvUrl(filters);
-    window.open(url, "_blank");
+  const [isExporting, setIsExporting] = useState(false);
+  const handleExport = async () => {
+    try {
+      setIsExporting(true);
+      const url = exportDVRReportExcelUrl(filters);
+      await downloadReportFile(url, "dvr_report.xlsx");
+    } catch (err) {
+      console.error("Export dvr report error:", err);
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const isAllSelected =
@@ -112,19 +121,10 @@ export default function ReportDVRPage() {
   const columns = useMemo<ColumnDef<IDVRReportItem>[]>(
     () => [
       {
-        id: "id",
-        header: "Gateway ID",
-        cell: (gw) => (
-          <span className="font-bold text-slate-900 dark:text-white whitespace-nowrap">
-            {gw.id}
-          </span>
-        ),
-      },
-      {
         id: "location",
         header: "Location",
         cell: (gw) => (
-          <span className="text-slate-800 dark:text-slate-200 whitespace-nowrap">
+          <span className="font-semibold text-slate-900 dark:text-white whitespace-nowrap">
             {gw.location}
           </span>
         ),
@@ -392,9 +392,6 @@ export default function ReportDVRPage() {
             onChange={toggleSelectAll}
             className="rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-[#0073ea] focus:ring-[#0073ea] size-3.5 cursor-pointer"
           />
-        </th>
-        <th rowSpan={2} className="py-2.5 px-3 whitespace-nowrap border-r border-slate-200/80 dark:border-slate-800/60 bg-slate-100 dark:bg-[#0e1628]">
-          Gateway ID
         </th>
         <th rowSpan={2} className="py-2.5 px-4 whitespace-nowrap border-r border-slate-200/80 dark:border-slate-800/60 bg-slate-100 dark:bg-[#0e1628]">
           Location

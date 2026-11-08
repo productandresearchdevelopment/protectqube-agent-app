@@ -269,48 +269,25 @@ export default function OverviewPage() {
 
   // --- 1. DATASET GRAFIK SELULER (Dipindahkan dari Cellular Connectivity) ---
   const cellCharts = cellularDashboard?.charts;
-  const cpuModemData = cellCharts?.cpu_modem_comm?.slices.map((s) => ({
-    name: s.label,
-    value: s.count,
-    percent: s.percent,
-    color: s.color,
-  })) || [
-    { name: "Connected", value: 1960, percent: 98.0, color: "#00c875" },
-    { name: "Not Detected", value: 20, percent: 1.0, color: "#e2445c" },
-    { name: "No Response", value: 12, percent: 0.6, color: "#fdab3d" },
-    { name: "Driver Error", value: 8, percent: 0.4, color: "#579bfc" },
-  ];
+  const cpuModemData =
+    cellCharts?.cpu_modem_comm?.slices.map((s) => ({
+      name: s.label,
+      value: s.count,
+      percent: s.percent,
+      color: s.color,
+    })) || [];
 
-  const networkStatusData = cellCharts?.modem_network_status?.slices.map((s) => ({
-    name: s.label,
-    value: s.count,
-    percent: s.percent,
-    color: s.color,
-  })) || [
-    { name: "Online", value: 1720, percent: 86.0, color: "#00c875" },
-    { name: "Searching", value: 50, percent: 2.5, color: "#fdab3d" },
-    { name: "No Service", value: 120, percent: 6.0, color: "#e2445c" },
-    { name: "SIM Error", value: 40, percent: 2.0, color: "#a855f7" },
-    { name: "Roaming", value: 70, percent: 3.5, color: "#f59e0b" },
-  ];
+  const networkStatusData =
+    cellCharts?.modem_network_status?.slices.map((s) => ({
+      name: s.label,
+      value: s.count,
+      percent: s.percent,
+      color: s.color,
+    })) || [];
 
-  const cellRsrpTimeline = cellCharts?.signal_strength?.timeline || [
-    { time: "00:00", value: -88 },
-    { time: "04:00", value: -85 },
-    { time: "08:00", value: -82 },
-    { time: "12:00", value: -84 },
-    { time: "16:00", value: -86 },
-    { time: "20:00", value: -85 },
-  ];
+  const cellRsrpTimeline = cellCharts?.signal_strength?.timeline || [];
 
-  const cellTempTimeline = cellCharts?.modem_temperature?.timeline || [
-    { time: "00:00", value: 38 },
-    { time: "04:00", value: 42 },
-    { time: "08:00", value: 46 },
-    { time: "12:00", value: 48 },
-    { time: "16:00", value: 47 },
-    { time: "20:00", value: 41 },
-  ];
+  const cellTempTimeline = cellCharts?.modem_temperature?.timeline || [];
 
   // --- 2. DATASET GRAFIK DVR & RECORDING (Dipindahkan dari DVR Recording) ---
   const dvrCharts = dvrDashboard?.charts;

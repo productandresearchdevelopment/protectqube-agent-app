@@ -141,7 +141,17 @@ const SparklineWave = ({
   color: string;
   id: string;
 }) => {
-  const points = data && data.length > 0 ? data : [20, 25, 22, 28, 30, 26, 28];
+  let points = Array.isArray(data)
+    ? data.filter((v) => typeof v === "number" && !isNaN(v))
+    : [];
+
+  if (points.length === 0) {
+    points = [20, 25, 22, 28, 30, 26, 28];
+  } else if (points.length === 1) {
+    // Duplicate single point so points.length >= 2, avoiding division by zero (NaN cx)
+    points = [points[0], points[0]];
+  }
+
   const max = Math.max(...points, 100);
   const min = Math.min(...points, 0);
   const range = max - min || 1;
@@ -150,15 +160,19 @@ const SparklineWave = ({
   const height = 24;
 
   const coords = points.map((val, idx) => {
-    const x = (idx / (points.length - 1)) * width;
-    const y = height - ((val - min) / range) * (height - 4) - 2;
+    const divisor = points.length > 1 ? points.length - 1 : 1;
+    const rawX = (idx / divisor) * width;
+    const rawY = height - ((val - min) / range) * (height - 4) - 2;
+    const x = Number.isFinite(rawX) ? Number(rawX.toFixed(1)) : 0;
+    const y = Number.isFinite(rawY) ? Number(rawY.toFixed(1)) : height / 2;
     return { x, y };
   });
 
   const pathD = coords.reduce((acc, curr, idx) => {
     if (idx === 0) return `M ${curr.x} ${curr.y}`;
     const prev = coords[idx - 1];
-    const cx = (prev.x + curr.x) / 2;
+    const rawCx = (prev.x + curr.x) / 2;
+    const cx = Number.isFinite(rawCx) ? Number(rawCx.toFixed(1)) : curr.x;
     return `${acc} C ${cx} ${prev.y}, ${cx} ${curr.y}, ${curr.x} ${curr.y}`;
   }, "");
 
@@ -189,8 +203,8 @@ const SparklineWave = ({
         {coords.map((c, i) => (
           <circle
             key={i}
-            cx={c.x}
-            cy={c.y}
+            cx={Number.isFinite(c.x) ? c.x : 0}
+            cy={Number.isFinite(c.y) ? c.y : 0}
             r="1.5"
             fill={color}
             className="opacity-80"

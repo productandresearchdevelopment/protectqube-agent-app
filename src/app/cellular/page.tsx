@@ -216,70 +216,48 @@ export default function CellularConnectivityPage() {
   ];
 
   // Chart Data
-  const cpuModemData = charts?.cpu_modem_comm.slices.map((s) => ({
-    name: s.label,
-    value: s.count,
-    percent: s.percent,
-    color: s.color,
-  })) || [
-    { name: "Connected", value: 1960, percent: 98.0, color: "#00c875" },
-    { name: "Not Detected", value: 20, percent: 1.0, color: "#e2445c" },
-    { name: "No Response", value: 12, percent: 0.6, color: "#fdab3d" },
-    { name: "Driver Error", value: 8, percent: 0.4, color: "#579bfc" },
-  ];
+  const cpuModemData =
+    charts?.cpu_modem_comm.slices.map((s) => ({
+      name: s.label,
+      value: s.count,
+      percent: s.percent,
+      color: s.color,
+    })) || [];
 
-  const networkStatusData = charts?.modem_network_status.slices.map((s) => ({
-    name: s.label,
-    value: s.count,
-    percent: s.percent,
-    color: s.color,
-  })) || [
-    { name: "Online", value: 1720, percent: 86.0, color: "#00c875" },
-    { name: "Searching", value: 50, percent: 2.5, color: "#fdab3d" },
-    { name: "No Service", value: 120, percent: 6.0, color: "#e2445c" },
-    { name: "SIM Error", value: 40, percent: 2.0, color: "#a855f7" },
-    { name: "Roaming", value: 70, percent: 3.5, color: "#f59e0b" },
-  ];
+  const networkStatusData =
+    charts?.modem_network_status.slices.map((s) => ({
+      name: s.label,
+      value: s.count,
+      percent: s.percent,
+      color: s.color,
+    })) || [];
 
-  const rsrpTimeline = charts?.signal_strength.timeline || [
-    { time: "00:00", value: -88 },
-    { time: "04:00", value: -85 },
-    { time: "08:00", value: -82 },
-    { time: "12:00", value: -84 },
-    { time: "16:00", value: -86 },
-    { time: "20:00", value: -85 },
-  ];
+  const rsrpTimeline = charts?.signal_strength.timeline || [];
 
-  const tempTimeline = charts?.modem_temperature.timeline || [
-    { time: "00:00", value: 38 },
-    { time: "04:00", value: 42 },
-    { time: "08:00", value: 46 },
-    { time: "12:00", value: 48 },
-    { time: "16:00", value: 47 },
-    { time: "20:00", value: 41 },
-  ];
+  const tempTimeline = charts?.modem_temperature.timeline || [];
 
-  const hitamTotal = summary?.smartbox_hitam.total ?? 1050;
-  const hitamOnline = summary?.smartbox_hitam.online ?? 900;
-  const hitamOffline = summary?.smartbox_hitam.offline ?? 110;
-  const hitamDegraded = summary?.smartbox_hitam.degraded ?? 40;
+  const hitamTotal = summary?.smartbox_hitam.total ?? 0;
+  const hitamOnline = summary?.smartbox_hitam.online ?? 0;
+  const hitamOffline = summary?.smartbox_hitam.offline ?? 0;
+  const hitamWarning = (summary?.smartbox_hitam as any)?.warning ?? summary?.smartbox_hitam.degraded ?? 0;
 
-  const putihTotal = summary?.smartbox_putih.total ?? 950;
-  const putihOnline = summary?.smartbox_putih.online ?? 820;
-  const putihOffline = summary?.smartbox_putih.offline ?? 100;
-  const putihDegraded = summary?.smartbox_putih.degraded ?? 30;
+  const putihTotal = summary?.smartbox_putih.total ?? 0;
+  const putihOnline = summary?.smartbox_putih.online ?? 0;
+  const putihOffline = summary?.smartbox_putih.offline ?? 0;
+  const putihWarning = (summary?.smartbox_putih as any)?.warning ?? summary?.smartbox_putih.degraded ?? 0;
 
   // Table Columns
   const columns: ColumnDef<ICellularGatewayItem>[] = [
     {
-      id: "id",
-      header: "Gateway ID",
+      id: "location",
+      header: "Location",
+      accessorKey: "location",
       cell: (item) => {
         const isSelected = selectedGatewayId === item.id;
         return (
-          <div className="flex items-center gap-1.5">
-            <span className="font-bold text-slate-900 dark:text-white font-mono hover:text-[#0073ea] transition-colors">
-              {item.id}
+          <div className="flex items-center gap-2">
+            <span className="text-slate-700 dark:text-slate-300 font-medium">
+              {item.location}
             </span>
             {isSelected && (
               <span className="relative flex h-2 w-2">
@@ -290,16 +268,6 @@ export default function CellularConnectivityPage() {
           </div>
         );
       },
-    },
-    {
-      id: "location",
-      header: "Location",
-      accessorKey: "location",
-      cell: (item) => (
-        <span className="text-slate-700 dark:text-slate-300 font-medium">
-          {item.location}
-        </span>
-      ),
     },
     {
       id: "type",
@@ -330,11 +298,21 @@ export default function CellularConnectivityPage() {
       id: "sim_status",
       header: "SIM Status",
       accessorKey: "sim_status",
-      cell: (item) => (
-        <span className="font-mono text-slate-700 dark:text-slate-300 text-[11px]">
-          {item.sim_status}
-        </span>
-      ),
+      cell: (item) => {
+        const raw = (item.sim_status || "").toLowerCase();
+        const isReady = raw.includes("ready") || raw.includes("aktif") || raw.includes("active") || raw.includes("inserted");
+        const isNotDetected = raw.includes("tidak") || raw.includes("not detected") || raw.includes("no sim");
+        const displayLabel = isReady ? "Ready" : isNotDetected ? "Not Detected" : item.sim_status || "Not Detected";
+        return (
+          <span
+            className={`font-mono text-[11px] font-semibold ${
+              isReady ? "text-[#00c875]" : "text-rose-500"
+            }`}
+          >
+            {displayLabel}
+          </span>
+        );
+      },
     },
     {
       id: "cpu_modem",
@@ -369,12 +347,16 @@ export default function CellularConnectivityPage() {
       id: "status",
       header: "Status",
       align: "center",
-      cell: (item) => (
-        <StatusBadge
-          status={item.status}
-          variant={item.status === "Online" ? "online" : item.status === "Degraded" ? "degraded" : "offline"}
-        />
-      ),
+      cell: (item) => {
+        const isWarn = item.status === "Warning" || item.status === "Degraded";
+        const displayStatus = isWarn ? "Warning" : item.status;
+        return (
+          <StatusBadge
+            status={displayStatus}
+            variant={item.status === "Online" ? "online" : isWarn ? "degraded" : "offline"}
+          />
+        );
+      },
     },
     {
       id: "signal_rsrp",
@@ -437,7 +419,7 @@ export default function CellularConnectivityPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 pt-1 pb-0.5">
           <SummaryCard
             title="Total Gateway"
-            value={summary ? summary.total_gateways : 2000}
+            value={summary ? summary.total_gateways : 0}
             icon={Server}
             color="blue"
             onClick={() => handleCardFilter("All Statuses")}
@@ -445,28 +427,28 @@ export default function CellularConnectivityPage() {
           />
           <SummaryCard
             title="Online"
-            value={summary ? summary.online : 1720}
+            value={summary ? summary.online : 0}
             icon={Check}
             color="emerald"
-            percentage={`${summary?.online_percent ?? 86.0}%`}
+            percentage={summary ? `${summary.online_percent}%` : "0%"}
             onClick={() => handleCardFilter("Online")}
             active={statusFilter === "Online"}
           />
           <SummaryCard
-            title="Degraded"
-            value={summary ? summary.degraded : 70}
+            title="Warning"
+            value={summary ? ((summary as any).warning ?? summary.degraded) : 0}
             icon={AlertCircle}
             color="amber"
-            percentage={`${summary?.degraded_percent ?? 3.5}%`}
-            onClick={() => handleCardFilter("Degraded")}
-            active={statusFilter === "Degraded"}
+            percentage={summary ? `${(summary as any)?.warning_percent ?? summary?.degraded_percent ?? 0}%` : "0%"}
+            onClick={() => handleCardFilter("Warning")}
+            active={statusFilter === "Warning" || statusFilter === "Degraded"}
           />
           <SummaryCard
             title="Offline"
-            value={summary ? summary.offline : 210}
+            value={summary ? summary.offline : 0}
             icon={AlertTriangle}
             color="rose"
-            percentage={`${summary?.offline_percent ?? 10.5}%`}
+            percentage={summary ? `${summary.offline_percent}%` : "0%"}
             onClick={() => handleCardFilter("Offline")}
             active={statusFilter === "Offline"}
           />
@@ -478,7 +460,7 @@ export default function CellularConnectivityPage() {
             color="slate"
             breakdown={{
               healthy: hitamOnline,
-              warning: hitamDegraded,
+              warning: hitamWarning,
               critical: hitamOffline,
             }}
           />
@@ -490,7 +472,7 @@ export default function CellularConnectivityPage() {
             color="slate"
             breakdown={{
               healthy: putihOnline,
-              warning: putihDegraded,
+              warning: putihWarning,
               critical: putihOffline,
             }}
           />
