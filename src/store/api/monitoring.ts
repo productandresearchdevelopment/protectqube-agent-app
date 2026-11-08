@@ -476,7 +476,8 @@ export const useCellularReport = (filters?: ICellularReportFilters) => {
   return useQuery({
     queryKey: ["cellularReport", filters],
     queryFn: () => fetchCellularReport(filters),
-    refetchInterval: 15000,
+    refetchInterval: 30000,
+    staleTime: 20000,
   });
 };
 
@@ -645,7 +646,8 @@ export const useCellularReportGatewayDetail = (
     queryKey: ["cellularReportGatewayDetail", gatewayId, dateRange],
     queryFn: () => (gatewayId ? fetchCellularReportGatewayDetail(gatewayId, dateRange) : null),
     enabled: !!gatewayId,
-    refetchInterval: 15000,
+    refetchInterval: 30000,
+    staleTime: 20000,
   });
 };
 
@@ -729,7 +731,8 @@ export const useDVRReport = (filters?: IDVRReportFilters) => {
   return useQuery({
     queryKey: ["dvrReport", filters],
     queryFn: () => fetchDVRReport(filters),
-    refetchInterval: 15000,
+    refetchInterval: 30000,
+    staleTime: 20000,
   });
 };
 
@@ -845,7 +848,8 @@ export const useDVRReportGatewayDetail = (
     queryKey: ["dvrReportGatewayDetail", gatewayId, dateRange],
     queryFn: () => (gatewayId ? fetchDVRReportGatewayDetail(gatewayId, dateRange) : null),
     enabled: !!gatewayId,
-    refetchInterval: 15000,
+    refetchInterval: 30000,
+    staleTime: 20000,
   });
 };
 
@@ -924,7 +928,8 @@ export const useHealthReport = (filters?: IHealthReportFilters) => {
   return useQuery({
     queryKey: ["healthReport", filters],
     queryFn: () => fetchHealthReport(filters),
-    refetchInterval: 15000,
+    refetchInterval: 30000,
+    staleTime: 20000,
   });
 };
 
@@ -1050,7 +1055,8 @@ export const useHealthReportGatewayDetail = (
     queryKey: ["healthReportGatewayDetail", gatewayId, dateRange],
     queryFn: () => (gatewayId ? fetchHealthReportGatewayDetail(gatewayId, dateRange) : null),
     enabled: !!gatewayId,
-    refetchInterval: 15000,
+    refetchInterval: 30000,
+    staleTime: 20000,
   });
 };
 
