@@ -44,6 +44,10 @@ const formatDurationEn = (dur?: string) => {
 const formatIncidentEn = (text?: string) => {
   if (!text) return "Normal Operation (No incidents detected)";
   return text
+    .replace(/Terdeteksi\s+tegangan\s+listrik\s+drop\s*\((.*?)\)\s+pada\s+adaptor\s+gateway!?/gi, "Detected power voltage drop ($1) on gateway adapter!")
+    .replace(/Catu\s+daya\s+adaptor\s+drop\s+di\s+bawah\s+([0-9\.]+V)/gi, "Adapter power supply dropped below $1")
+    .replace(/Kapasitas\s+partisi\s*\'(.*?)\'\s+mencapai\s*([0-9\.]+%?)\s*\(Sisa:\s*([^)]+)\)\.?/gi, "Partition '$1' capacity reached $2 (Remaining: $3).")
+    .replace(/Kondisi\s+flash\s+storage\s+gateway\s+menurun\s+ke\s*([0-9\.]+%?)\s*\((.*?)\)\.?/gi, "Gateway flash storage health degraded to $1 ($2).")
     .replace(/Komunikasi\s+Port\s+USB\s+Modem\s+dengan\s+CPU\s+Terputus/gi, "Modem USB Port Communication Lost")
     .replace(/Koneksi\s+Jaringan\s+Seluler\s+Terputus/gi, "Cellular Network Connection Disconnected")
     .replace(/Aliran\s+Data\s+Internet\s+Mati/gi, "No Internet Data")
@@ -333,7 +337,7 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
     | "Overview"
     | "CPU & RAM"
     | "Storage"
-    | "Uptime"
+    | "Uptime & Downtime"
     | "Temperature"
     | "Event Log"
   >("Overview");
@@ -348,7 +352,7 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
       <div className="bg-white dark:bg-[#070e1d] text-slate-800 dark:text-slate-100 rounded-2xl border border-slate-200 dark:border-slate-800/90 shadow-xl p-8 flex items-center justify-center">
         <div className="flex items-center gap-3 text-slate-500 text-sm">
           <div className="size-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-          <span>Memuat data detail telemetri System Health...</span>
+          <span>Loading System Health telemetry detail...</span>
         </div>
       </div>
     );
@@ -368,14 +372,14 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
     | "Overview"
     | "CPU & RAM"
     | "Storage"
-    | "Uptime"
+    | "Uptime & Downtime"
     | "Temperature"
     | "Event Log"
   > = [
     "Overview",
     "CPU & RAM",
     "Storage",
-    "Uptime",
+    "Uptime & Downtime",
     "Temperature",
     "Event Log",
   ];
@@ -415,6 +419,16 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
     return `${h}h ${m.toString().padStart(2, "0")}m`;
   };
 
+  const sortedEvents = (d.events ? [...d.events] : []).sort((a, b) => {
+    const epochA = typeof (a as any).epoch === "number" && !isNaN((a as any).epoch)
+      ? (a as any).epoch
+      : (a.time ? Date.parse(a.time.replace(" WIB", "").trim().replace(" ", "T")) || 0 : 0);
+    const epochB = typeof (b as any).epoch === "number" && !isNaN((b as any).epoch)
+      ? (b as any).epoch
+      : (b.time ? Date.parse(b.time.replace(" WIB", "").trim().replace(" ", "T")) || 0 : 0);
+    return epochB - epochA;
+  });
+
   const uptimeHoursCalculated = totalMonthHours * (uptimePctNum / 100);
   const downtimeHoursCalculated = totalMonthHours * (downtimePctNum / 100);
   const slaMinUptimeHours = totalMonthHours * (slaTargetPct / 100); // 740.28h = 740h 17m
@@ -435,7 +449,27 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
       ? `Downtime exceeded tolerance limit by ${formatHoursMinutes(downtimeDiffHours)}`
       : `Downtime within tolerance limit (${formatHoursMinutes(Math.abs(downtimeDiffHours))} remaining)`;
 
-  const downtimeEvents: IDowntimeEvent[] = d.downtime_events || [];
+  const dailyUptime = d.daily_uptime || {
+    date_str: d.last_update?.split(" ")[0] || "Today",
+    total_period_hours: 24.0,
+    total_period_str: "24.0 Hours",
+    total_period_minutes: 1440,
+    uptime_minutes: 1440,
+    uptime_text: d.uptime_duration || "24h 0m",
+    uptime_pct: uptimePctNum,
+    downtime_minutes: 0,
+    downtime_text: d.downtime_duration || "0m",
+    downtime_pct: downtimePctNum,
+    sla_target_pct: 99.5,
+    sla_min_uptime_text: "23h 53m",
+    sla_max_down_text: "7m",
+    is_sla_met: isSLAMet,
+    sla_diff_pct: isSLAMet ? `+${slaDiffPct}` : `${slaDiffPct}`,
+    tolerance_text: downtimeDiffText,
+    incidents: d.downtime_events || [],
+  };
+
+  const downtimeEvents: IDowntimeEvent[] = dailyUptime.incidents || [];
 
   // Dynamic operational calendar data for current month
   const nowObj = new Date();
@@ -487,7 +521,7 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
           </div>
           <div className="flex items-center gap-2.5">
             <h2 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
-              Device Detail – {d.id}
+              Device Detail
             </h2>
             <span
               className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
@@ -606,7 +640,7 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                     <div className="space-y-1 text-xs pt-0.5">
                       <div className="flex items-center">
                         <span className="text-slate-500 dark:text-slate-400 w-24 shrink-0 font-medium">
-                          Tipe
+                          Type
                         </span>
                         <span
                           className="text-slate-800 dark:text-slate-200 font-medium truncate"
@@ -704,10 +738,10 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                       <div
                         className={`text-sm font-bold tracking-tight leading-none ${healthColor}`}
                       >
-                        Condition {d.sd_health.status}
+                        Condition {d.sd_health.status} {d.sd_health.health_percent ? `(${d.sd_health.health_percent}%)` : ""}
                       </div>
                       <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 font-medium truncate">
-                        Temp {d.sd_health.temperature} &bull; Wear{" "}
+                        Health {d.sd_health.health_percent ? `${d.sd_health.health_percent}%` : "100%"} &bull; Temp {d.sd_health.temperature} &bull; Wear{" "}
                         {d.sd_health.wear_level}
                       </div>
                     </div>
@@ -856,7 +890,7 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                     <div className="flex items-center justify-between">
                       <span>Downtime Tolerance:</span>
                       <span className="text-slate-700 dark:text-slate-300 font-mono">
-                        Maks. {slaDowntimeAllowedText}
+                        Max. {slaDowntimeAllowedText}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
@@ -879,7 +913,7 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                 {/* Direct Link to Uptime Detail View */}
                 <button
                   type="button"
-                  onClick={() => setActiveTab("Uptime")}
+                  onClick={() => setActiveTab("Uptime & Downtime")}
                   className="w-full mt-2 py-1 px-2 bg-blue-500/10 hover:bg-blue-500/20 active:scale-[0.99] border border-blue-500/25 hover:border-blue-500/40 rounded-lg text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs group"
                 >
                   <span>
@@ -963,9 +997,9 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
         )}
 
         {/* ========================================================= */}
-        {/* TAB 2: UPTIME & SLA 99.5% DETAIL */}
+        {/* TAB 2: DAILY UPTIME & DOWNTIME (FROM SYSTEM LOGS) */}
         {/* ========================================================= */}
-        {activeTab === "Uptime" && (
+        {activeTab === "Uptime & Downtime" && (
           <div className="space-y-4 animate-in fade-in duration-200">
             {/* Header: Title, Description, and Back Button */}
             <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-xs">
@@ -975,33 +1009,33 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                     <Clock className="size-4" />
                   </div>
                   <h3 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
-                    Analisis Uptime & SLA 99.5% – Gateway {d.id}
+                    Daily Uptime & Downtime Analysis – Gateway {d.id}
                   </h3>
                   <span
                     className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold border ${
-                      isSLAMet
+                      dailyUptime.is_sla_met
                         ? "bg-emerald-500/15 text-[#00a862] dark:text-[#00c875] border-emerald-500/30"
                         : "bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30"
                     }`}
                   >
                     <span
-                      className={`size-1.5 rounded-full ${isSLAMet ? "bg-[#00c875]" : "bg-rose-500 animate-pulse"}`}
+                      className={`size-1.5 rounded-full ${dailyUptime.is_sla_met ? "bg-[#00c875]" : "bg-rose-500 animate-pulse"}`}
                     />
-                    {isSLAMet
-                      ? `SLA 99.5% Achieved (+${slaDiffPct}%)`
-                      : `SLA 99.5% Breach (${slaDiffPct}%)`}
+                    {dailyUptime.is_sla_met
+                      ? `SLA 99.5% Achieved (${dailyUptime.sla_diff_pct}%)`
+                      : `SLA 99.5% Breach (${dailyUptime.sla_diff_pct}%)`}
                   </span>
                 </div>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Periode:{" "}
+                  Observation Date:{" "}
                   <strong className="text-slate-800 dark:text-slate-200">
-                    {d.month_period || getCurrentMonthPeriodStr()}
+                    {dailyUptime.date_str}
                   </strong>{" "}
-                  &bull; Total Periode:{" "}
+                  &bull; Total Period:{" "}
                   <strong className="text-slate-800 dark:text-slate-200">
-                    {totalMonthHours} Hours
+                    {dailyUptime.total_period_str}
                   </strong>{" "}
-                  ({daysInCurrentMonth} Days &times; 24 Hours &bull; Cutoff: Day {currentDay})
+                  &bull; Calculated per-minute from gateway system logs ([MQTT OK] heartbeats vs gaps)
                 </p>
               </div>
 
@@ -1020,7 +1054,7 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
               <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 flex flex-col justify-between space-y-2 shadow-xs">
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                    Target SLA Kontrak
+                    Contract SLA Target
                   </span>
                   <div className="size-6 rounded-md bg-yellow-500/15 text-amber-600 dark:text-yellow-400 flex items-center justify-center">
                     <CheckCheck className="size-3.5" />
@@ -1028,33 +1062,33 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                 </div>
                 <div>
                   <div className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
-                    99.5%
+                    {dailyUptime.sla_target_pct}%
                   </div>
                   <div className="text-xs text-slate-500 dark:text-slate-400 mt-1 space-y-0.5">
                     <div className="flex justify-between">
                       <span>Minimum Uptime:</span>
                       <strong className="text-slate-800 dark:text-slate-200 font-mono">
-                        {slaTargetHoursText}
+                        {dailyUptime.sla_min_uptime_text}
                       </strong>
                     </div>
                     <div className="flex justify-between">
-                      <span>Downtime Tolerance:</span>
+                      <span>Max Downtime Limit:</span>
                       <strong className="text-slate-800 dark:text-slate-200 font-mono">
-                        {slaDowntimeAllowedText}
+                        {dailyUptime.sla_max_down_text}
                       </strong>
                     </div>
                   </div>
                 </div>
                 <div className="text-[10px] text-slate-500 dark:text-slate-400 border-t border-slate-200 dark:border-slate-800/50 pt-1.5">
-                  Formula: {totalMonthHours} Hours &times; 99.5% = {slaMinUptimeHours.toFixed(1)} Hours
+                  Formula: {dailyUptime.total_period_str} &times; 99.5% = {dailyUptime.sla_min_uptime_text}
                 </div>
               </div>
 
-              {/* Card 2: Accumulated Uptime (Uptime) */}
+              {/* Card 2: Accumulated Daily Uptime */}
               <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 flex flex-col justify-between space-y-2 shadow-xs">
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                    Accumulated Uptime
+                    Daily Uptime
                   </span>
                   <div className="size-6 rounded-md bg-emerald-500/15 text-[#00a862] dark:text-[#00c875] flex items-center justify-center">
                     <CheckCircle2 className="size-3.5" />
@@ -1062,25 +1096,25 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                 </div>
                 <div>
                   <div className="text-2xl font-bold text-[#00a862] dark:text-[#00c875] tracking-tight font-mono">
-                    {uptimeDurationText}
+                    {dailyUptime.uptime_text}
                   </div>
                   <div className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold mt-1">
-                    {uptimePctNum}% achieved of total time
+                    {dailyUptime.uptime_pct}% active today
                   </div>
                 </div>
                 <div className="text-[10px] text-slate-500 dark:text-slate-400 border-t border-slate-200 dark:border-slate-800/50 pt-1.5 flex items-center justify-between">
-                  <span>Current session:</span>
+                  <span>Heartbeat source:</span>
                   <span className="text-slate-800 dark:text-slate-200 font-mono">
-                    {d.uptime_days}d {d.uptime_hours}h
+                    {dailyUptime.uptime_minutes} MQTT OK beats
                   </span>
                 </div>
               </div>
 
-              {/* Card 3: Accumulated Downtime (Downtime) */}
+              {/* Card 3: Accumulated Daily Downtime */}
               <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 flex flex-col justify-between space-y-2 shadow-xs">
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                    Accumulated Downtime
+                    Daily Downtime
                   </span>
                   <div className="size-6 rounded-md bg-rose-500/15 text-[#e2445c] flex items-center justify-center">
                     <Power className="size-3.5" />
@@ -1088,38 +1122,38 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                 </div>
                 <div>
                   <div className="text-2xl font-bold text-[#e2445c] tracking-tight font-mono">
-                    {downtimeDurationText}
+                    {dailyUptime.downtime_text}
                   </div>
                   <div className="text-xs text-rose-600 dark:text-rose-400 font-semibold mt-1">
-                    {downtimePctNum}% downtime
+                    {dailyUptime.downtime_pct}% downtime today
                   </div>
                 </div>
                 <div className="text-[10px] text-slate-500 dark:text-slate-400 border-t border-slate-200 dark:border-slate-800/50 pt-1.5 flex items-center justify-between">
-                  <span>Total incidents:</span>
+                  <span>Downtime outages:</span>
                   <span className="text-slate-800 dark:text-slate-200 font-mono font-semibold">
-                    {downtimeEvents.length} outages
+                    {dailyUptime.incidents.length} incident(s)
                   </span>
                 </div>
               </div>
 
-              {/* Card 4: Status Realisasi & Deviasi */}
+              {/* Card 4: SLA Realization & Deviation */}
               <div
                 className={`bg-slate-50/70 dark:bg-[#0a1226] border rounded-xl p-4 flex flex-col justify-between space-y-2 shadow-xs ${
-                  isSLAMet ? "border-emerald-500/40" : "border-rose-500/40"
+                  dailyUptime.is_sla_met ? "border-emerald-500/40" : "border-rose-500/40"
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                    SLA 99.5% Status
+                    SLA 99.5% Daily Status
                   </span>
                   <div
                     className={`size-6 rounded-md flex items-center justify-center ${
-                      isSLAMet
+                      dailyUptime.is_sla_met
                         ? "bg-emerald-500/15 text-[#00a862] dark:text-[#00c875]"
                         : "bg-rose-500/15 text-[#e2445c]"
                     }`}
                   >
-                    {isSLAMet ? (
+                    {dailyUptime.is_sla_met ? (
                       <CheckCircle2 className="size-3.5" />
                     ) : (
                       <AlertTriangle className="size-3.5" />
@@ -1129,24 +1163,26 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                 <div>
                   <div
                     className={`text-2xl font-bold tracking-tight font-mono ${
-                      isSLAMet
+                      dailyUptime.is_sla_met
                         ? "text-[#00a862] dark:text-[#00c875]"
                         : "text-[#e2445c]"
                     }`}
                   >
-                    {isSLAMet ? `+${slaDiffPct}%` : `${slaDiffPct}%`}
+                    {dailyUptime.sla_diff_pct}%
                   </div>
                   <div
-                    className={`text-xs font-semibold mt-1 ${isSLAMet ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}
+                    className={`text-xs font-semibold mt-1 ${
+                      dailyUptime.is_sla_met ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
+                    }`}
                   >
-                    {isSLAMet ? "SLA Target Achieved" : "SLA Breach (Not Met)"}
+                    {dailyUptime.is_sla_met ? "SLA Target Achieved" : "SLA Target Breached"}
                   </div>
                 </div>
                 <div
                   className="text-[10px] text-slate-500 dark:text-slate-400 border-t border-slate-200 dark:border-slate-800/50 pt-1.5 truncate"
-                  title={downtimeDiffText}
+                  title={dailyUptime.tolerance_text}
                 >
-                  {downtimeDiffText}
+                  {dailyUptime.tolerance_text}
                 </div>
               </div>
             </div>
@@ -1156,29 +1192,28 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
               <div className="flex items-center justify-between text-xs font-semibold">
                 <span className="text-slate-900 dark:text-white flex items-center gap-1.5">
                   <Activity className="size-3.5 text-blue-600 dark:text-blue-400" />
-                  Accumulated Uptime vs Downtime Ratio in {totalMonthHours}{" "}
-                  Hours
+                  Daily Uptime vs Downtime Ratio ({dailyUptime.total_period_str})
                 </span>
                 <span className="text-amber-600 dark:text-yellow-400 font-mono text-[11px]">
-                  Target SLA: 99.5% (Min. {slaTargetHoursText})
+                  Daily SLA Target: 99.5% (Min. {dailyUptime.sla_min_uptime_text})
                 </span>
               </div>
 
               <div className="relative h-4 bg-slate-200 dark:bg-slate-900 rounded-full overflow-hidden flex border border-slate-300 dark:border-slate-800">
                 <div
-                  style={{ width: `${uptimePctNum}%` }}
+                  style={{ width: `${dailyUptime.uptime_pct}%` }}
                   className="h-full bg-linear-to-r from-emerald-600 to-[#00c875] transition-all duration-500"
-                  title={`Uptime: ${uptimeDurationText} (${uptimePctNum}%)`}
+                  title={`Uptime: ${dailyUptime.uptime_text} (${dailyUptime.uptime_pct}%)`}
                 />
                 <div
-                  style={{ width: `${downtimePctNum}%` }}
+                  style={{ width: `${dailyUptime.downtime_pct}%` }}
                   className="h-full bg-linear-to-r from-rose-500 to-[#e2445c] transition-all duration-500"
-                  title={`Downtime: ${downtimeDurationText} (${downtimePctNum}%)`}
+                  title={`Downtime: ${dailyUptime.downtime_text} (${dailyUptime.downtime_pct}%)`}
                 />
                 <div
                   style={{ left: "99.5%" }}
                   className="absolute top-0 bottom-0 w-0.5 bg-yellow-400 z-10 shadow-[0_0_8px_rgba(250,204,21,1)]"
-                  title="Target SLA 99.5% (Min. 740h 17m)"
+                  title="Target SLA 99.5%"
                 />
               </div>
 
@@ -1188,105 +1223,43 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                     <span className="size-2.5 rounded-full bg-[#00c875]" />
                     Total Uptime:{" "}
                     <strong className="text-slate-900 dark:text-white font-mono">
-                      {uptimeDurationText}
+                      {dailyUptime.uptime_text}
                     </strong>{" "}
-                    ({uptimePctNum}%)
+                    ({dailyUptime.uptime_pct}%)
                   </span>
                   <span className="flex items-center gap-1.5">
                     <span className="size-2.5 rounded-full bg-[#e2445c]" />
                     Total Downtime:{" "}
                     <strong className="text-slate-900 dark:text-white font-mono">
-                      {downtimeDurationText}
+                      {dailyUptime.downtime_text}
                     </strong>{" "}
-                    ({downtimePctNum}%)
+                    ({dailyUptime.downtime_pct}%)
                   </span>
                 </div>
                 <div className="text-slate-500 dark:text-slate-400 text-[11px]">
-                  Max Downtime Tolerance:{" "}
+                  Daily Downtime Tolerance:{" "}
                   <strong className="text-amber-600 dark:text-yellow-400 font-mono">
-                    {slaDowntimeAllowedText}
+                    {dailyUptime.sla_max_down_text}
                   </strong>{" "}
                   (0.5%)
                 </div>
               </div>
             </div>
 
-            {/* Visual Operational Calendar Strip */}
-            <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-3 shadow-xs">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <h4 className="text-xs font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
-                    <Calendar className="size-3.5 text-blue-600 dark:text-blue-400" />
-                    Daily Uptime Calendar ({d.month_period || `01 ${currentMonthName} – ${daysInCurrentMonth} ${currentMonthName} ${currentYear}`})
-                  </h4>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                    Daily operational status for this month ({daysInCurrentMonth} Days &bull; Cutoff Day {currentDay}). Red boxes
-                    indicate days with power outages or downtime incidents.
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-3 text-[11px]">
-                  <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
-                    <span className="size-2.5 rounded-full bg-[#00c875]" />
-                    24h Uptime (27 Days)
-                  </span>
-                  <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
-                    <span className="size-2.5 rounded-full bg-[#e2445c]" />
-                    Downtime Incidents (4 Days)
-                  </span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-7 sm:grid-cols-11 md:grid-cols-16 lg:grid-cols-31 gap-1.5 pt-1">
-                {daysInMonth.map((dItem) => (
-                  <div
-                    key={dItem.day}
-                    className={`rounded-lg p-1.5 border flex flex-col items-center justify-between text-center transition-all cursor-default select-none ${
-                      dItem.isDown
-                        ? "bg-rose-500/15 border-rose-500/40 hover:bg-rose-500/25 shadow-xs"
-                        : "bg-emerald-500/10 border-emerald-500/25 hover:bg-emerald-500/20"
-                    }`}
-                    title={`${dItem.dateLabel}: ${dItem.isDown ? `${dItem.downDuration} (${dItem.incident})` : "Full 24h Normal Uptime (100% OK)"}`}
-                  >
-                    <span className="text-[10px] text-slate-600 dark:text-slate-400 font-mono">
-                      {dItem.day.toString().padStart(2, "0")}
-                    </span>
-                    <span
-                      className={`size-2 rounded-full my-1 ${
-                        dItem.isDown
-                          ? "bg-[#e2445c] animate-pulse"
-                          : "bg-[#00c875]"
-                      }`}
-                    />
-                    <span
-                      className={`text-[9px] font-bold font-mono leading-tight ${
-                        dItem.isDown
-                          ? "text-rose-600 dark:text-rose-300"
-                          : "text-emerald-600 dark:text-emerald-400"
-                      }`}
-                    >
-                      {dItem.isDown ? "DOWN" : "OK"}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Table: Rincian Log Kejadian Mati & Akumulasi Downtime */}
+            {/* Table: Daily Downtime Incident Logs */}
             <div className="bg-white dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl overflow-hidden shadow-xs">
               <div className="p-3.5 border-b border-slate-200 dark:border-slate-800/80 flex flex-wrap items-center justify-between gap-2 bg-slate-50 dark:bg-[#070e1c]">
                 <div>
                   <h4 className="text-xs font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
                     <Power className="size-3.5 text-rose-500" />
-                    Downtime Incident Logs & Accumulated Downtime
+                    Daily Downtime Incident Logs & Telemetry Gaps
                   </h4>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                    Track record of each gateway outage, recovery time,
-                    accumulated downtime, and impact on 99.5% SLA
+                    Calculated directly from system logs where [MQTT OK] was interrupted or telemetry stopped
                   </p>
                 </div>
                 <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/60 font-mono shadow-2xs">
-                  {downtimeEvents.length} Incidents Recorded
+                  {dailyUptime.incidents.length} Outages Recorded
                 </span>
               </div>
 
@@ -1295,10 +1268,9 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                   <thead className="bg-slate-100 dark:bg-[#081022] text-slate-600 dark:text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-200 dark:border-slate-800">
                     <tr>
                       <th className="py-2.5 px-3">No</th>
-                      <th className="py-2.5 px-3">Downtime Start (Offline)</th>
+                      <th className="py-2.5 px-3">Downtime Start</th>
                       <th className="py-2.5 px-3">Restored Time</th>
-                      <th className="py-2.5 px-3">Downtime Duration</th>
-                      <th className="py-2.5 px-3">Cumulative Downtime</th>
+                      <th className="py-2.5 px-3">Duration</th>
                       <th className="py-2.5 px-3">Category</th>
                       <th className="py-2.5 px-3">Root Cause</th>
                       <th className="py-2.5 px-3">SLA Impact</th>
@@ -1306,71 +1278,75 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 dark:divide-slate-800/60 font-sans">
-                    {downtimeEvents.map((evt) => (
-                      <tr
-                        key={evt.no}
-                        className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors"
-                      >
-                        <td className="py-2.5 px-3 font-mono text-slate-500 dark:text-slate-400">
-                          {evt.no}
-                        </td>
-                        <td className="py-2.5 px-3 font-mono text-slate-800 dark:text-slate-200 whitespace-nowrap">
-                          {evt.start_time}
-                        </td>
-                        <td className="py-2.5 px-3 font-mono text-slate-800 dark:text-slate-200 whitespace-nowrap">
-                          {evt.end_time}
-                        </td>
-                        <td className="py-2.5 px-3 font-mono font-bold text-[#e2445c] whitespace-nowrap">
-                          {formatDurationEn(evt.duration)}
-                        </td>
-                        <td className="py-2.5 px-3 font-mono font-semibold text-rose-600 dark:text-rose-300 whitespace-nowrap">
-                          {formatDurationEn(evt.accumulated_hours)}
-                        </td>
-                        <td className="py-2.5 px-3 whitespace-nowrap">
-                          <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700/60">
-                            {evt.category}
-                          </span>
-                        </td>
-                        <td className="py-2.5 px-3 text-slate-600 dark:text-slate-300 min-w-50">
-                          {formatIncidentEn(evt.reason || evt.description || evt.title)}
-                        </td>
-                        <td className="py-2.5 px-3 font-mono text-rose-600 dark:text-rose-400 whitespace-nowrap">
-                          -{evt.sla_impact_pct}%
-                        </td>
-                        <td className="py-2.5 px-3 whitespace-nowrap">
-                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#00a862] dark:text-[#00c875]">
-                            <span className="size-1.5 rounded-full bg-[#00c875]" />
-                            {evt.status}
-                          </span>
+                    {dailyUptime.incidents.length > 0 ? (
+                      dailyUptime.incidents.map((evt) => (
+                        <tr
+                          key={evt.no}
+                          className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors"
+                        >
+                          <td className="py-2.5 px-3 font-mono text-slate-500 dark:text-slate-400">
+                            {evt.no}
+                          </td>
+                          <td className="py-2.5 px-3 font-mono text-slate-800 dark:text-slate-200 whitespace-nowrap">
+                            {evt.start_time}
+                          </td>
+                          <td className="py-2.5 px-3 font-mono text-slate-800 dark:text-slate-200 whitespace-nowrap">
+                            {evt.end_time}
+                          </td>
+                          <td className="py-2.5 px-3 font-mono font-bold text-[#e2445c] whitespace-nowrap">
+                            {formatDurationEn(evt.duration)}
+                          </td>
+                          <td className="py-2.5 px-3 whitespace-nowrap">
+                            <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700/60">
+                              {evt.category}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3 text-slate-600 dark:text-slate-300 min-w-50">
+                            {formatIncidentEn(evt.reason || evt.title)}
+                          </td>
+                          <td className="py-2.5 px-3 font-mono text-rose-600 dark:text-rose-400 whitespace-nowrap">
+                            -{evt.sla_impact_pct}%
+                          </td>
+                          <td className="py-2.5 px-3 whitespace-nowrap">
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#00a862] dark:text-[#00c875]">
+                              <span className="size-1.5 rounded-full bg-[#00c875]" />
+                              {evt.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={8} className="py-8 text-center text-slate-400 text-xs">
+                          No downtime incidents or telemetry gaps recorded today. Gateway running with 100% normal uptime.
                         </td>
                       </tr>
-                    ))}
+                    )}
                   </tbody>
-                  <tfoot className="bg-slate-100 dark:bg-[#081022] font-semibold text-slate-800 dark:text-slate-200 border-t-2 border-slate-300 dark:border-slate-700/80">
-                    <tr>
-                      <td
-                        colSpan={3}
-                        className="py-2.5 px-3 text-right text-xs uppercase text-slate-500 dark:text-slate-400 tracking-wider"
-                      >
-                        Total Monthly Accumulation ({totalMonthHours} Hours):
-                      </td>
-                      <td className="py-2.5 px-3 font-mono text-sm font-bold text-[#e2445c]">
-                        {downtimeDurationText}
-                      </td>
-                      <td className="py-2.5 px-3 font-mono text-xs text-rose-600 dark:text-rose-400">
-                        {downtimePctNum}%
-                      </td>
-                      <td
-                        colSpan={4}
-                        className="py-2.5 px-3 text-xs text-slate-600 dark:text-slate-300"
-                      >
-                        Total Uptime:{" "}
-                        <strong className="text-[#00a862] dark:text-[#00c875] font-mono">
-                          {uptimeDurationText} ({uptimePctNum}%)
-                        </strong>
-                      </td>
-                    </tr>
-                  </tfoot>
+                  {dailyUptime.incidents.length > 0 && (
+                    <tfoot className="bg-slate-100 dark:bg-[#081022] font-semibold text-slate-800 dark:text-slate-200 border-t-2 border-slate-300 dark:border-slate-700/80">
+                      <tr>
+                        <td
+                          colSpan={3}
+                          className="py-2.5 px-3 text-right text-xs uppercase text-slate-500 dark:text-slate-400 tracking-wider"
+                        >
+                          Total Daily Summary ({dailyUptime.total_period_str}):
+                        </td>
+                        <td className="py-2.5 px-3 font-mono text-sm font-bold text-[#e2445c]">
+                          {dailyUptime.downtime_text}
+                        </td>
+                        <td
+                          colSpan={4}
+                          className="py-2.5 px-3 text-xs text-slate-600 dark:text-slate-300"
+                        >
+                          Total Daily Uptime:{" "}
+                          <strong className="text-[#00a862] dark:text-[#00c875] font-mono">
+                            {dailyUptime.uptime_text} ({dailyUptime.uptime_pct}%)
+                          </strong>
+                        </td>
+                      </tr>
+                    </tfoot>
+                  )}
                 </table>
               </div>
             </div>
@@ -1382,27 +1358,20 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
               </div>
               <div className="text-xs space-y-1.5">
                 <div className="font-bold text-slate-900 dark:text-white text-sm">
-                  Conclusion & 99.5% SLA Achievement Analysis
+                  Daily Uptime & SLA 99.5% Summary
                 </div>
                 <p className="text-slate-700 dark:text-slate-300 leading-relaxed">
-                  Based on the <strong>99.5%</strong> SLA standard, the gateway
+                  Based on the daily <strong>99.5%</strong> SLA standard, the gateway
                   must be active for a minimum of{" "}
-                  <strong>{slaTargetHoursText}</strong> with a maximum downtime
-                  tolerance of <strong>{slaDowntimeAllowedText}</strong> out of
-                  total <strong>{totalMonthHours} Hours</strong> monthly.
-                  Gateway <strong>{d.id}</strong> recorded cumulative downtime
-                  of <strong>{downtimeDurationText}</strong> (exceeding
-                  tolerance limit by{" "}
-                  <strong>{formatHoursMinutes(downtimeDiffHours)}</strong>),
-                  resulting in a final performance of{" "}
-                  <strong>{uptimePctNum}% (Status: SLA Breach)</strong>.
-                </p>
-                <p className="text-slate-500 dark:text-slate-400 text-[11px] leading-relaxed">
-                  &bull; Primary downtime contributor was grid power outages (6h
-                  15m) and building power panel maintenance (9h 30m), accounting
-                  for 66.3% of total downtime. The SmartBox gateway successfully
-                  performed autonomous recovery as soon as power supply returned
-                  to normal.
+                  <strong>{dailyUptime.sla_min_uptime_text}</strong> with a maximum downtime
+                  tolerance of <strong>{dailyUptime.sla_max_down_text}</strong> out of{" "}
+                  <strong>{dailyUptime.total_period_str}</strong> today.
+                  Gateway <strong>{d.id}</strong> recorded total daily downtime
+                  of <strong>{dailyUptime.downtime_text}</strong>,
+                  resulting in a daily uptime performance of{" "}
+                  <strong className={dailyUptime.is_sla_met ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}>
+                    {dailyUptime.uptime_pct}% ({dailyUptime.is_sla_met ? "SLA Achieved" : "SLA Breach"})
+                  </strong>.
                 </p>
               </div>
             </div>
@@ -1417,7 +1386,7 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
             <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
               <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <Cpu className="size-4 text-emerald-500 dark:text-emerald-400" />
-                Telemetri Terperinci CPU & Memori RAM
+                Detailed CPU & RAM Memory Telemetry
               </h3>
               <button
                 type="button"
@@ -1445,7 +1414,7 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                 />
                 <div className="text-xs text-slate-500 dark:text-slate-400 space-y-1 border-t border-slate-200 dark:border-slate-800/60 pt-2">
                   <div className="flex justify-between">
-                    <span>Arsitektur:</span>
+                    <span>Architecture:</span>
                     <strong className="text-slate-800 dark:text-slate-200">
                       ARMv8 Cortex-A53 4-Core
                     </strong>
@@ -1482,21 +1451,21 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                 />
                 <div className="text-xs text-slate-500 dark:text-slate-400 space-y-1 border-t border-slate-200 dark:border-slate-800/60 pt-2">
                   <div className="flex justify-between">
-                    <span>Total Kapasitas:</span>
+                    <span>Total Capacity:</span>
                     <strong className="text-slate-800 dark:text-slate-200">
-                      8 GB LPDDR4
+                      {d.ram_total_gb ? `${d.ram_total_gb} GB` : "1 GB"} (SBC RAM)
                     </strong>
                   </div>
                   <div className="flex justify-between">
                     <span>Used:</span>
                     <strong className="text-slate-800 dark:text-slate-200">
-                      {(8 * (d.ram_percent / 100)).toFixed(1)} GB
+                      {d.ram_used_gb !== undefined ? `${d.ram_used_gb} GB` : `${((d.ram_total_gb || 1) * (d.ram_percent / 100)).toFixed(1)} GB`}
                     </strong>
                   </div>
                   <div className="flex justify-between">
-                    <span>Tersedia:</span>
+                    <span>Available:</span>
                     <strong className="text-slate-800 dark:text-slate-200">
-                      {(8 * (1 - d.ram_percent / 100)).toFixed(1)} GB
+                      {d.ram_free_gb !== undefined ? `${d.ram_free_gb} GB` : `${((d.ram_total_gb || 1) * (1 - d.ram_percent / 100)).toFixed(1)} GB`}
                     </strong>
                   </div>
                 </div>
@@ -1547,9 +1516,9 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                     </strong>
                   </div>
                   <div className="flex justify-between">
-                    <span>Sisa Ruang:</span>
+                    <span>Free Space:</span>
                     <strong className="text-[#00a862] dark:text-emerald-400">
-                      {Math.max(0, d.sd_total_gb - d.sd_used_gb)} GB Bebas
+                      {Math.max(0, d.sd_total_gb - d.sd_used_gb)} GB Free
                     </strong>
                   </div>
                 </div>
@@ -1565,7 +1534,7 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                       Overall Health:
                     </span>
                     <span className="text-[#00a862] dark:text-emerald-400 font-bold">
-                      {d.sd_health.status}
+                      {d.sd_health.status} {d.sd_health.health_percent ? `(${d.sd_health.health_percent}%)` : ""}
                     </span>
                   </div>
                   <div className="flex items-center justify-between p-2 rounded bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xs">
@@ -1640,24 +1609,24 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
               </div>
               <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 text-center space-y-1 shadow-xs">
                 <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                  Batas Peringatan (Warning)
+                  Warning Threshold
                 </span>
                 <div className="text-3xl font-bold text-amber-600 dark:text-yellow-400 font-mono">
                   70°C
                 </div>
                 <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                  Peringatan Suhu Tinggi
+                  High Temperature Warning
                 </span>
               </div>
               <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 text-center space-y-1 shadow-xs">
                 <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                  Batas Bahaya (Kritis)
+                  Critical Threshold
                 </span>
                 <div className="text-3xl font-bold text-[#e2445c] font-mono">
                   85°C
                 </div>
                 <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                  Suhu Kritis / Overheat
+                  Critical / Overheat
                 </span>
               </div>
             </div>
@@ -1678,7 +1647,7 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                   </div>
                   <span className="text-[10px] font-semibold bg-blue-500/10 text-[#0073ea] dark:text-[#00d2ff] border border-blue-500/20 px-2 py-0.5 rounded-full">
                     Today Only (
-                    {new Date().toLocaleDateString("id-ID", {
+                    {new Date().toLocaleDateString("en-US", {
                       day: "numeric",
                       month: "short",
                       year: "numeric",
@@ -1700,8 +1669,8 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                 </div>
               </div>
               <div className="divide-y divide-slate-200 dark:divide-slate-800/60 text-xs">
-                {d.events && d.events.length > 0 ? (
-                  d.events.map((evt, idx) => (
+                {sortedEvents.length > 0 ? (
+                  sortedEvents.map((evt, idx) => (
                     <div
                       key={evt.id || idx}
                       className="py-2.5 flex items-center justify-between gap-4"
@@ -1723,13 +1692,13 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                         </span>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        {evt.duration && (
+                        {evt.duration && evt.duration !== "-" && evt.duration !== "0m" && (
                           <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-amber-500/10 text-amber-500 border border-amber-500/20">
                             {formatDurationEn(evt.duration)}
                           </span>
                         )}
                         <span className="text-slate-400 font-mono text-[11px] whitespace-nowrap">
-                          {evt.time}
+                          {evt.time && evt.time.includes("WIB") ? evt.time : `${evt.time} WIB`}
                         </span>
                       </div>
                     </div>

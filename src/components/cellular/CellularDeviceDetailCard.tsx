@@ -396,6 +396,16 @@ export const CellularDeviceDetailCard: React.FC<
       ? AlertTriangle
       : AlertCircle;
 
+  const sortedEvents = (d.events ? [...d.events] : []).sort((a, b) => {
+    const epochA = typeof (a as any).epoch === "number" && !isNaN((a as any).epoch)
+      ? (a as any).epoch
+      : (a.time ? Date.parse(a.time.replace(" WIB", "").trim().replace(" ", "T")) || 0 : 0);
+    const epochB = typeof (b as any).epoch === "number" && !isNaN((b as any).epoch)
+      ? (b as any).epoch
+      : (b.time ? Date.parse(b.time.replace(" WIB", "").trim().replace(" ", "T")) || 0 : 0);
+    return epochB - epochA;
+  });
+
   return (
     <div className="bg-white dark:bg-[#070e1d] text-slate-800 dark:text-slate-100 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden transition-all duration-300">
       {/* Top Header Bar */}
@@ -1286,8 +1296,8 @@ export const CellularDeviceDetailCard: React.FC<
                 </span>
               </div>
               <div className="divide-y divide-slate-200 dark:divide-slate-800/60 text-xs">
-                {d.events && d.events.length > 0 ? (
-                  d.events.map((evt, idx) => (
+                {sortedEvents.length > 0 ? (
+                  sortedEvents.map((evt, idx) => (
                     <div
                       key={evt.id || idx}
                       className="py-2.5 flex items-center justify-between gap-4"
@@ -1309,13 +1319,13 @@ export const CellularDeviceDetailCard: React.FC<
                         </span>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        {evt.duration && (
+                        {evt.duration && evt.duration !== "-" && evt.duration !== "0m" && (
                           <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-amber-500/10 text-amber-500 border border-amber-500/20">
                             {formatDurationEn(evt.duration)}
                           </span>
                         )}
                         <span className="text-slate-400 font-mono text-[11px] whitespace-nowrap">
-                          {evt.time}
+                          {evt.time && evt.time.includes("WIB") ? evt.time : `${evt.time} WIB`}
                         </span>
                       </div>
                     </div>

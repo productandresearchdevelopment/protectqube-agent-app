@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import {
   useDVRGatewayDetail,
+  useRebootDVRGateway,
   IDVRGatewayDetailData,
   ICameraChannelPreview,
 } from "@/store/api/monitoring";
@@ -430,21 +431,33 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
 
   const [currentSlide, setCurrentSlide] = useState(0);
 
-  const [isRebooting, setIsRebooting] = useState(false);
-  const [rebootFeedback, setRebootFeedback] = useState<string | null>(null);
+  const [showRebootModal, setShowRebootModal] = useState(false);
+  const [rebootFeedback, setRebootFeedback] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
   const { data, isLoading } = useDVRGatewayDetail(gatewayId);
+  const rebootMutation = useRebootDVRGateway();
 
-  const handleReboot = () => {
+  const handleOpenRebootModal = () => {
+    setShowRebootModal(true);
+  };
+
+  const handleConfirmReboot = async () => {
     if (!data) return;
-    if (confirm(`Are you sure you want to send a Reboot signal to ${data.id} (${data.dvr_model})?`)) {
-      setIsRebooting(true);
-      setRebootFeedback(`Sending reboot command to ${data.id}...`);
-      setTimeout(() => {
-        setIsRebooting(false);
-        setRebootFeedback(`Reboot signal successfully dispatched to ${data.id}. Device is restarting.`);
-        setTimeout(() => setRebootFeedback(null), 5000);
-      }, 1500);
+    try {
+      const res = await rebootMutation.mutateAsync(data.id);
+      setShowRebootModal(false);
+      setRebootFeedback({
+        message: res?.message || `Reboot command sent to ${data.id} via MQTT (Topic: pqube/nms/${data.id}/command).`,
+        type: "success",
+      });
+      setTimeout(() => setRebootFeedback(null), 8000);
+    } catch (err: any) {
+      setShowRebootModal(false);
+      setRebootFeedback({
+        message: err?.message || `Failed to dispatch reboot command to ${data.id}. Check MQTT broker status.`,
+        type: "error",
+      });
+      setTimeout(() => setRebootFeedback(null), 8000);
     }
   };
 
@@ -519,6 +532,16 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
     : d.dvr_health.status === "Warning"
       ? AlertTriangle
       : AlertCircle;
+
+  const sortedEvents = (d.events ? [...d.events] : []).sort((a, b) => {
+    const epochA = typeof (a as any).epoch === "number" && !isNaN((a as any).epoch)
+      ? (a as any).epoch
+      : (a.time ? Date.parse(a.time.replace(" WIB", "").trim().replace(" ", "T")) || 0 : 0);
+    const epochB = typeof (b as any).epoch === "number" && !isNaN((b as any).epoch)
+      ? (b as any).epoch
+      : (b.time ? Date.parse(b.time.replace(" WIB", "").trim().replace(" ", "T")) || 0 : 0);
+    return epochB - epochA;
+  });
 
   const getHealthExplanation = () => {
     const isConn = d.cpu_dvr?.status === "Connected";
@@ -612,13 +635,13 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={handleReboot}
-            disabled={isRebooting}
+            onClick={handleOpenRebootModal}
+            disabled={rebootMutation.isPending}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/30 transition-all cursor-pointer shadow-xs active:scale-95 disabled:opacity-50"
             title="Reboot Gateway & DVR"
           >
-            <RotateCcw className={`size-3.5 ${isRebooting ? "animate-spin" : ""}`} />
-            <span>{isRebooting ? "Rebooting..." : "Reboot"}</span>
+            <RotateCcw className={`size-3.5 ${rebootMutation.isPending ? "animate-spin" : ""}`} />
+            <span>{rebootMutation.isPending ? "Sending..." : "Reboot"}</span>
           </button>
 
           {onClose && (
@@ -634,14 +657,25 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
       </div>
 
       {rebootFeedback && (
-        <div className="px-5 py-2 text-xs bg-emerald-500/10 dark:bg-emerald-500/20 text-[#00a862] dark:text-[#00c875] border-b border-emerald-500/30 flex items-center justify-between animate-in fade-in duration-200">
+        <div
+          className={`px-5 py-2.5 text-xs border-b flex items-center justify-between animate-in fade-in duration-200 ${
+            rebootFeedback.type === "success"
+              ? "bg-emerald-500/10 dark:bg-emerald-500/20 text-[#00a862] dark:text-[#00c875] border-emerald-500/30"
+              : "bg-rose-500/10 dark:bg-rose-500/20 text-[#e2445c] border-rose-500/30"
+          }`}
+        >
           <div className="flex items-center gap-2 font-medium">
-            <CheckCircle2 className="size-4" />
-            <span>{rebootFeedback}</span>
+            {rebootFeedback.type === "success" ? (
+              <CheckCircle2 className="size-4 shrink-0" />
+            ) : (
+              <AlertCircle className="size-4 shrink-0" />
+            )}
+            <span>{rebootFeedback.message}</span>
           </div>
           <button
+            type="button"
             onClick={() => setRebootFeedback(null)}
-            className="text-xs hover:underline cursor-pointer"
+            className="text-xs hover:underline cursor-pointer ml-3 shrink-0"
           >
             Dismiss
           </button>
@@ -928,10 +962,10 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-slate-500 dark:text-slate-400 font-sans">
-                        Retention:
+                        Mode:
                       </span>
                       <span className="text-slate-800 dark:text-slate-200 font-sans">
-                        {d.recording_storage.retention_days} Days
+                        Continuous (24/7 CMR)
                       </span>
                     </div>
                   </div>
@@ -1314,7 +1348,7 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
 
         {activeTab === "Recording & Storage" && (
           <div className="space-y-4 animate-in fade-in duration-200">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
               <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-2">
                 <span className="text-xs text-slate-500 font-medium">
                   NVR Recording Status
@@ -1349,17 +1383,6 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                 </div>
                 <div className="text-xs text-slate-500">
                   {d.recording_storage.percent}% Used
-                </div>
-              </div>
-              <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-2">
-                <span className="text-xs text-slate-500 font-medium">
-                  Estimated Video Retention
-                </span>
-                <div className="text-2xl font-bold text-slate-900 dark:text-white">
-                  {d.recording_storage.retention_days} Days
-                </div>
-                <div className="text-xs text-slate-500">
-                  Auto-overwrite FIFO active
                 </div>
               </div>
             </div>
@@ -1422,8 +1445,8 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                 </span>
               </div>
               <div className="divide-y divide-slate-200 dark:divide-slate-800/60 text-xs">
-                {d.events && d.events.length > 0 ? (
-                  d.events.map((evt, idx) => (
+                {sortedEvents.length > 0 ? (
+                  sortedEvents.map((evt, idx) => (
                     <div
                       key={evt.id || idx}
                       className="py-2.5 flex items-center justify-between gap-4"
@@ -1445,13 +1468,13 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                         </span>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        {evt.duration && evt.duration !== "-" && (
+                        {evt.duration && evt.duration !== "-" && evt.duration !== "0m" && (
                           <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-200/80 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-mono">
                             {formatDurationEn(evt.duration)}
                           </span>
                         )}
                         <span className="text-slate-400 font-mono text-[11px] whitespace-nowrap">
-                          {evt.time}
+                          {evt.time && evt.time.includes("WIB") ? evt.time : `${evt.time} WIB`}
                         </span>
                       </div>
                     </div>
@@ -1669,6 +1692,92 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                 <span>20:00</span>
                 <span>23:59</span>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Confirmation Modal for Remote NVR Reboot */}
+      {showRebootModal && data && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-[#0c162e] border border-slate-200 dark:border-slate-700/80 rounded-2xl max-w-md w-full overflow-hidden shadow-2xl flex flex-col scale-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/70 dark:bg-[#0e1b38]">
+              <div className="flex items-center gap-2.5">
+                <div className="size-8 rounded-full bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-[#e2445c]">
+                  <RotateCcw className="size-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                    Confirm Remote NVR Reboot
+                  </h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    MQTT Command Dispatch
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowRebootModal(false)}
+                disabled={rebootMutation.isPending}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-5 space-y-3.5 text-xs">
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 space-y-1.5 font-mono">
+                <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 font-sans">
+                  <span>Target Gateway:</span>
+                  <span className="font-mono font-bold text-slate-900 dark:text-white">{data.id}</span>
+                </div>
+                <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 font-sans">
+                  <span>Location:</span>
+                  <span className="font-sans font-medium text-slate-800 dark:text-slate-200 truncate max-w-[200px]" title={data.location}>{data.location}</span>
+                </div>
+                <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 font-sans">
+                  <span>DVR / NVR Model:</span>
+                  <span className="text-slate-700 dark:text-slate-300">{data.dvr_model}</span>
+                </div>
+                <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 font-sans pt-1 border-t border-slate-200 dark:border-slate-800/60">
+                  <span>MQTT Topic:</span>
+                  <span className="text-blue-500 text-[11px]">pqube/nms/{data.id}/command</span>
+                </div>
+              </div>
+
+              {/* Warning Notice */}
+              <div className="p-3 rounded-xl bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/30 text-amber-800 dark:text-amber-300/90 space-y-1">
+                <div className="flex items-center gap-1.5 font-semibold text-[11px] text-amber-700 dark:text-amber-400">
+                  <AlertTriangle className="size-3.5 shrink-0" />
+                  <span>Operation Impact Notice</span>
+                </div>
+                <p className="text-[11px] leading-relaxed">
+                  Executing this action will send a hardware reboot instruction <code className="px-1 py-0.5 rounded bg-black/20 font-bold">REBOOT_NVR</code> directly to the gateway. CCTV video recording and live streams will be temporarily interrupted for approximately <strong>60–90 seconds</strong>.
+                </p>
+              </div>
+            </div>
+
+            {/* Modal Footer Actions */}
+            <div className="px-5 py-3.5 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-[#0a1226] flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setShowRebootModal(false)}
+                disabled={rebootMutation.isPending}
+                className="px-3.5 py-2 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmReboot}
+                disabled={rebootMutation.isPending}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white shadow-md active:scale-95 transition-all cursor-pointer disabled:opacity-50"
+              >
+                <RotateCcw className={`size-3.5 ${rebootMutation.isPending ? "animate-spin" : ""}`} />
+                <span>{rebootMutation.isPending ? "Sending Command..." : "Yes, Reboot NVR"}</span>
+              </button>
             </div>
           </div>
         </div>

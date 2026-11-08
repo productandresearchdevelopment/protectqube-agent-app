@@ -103,6 +103,7 @@ export interface IGatewayItem {
   sd_total_gb: number;
   sd_percent: number;
   sd_health: "Good" | "Wear" | "Bad" | string;
+  sd_health_percent?: number;
   uptime: string;
   status: "Healthy" | "Warning" | "Critical" | string;
   last_update: string;
@@ -1050,6 +1051,7 @@ export const useHealthReportGatewayDetail = (
 
 export interface ISDHealthDetails {
   status: string;
+  health_percent?: number;
   bad_sector: number;
   wear_level: string;
   temperature: string;
@@ -1077,6 +1079,27 @@ export interface ISystemHealthEventItem {
   status?: "success" | "warning" | "error" | "info";
   duration?: string;
   category?: string;
+  epoch?: number;
+}
+
+export interface IDailyUptime {
+  date_str: string;
+  total_period_hours: number;
+  total_period_str: string;
+  total_period_minutes: number;
+  uptime_minutes: number;
+  uptime_text: string;
+  uptime_pct: number;
+  downtime_minutes: number;
+  downtime_text: string;
+  downtime_pct: number;
+  sla_target_pct: number;
+  sla_min_uptime_text: string;
+  sla_max_down_text: string;
+  is_sla_met: boolean;
+  sla_diff_pct: string;
+  tolerance_text: string;
+  incidents: IDowntimeEvent[];
 }
 
 export interface IGatewayDetailData {
@@ -1096,6 +1119,9 @@ export interface IGatewayDetailData {
   ram_min: string;
   ram_max: string;
   ram_sparkline: number[];
+  ram_total_gb?: number;
+  ram_used_gb?: number;
+  ram_free_gb?: number;
   sd_percent: number;
   sd_used_gb: number;
   sd_total_gb: number;
@@ -1117,6 +1143,7 @@ export interface IGatewayDetailData {
   sla_downtime_allowed?: string;
   downtime_events?: IDowntimeEvent[];
   events?: ISystemHealthEventItem[];
+  daily_uptime?: IDailyUptime;
 }
 
 export const fetchGatewayDetail = async (
@@ -1199,6 +1226,8 @@ export interface ICellularEventItem {
   time: string;
   status?: "success" | "warning" | "error" | "info";
   duration?: string;
+  category?: string;
+  epoch?: number;
 }
 
 export interface ICellularGatewayDetailData {
@@ -1312,6 +1341,8 @@ export interface IDVREventItem {
   time: string;
   status?: "success" | "warning" | "error" | "info";
   duration?: string;
+  category?: string;
+  epoch?: number;
 }
 
 export interface IDVRGatewayDetailData {
@@ -1359,6 +1390,35 @@ export const useDVRGatewayDetail = (gatewayId: string | null) => {
     queryFn: () => (gatewayId ? fetchDVRGatewayDetail(gatewayId) : null),
     enabled: !!gatewayId,
     refetchInterval: 10000,
+  });
+};
+
+export const rebootDVRGateway = async (gatewayId: string): Promise<any> => {
+  const token = getToken();
+  const headers: HeadersInit = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const response = await fetch(`${API_BASE_URL}/monitoring/dvr/gateway/${gatewayId}/reboot`, {
+    method: "POST",
+    headers,
+  });
+
+  if (!response.ok) {
+    await handleFetchError(response);
+  }
+
+  const json = await response.json();
+  return json.data;
+};
+
+export const useRebootDVRGateway = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (gatewayId: string) => rebootDVRGateway(gatewayId),
+    onSuccess: (_, gatewayId) => {
+      queryClient.invalidateQueries({ queryKey: ["dvrGatewayDetail", gatewayId] });
+      queryClient.invalidateQueries({ queryKey: ["dvrDashboard"] });
+    },
   });
 };
 

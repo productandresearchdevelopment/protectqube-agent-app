@@ -258,17 +258,6 @@ export default function SystemHealthPage() {
       },
     },
     {
-      id: "uptime",
-      header: "Uptime",
-      align: "center",
-      accessorKey: "uptime",
-      cell: (item) => (
-        <span className="text-slate-700 dark:text-slate-300 font-medium font-sans">
-          {item.uptime}
-        </span>
-      ),
-    },
-    {
       id: "status",
       header: "Status",
       align: "center",
