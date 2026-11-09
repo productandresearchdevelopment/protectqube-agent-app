@@ -308,6 +308,8 @@ export const useCellularDashboard = (filters?: ICellularFilters) => {
 
 export interface IDVRSummary {
   total_gateways: number;
+  online?: number;
+  online_percent?: number;
   recording_normal: number;
   recording_normal_percent: number;
   good?: number;
@@ -342,13 +344,14 @@ export interface IDVRGatewayItem {
   location: string;
   type: string;
   dvr_model: string;
+  status?: string;
   cpu_dvr: string;
   total_kamera: number;
-  kamera_online: number;
-  kamera_no_video: number;
-  kamera_offline: number;
+  kamera_online: number | string;
+  kamera_no_video: number | string;
+  kamera_offline: number | string;
   recording_status: string;
-  storage_usage_percent: number;
+  storage_usage_percent: number | string;
   dvr_health: string;
   last_update: string;
 }

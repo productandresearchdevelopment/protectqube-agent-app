@@ -234,12 +234,28 @@ export default function DVRRecordingPage() {
       ),
     },
     {
+      id: "status",
+      header: "Status",
+      align: "center",
+      cell: (item) => {
+        const isOnline = item.status === "Online";
+        return (
+          <StatusBadge
+            status={isOnline ? "Online" : "Offline"}
+            variant={isOnline ? "online" : "offline"}
+          />
+        );
+      },
+    },
+    {
       id: "cpu_dvr",
       header: "CPU – DVR",
       align: "center",
       cell: (item) => {
-        const isConnected = item.cpu_dvr === "Connected";
-        const isDegraded = item.cpu_dvr === "Degraded";
+        const isOffline = item.status === "Offline";
+        const isConnected = !isOffline && item.cpu_dvr === "Connected";
+        const isDegraded = !isOffline && item.cpu_dvr === "Degraded";
+        const label = isOffline ? "Not Connected" : item.cpu_dvr;
         return (
           <span
             className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${
@@ -257,7 +273,7 @@ export default function DVRRecordingPage() {
             ) : (
               <AlertCircle className="size-3 text-[#e2445c]" />
             )}
-            <span>{item.cpu_dvr}</span>
+            <span>{label}</span>
           </span>
         );
       },
@@ -267,6 +283,9 @@ export default function DVRRecordingPage() {
       header: "Camera",
       align: "center",
       cell: (item) => {
+        if (item.status === "Offline" || typeof item.kamera_online !== "number") {
+          return <span className="font-mono text-slate-400 font-bold text-[11px]">-</span>;
+        }
         const isAllUp = item.kamera_online === item.total_kamera;
         return (
           <span
@@ -284,9 +303,18 @@ export default function DVRRecordingPage() {
       header: "Recording Status",
       align: "center",
       cell: (item) => {
+        const isOffline = item.status === "Offline";
+        if (isOffline) {
+          return (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold font-mono border bg-rose-50 dark:bg-rose-500/15 text-[#e2445c] border-rose-200/60 dark:border-rose-500/25">
+              <span className="size-1.5 rounded-full bg-[#e2445c]" />
+              <span>Not Recording</span>
+            </span>
+          );
+        }
         const recStr = item.recording_status || "Not Recording";
         const match = recStr.match(/(\d+)\s*\/\s*(\d+)/);
-        const recCount = match ? parseInt(match[1], 10) : (recStr.toLowerCase().includes("recording") && !recStr.toLowerCase().includes("not") ? item.kamera_online : 0);
+        const recCount = match ? parseInt(match[1], 10) : (recStr.toLowerCase().includes("recording") && !recStr.toLowerCase().includes("not") ? (typeof item.kamera_online === "number" ? item.kamera_online : 0) : 0);
         const totalCount = match ? parseInt(match[2], 10) : item.total_kamera;
         const isConnected = item.cpu_dvr === "Connected";
         const isFull = isConnected && recCount === totalCount && totalCount > 0;
@@ -322,24 +350,34 @@ export default function DVRRecordingPage() {
       id: "storage_percent",
       header: "Storage",
       align: "center",
-      cell: (item) => <LoadProgressBar percent={item.storage_usage_percent} />,
+      cell: (item) => {
+        if (item.status === "Offline" || typeof item.storage_usage_percent !== "number") {
+          return <span className="font-mono text-slate-400 font-bold text-[11px]">-</span>;
+        }
+        return <LoadProgressBar percent={item.storage_usage_percent} />;
+      },
     },
     {
       id: "dvr_health",
       header: "DVR Health",
       align: "center",
-      cell: (item) => (
-        <StatusBadge
-          status={item.dvr_health}
-          variant={
-            item.dvr_health === "Good"
-              ? "good"
-              : item.dvr_health === "Warning" || item.dvr_health === "Caution"
-              ? "warning"
-              : "critical"
-          }
-        />
-      ),
+      cell: (item) => {
+        if (item.status === "Offline") {
+          return <StatusBadge status="Critical" variant="critical" />;
+        }
+        return (
+          <StatusBadge
+            status={item.dvr_health}
+            variant={
+              item.dvr_health === "Good"
+                ? "good"
+                : item.dvr_health === "Warning" || item.dvr_health === "Caution"
+                ? "warning"
+                : "critical"
+            }
+          />
+        );
+      },
     },
   ];
 
@@ -362,7 +400,7 @@ export default function DVRRecordingPage() {
       <div className="w-full flex-1 flex flex-col min-h-0 space-y-3.5 font-sans transition-colors pb-2">
 
         {/* 2. Top Summary Metric Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 pt-1 pb-0.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 pt-1 pb-0.5">
           <SummaryCard
             title="Total Gateway"
             value={summary ? summary.total_gateways : 0}
@@ -372,26 +410,17 @@ export default function DVRRecordingPage() {
             active={statusFilter === "All Statuses"}
           />
           <SummaryCard
-            title="Good"
-            value={summary ? (summary.good ?? summary.recording_normal) : 0}
+            title="Online"
+            value={summary ? (summary.online ?? 0) : 0}
             icon={Check}
             color="emerald"
-            percentage={summary ? `${summary.good_percent ?? summary.recording_normal_percent}%` : "0%"}
-            onClick={() => handleCardFilter("Good")}
-            active={statusFilter === "Good" || statusFilter === "Recording"}
-          />
-          <SummaryCard
-            title="Warning"
-            value={summary ? ((summary as any).warning ?? summary.issue) : 0}
-            icon={AlertCircle}
-            color="amber"
-            percentage={summary ? `${(summary as any)?.warning_percent ?? summary?.issue_percent ?? 0}%` : "0%"}
-            onClick={() => handleCardFilter("Warning")}
-            active={statusFilter === "Warning" || statusFilter === "Issue"}
+            percentage={summary ? `${summary.online_percent}%` : "0%"}
+            onClick={() => handleCardFilter("Online")}
+            active={statusFilter === "Online"}
           />
           <SummaryCard
             title="Offline"
-            value={summary ? summary.offline : 0}
+            value={summary ? (summary.offline ?? 0) : 0}
             icon={AlertTriangle}
             color="rose"
             percentage={summary ? `${summary.offline_percent}%` : "0%"}
