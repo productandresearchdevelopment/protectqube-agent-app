@@ -104,6 +104,7 @@ export function getFullMonthPeriodStr(
 export interface ReportPeriodInfo {
   monthStr: string;
   yearStr: string;
+  yearNum: number;
   daysInMonth: number;
   startDay: number;
   endDay: number;
@@ -206,6 +207,7 @@ export function parseReportPeriod(
   return {
     monthStr,
     yearStr: String(yearNum),
+    yearNum,
     daysInMonth,
     startDay,
     endDay: actualEndDay,

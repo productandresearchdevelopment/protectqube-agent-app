@@ -510,14 +510,17 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
   const isWhiteDevice = d.type.includes("Putih");
 
   const isCpuConnected = d.cpu_dvr.status === "Connected";
+  const isCpuNotConnected =
+    d.cpu_dvr.status === "Not Connected" ||
+    d.cpu_dvr.status === "No Response";
   const cpuStatusColor = isCpuConnected
     ? "text-emerald-400"
-    : d.cpu_dvr.status === "No Response"
+    : isCpuNotConnected
       ? "text-rose-500"
       : "text-amber-400";
   const CpuIcon = isCpuConnected
     ? CheckCircle2
-    : d.cpu_dvr.status === "No Response"
+    : isCpuNotConnected
       ? AlertTriangle
       : AlertCircle;
 
@@ -554,7 +557,7 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
     const onlineCams = d.camera_status?.online ?? 0;
     const totalCams = d.camera_status?.total ?? 0;
 
-    if (!isConn || status === "Critical" || d.cpu_dvr?.status === "No Response") {
+    if (!isConn || status === "Critical" || d.cpu_dvr?.status === "Not Connected" || d.cpu_dvr?.status === "No Response") {
       return "Critical: CPU - NVR communication lost (ISAPI Port 80 timeout / host unreachable). Gateway CPU cannot reach NVR service.";
     }
 
@@ -1173,14 +1176,14 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                       className={`font-semibold flex items-center gap-1 ${
                         isCpuConnected
                           ? "text-[#00c875]"
-                          : d.cpu_dvr.status === "No Response"
+                          : isCpuNotConnected
                           ? "text-[#e2445c]"
                           : "text-[#fdab3d]"
                       }`}
                     >
                       {isCpuConnected ? (
                         <CheckCircle2 className="size-3.5" />
-                      ) : d.cpu_dvr.status === "No Response" ? (
+                      ) : isCpuNotConnected ? (
                         <AlertCircle className="size-3.5 text-[#e2445c]" />
                       ) : (
                         <AlertTriangle className="size-3.5 text-[#fdab3d]" />

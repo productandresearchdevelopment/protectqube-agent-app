@@ -663,10 +663,16 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
               className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
                 d.service_status === "Running"
                   ? "bg-emerald-500/15 text-[#00c875] border border-emerald-500/30"
+                  : d.service_status === "Stopped" || d.service_status === "Offline"
+                  ? "bg-rose-500/15 text-rose-500 dark:text-[#e2445c] border border-rose-500/30"
                   : "bg-amber-500/15 text-amber-500 dark:text-amber-400 border border-amber-500/30"
               }`}
             >
-              {d.service_status === "Running" ? "Online" : "Degraded"}
+              {d.service_status === "Running"
+                ? "Online"
+                : d.service_status === "Stopped" || d.service_status === "Offline"
+                ? "Offline"
+                : "Degraded"}
             </span>
           </div>
         </div>

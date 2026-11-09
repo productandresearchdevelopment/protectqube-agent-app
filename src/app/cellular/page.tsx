@@ -320,21 +320,16 @@ export default function CellularConnectivityPage() {
       align: "center",
       cell: (item) => {
         const isConnected = item.cpu_modem === "Connected";
-        const isNoResp = item.cpu_modem === "No Response";
         return (
           <span
             className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${
               isConnected
                 ? "bg-emerald-50 dark:bg-emerald-500/15 text-[#00c875] border-emerald-200/60 dark:border-emerald-500/25"
-                : isNoResp
-                ? "bg-amber-50 dark:bg-amber-500/15 text-[#fdab3d] border-amber-200/60 dark:border-amber-500/25"
                 : "bg-rose-50 dark:bg-rose-500/15 text-[#e2445c] border-rose-200/60 dark:border-rose-500/25"
             }`}
           >
             {isConnected ? (
               <CheckCircle2 className="size-3 text-[#00c875]" />
-            ) : isNoResp ? (
-              <AlertTriangle className="size-3 text-[#fdab3d]" />
             ) : (
               <AlertCircle className="size-3 text-[#e2445c]" />
             )}
@@ -363,6 +358,9 @@ export default function CellularConnectivityPage() {
       header: "Signal (RSRP)",
       align: "center",
       cell: (item) => {
+        if (item.status === "Offline" || !item.signal_rsrp || item.signal_rsrp === "-") {
+          return <span className="font-mono text-slate-400 font-bold text-[11px]">-</span>;
+        }
         const match = item.signal_rsrp.match(/-?\d+/);
         const rsrpVal = match ? parseInt(match[0], 10) : -90;
         const color =
@@ -385,7 +383,10 @@ export default function CellularConnectivityPage() {
       header: "Signal Status",
       align: "center",
       cell: (item) => {
-        const quality = getSignalQuality(item.signal_rsrp);
+        const isOffline = item.status === "Offline";
+        const quality = isOffline
+          ? { label: "No Signal", badgeClass: "bg-slate-500/10 text-slate-400 border-slate-500/20" }
+          : getSignalQuality(item.signal_rsrp);
         return (
           <span
             className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${quality.badgeClass}`}
@@ -416,7 +417,7 @@ export default function CellularConnectivityPage() {
       <div className="w-full flex-1 flex flex-col min-h-0 space-y-3.5 font-sans transition-colors pb-2">
 
         {/* 2. Top Summary Metric Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 pt-1 pb-0.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 pt-1 pb-0.5">
           <SummaryCard
             title="Total Gateway"
             value={summary ? summary.total_gateways : 0}
@@ -433,15 +434,6 @@ export default function CellularConnectivityPage() {
             percentage={summary ? `${summary.online_percent}%` : "0%"}
             onClick={() => handleCardFilter("Online")}
             active={statusFilter === "Online"}
-          />
-          <SummaryCard
-            title="Warning"
-            value={summary ? ((summary as any).warning ?? summary.degraded) : 0}
-            icon={AlertCircle}
-            color="amber"
-            percentage={summary ? `${(summary as any)?.warning_percent ?? summary?.degraded_percent ?? 0}%` : "0%"}
-            onClick={() => handleCardFilter("Warning")}
-            active={statusFilter === "Warning" || statusFilter === "Degraded"}
           />
           <SummaryCard
             title="Offline"

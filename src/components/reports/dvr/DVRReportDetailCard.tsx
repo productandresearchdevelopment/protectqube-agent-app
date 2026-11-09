@@ -285,8 +285,9 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
       const mIdx = MONTH_NAMES.findIndex((m) => m.toLowerCase() === periodInfo.monthStr.toLowerCase());
       const mNum = mIdx !== -1 ? String(mIdx + 1).padStart(2, "0") : "11";
       const isoPrefix = `${periodInfo.yearStr}-${mNum}-${dayNumStr}`;
-      const dStart = new Date(periodInfo.yearStr, mIdx, selectedBarDay, 0, 0, 0);
-      const dEnd = new Date(periodInfo.yearStr, mIdx, selectedBarDay, 23, 59, 59, 999);
+      const year = Number(periodInfo.yearStr) || new Date().getFullYear();
+      const dStart = new Date(year, mIdx, selectedBarDay, 0, 0, 0);
+      const dEnd = new Date(year, mIdx, selectedBarDay, 23, 59, 59, 999);
 
       return rangeFilteredEvents.filter((ev) => {
         const trimmed = (ev.start_time || "").trim();
@@ -1340,8 +1341,9 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
                             (() => {
                               const mIdx = MONTH_NAMES.findIndex((m) => m.toLowerCase() === periodInfo.monthStr.toLowerCase());
                               if (mIdx === -1) return null;
-                              const dStart = new Date(periodInfo.yearStr, mIdx, selectedBarDay, 0, 0, 0);
-                              const dEnd = new Date(periodInfo.yearStr, mIdx, selectedBarDay, 23, 59, 59, 999);
+                              const year = Number(periodInfo.yearStr) || new Date().getFullYear();
+                              const dStart = new Date(year, mIdx, selectedBarDay, 0, 0, 0);
+                              const dEnd = new Date(year, mIdx, selectedBarDay, 23, 59, 59, 999);
                               const st = new Date(event.start_time.replace(" ", "T"));
                               const et = new Date(event.end_time.replace(" ", "T"));
                               if (isNaN(st.getTime()) || isNaN(et.getTime())) return null;

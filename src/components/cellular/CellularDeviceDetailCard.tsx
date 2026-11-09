@@ -368,15 +368,18 @@ export const CellularDeviceDetailCard: React.FC<
   ];
 
   const isWhiteDevice = d.type.includes("Putih");
+  const isDeviceOffline = (d.status || "").toLowerCase().includes("off") || (d.service_status || "").toLowerCase().includes("stop");
 
   // Calculate percentage for RSRP donut (-140 dBm to -44 dBm scale)
-  const rsrpPercent = Math.min(
-    100,
-    Math.max(
-      10,
-      Math.round(((d.signal_strength.rsrp - -140) / (-44 - -140)) * 100),
-    ),
-  );
+  const rsrpPercent = isDeviceOffline || !d.signal_strength?.rsrp
+    ? 0
+    : Math.min(
+        100,
+        Math.max(
+          10,
+          Math.round(((d.signal_strength.rsrp - -140) / (-44 - -140)) * 100),
+        ),
+      );
   // Calculate percentage for temperature donut (0°C to 100°C)
   const tempPercent = Math.min(
     100,
@@ -385,16 +388,29 @@ export const CellularDeviceDetailCard: React.FC<
 
   // Helper for CPU - Modem status styling & icon
   const isCpuConnected = d.cpu_modem.status === "Connected";
+  const isCpuNotConnected =
+    d.cpu_modem.status === "Not Connected" ||
+    d.cpu_modem.status === "No Response";
   const cpuStatusColor = isCpuConnected
     ? "text-emerald-400"
-    : d.cpu_modem.status === "No Response"
+    : isCpuNotConnected
       ? "text-rose-500"
       : "text-amber-400";
   const CpuIcon = isCpuConnected
     ? CheckCircle2
-    : d.cpu_modem.status === "No Response"
-      ? AlertTriangle
-      : AlertCircle;
+    : AlertCircle;
+
+  // Helper for SIM Card status styling & icon
+  const isSimReady =
+    !isDeviceOffline &&
+    (d.sim_card === "Ready" ||
+      d.sim_card === "Active" ||
+      d.sim_card === "Aktif" ||
+      d.network_sim?.sim_status === "Ready");
+  const simStatusColor = isSimReady
+    ? "text-[#00c875] dark:text-[#00c875]"
+    : "text-[#e2445c] dark:text-[#e2445c]";
+  const SimIcon = isSimReady ? CheckCircle2 : AlertCircle;
 
   const sortedEvents = (d.events ? [...d.events] : []).sort((a, b) => {
     const epochA = typeof (a as any).epoch === "number" && !isNaN((a as any).epoch)
@@ -597,8 +613,8 @@ export const CellularDeviceDetailCard: React.FC<
                           <span className="text-slate-500 dark:text-slate-400 font-sans">
                             SIM Card
                           </span>
-                          <span className="text-[#00a862] dark:text-emerald-400 font-sans font-medium text-right">
-                            {d.sim_card}
+                          <span className={`font-sans font-medium text-right ${simStatusColor}`}>
+                            {isSimReady ? "Ready" : "Not Detected"}
                           </span>
                         </div>
                       </div>
@@ -774,10 +790,10 @@ export const CellularDeviceDetailCard: React.FC<
                     centerContent={
                       <div className="text-center">
                         <span className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
-                          {d.signal_strength.rsrp}
+                          {isDeviceOffline ? "-" : d.signal_strength.rsrp}
                         </span>
                         <div className="text-[9px] text-slate-500 dark:text-slate-400 font-mono -mt-0.5">
-                          {d.signal_strength.unit}
+                          {isDeviceOffline ? "No Signal" : d.signal_strength.unit}
                         </div>
                       </div>
                     }
@@ -852,8 +868,8 @@ export const CellularDeviceDetailCard: React.FC<
                       <span className="text-slate-500 dark:text-slate-400 font-sans">
                         SIM Status:
                       </span>
-                      <span className="text-[#00a862] dark:text-emerald-400 font-sans font-semibold">
-                        {d.network_sim.sim_status}
+                      <span className={`font-sans font-semibold ${simStatusColor}`}>
+                        {isSimReady ? "Ready" : "Not Detected"}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
@@ -919,8 +935,13 @@ export const CellularDeviceDetailCard: React.FC<
                     <span className="text-slate-500 dark:text-slate-400">
                       Serial Communication
                     </span>
-                    <span className="font-semibold text-emerald-500 flex items-center gap-1">
-                      <CheckCircle2 className="size-3.5" /> {d.cpu_modem.status}
+                    <span className={`font-semibold flex items-center gap-1 ${isCpuConnected ? "text-emerald-500" : "text-[#e2445c]"}`}>
+                      {isCpuConnected ? (
+                        <CheckCircle2 className="size-3.5" />
+                      ) : (
+                        <AlertCircle className="size-3.5 text-[#e2445c]" />
+                      )}
+                      <span>{d.cpu_modem.status}</span>
                     </span>
                   </div>
                   <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1.5">
@@ -973,9 +994,7 @@ export const CellularDeviceDetailCard: React.FC<
                   </div>
                   <div className="text-emerald-400">&gt; AT+CPIN?</div>
                   <div className="text-slate-300">
-                    +CPIN: READY (
-                    {d.sim_card === "Aktif" || d.sim_card === "Active" || d.sim_card === "Ready" ? "SIM Inserted & Valid" : "No SIM"}
-                    )
+                    +CPIN: {isSimReady ? "READY (SIM Inserted & Valid)" : "ERROR: SIM Not Detected"}
                   </div>
                   <div className="text-emerald-400">&gt; AT+COPS?</div>
                   <div className="text-slate-300">
@@ -1135,7 +1154,7 @@ export const CellularDeviceDetailCard: React.FC<
 
               <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-3">
                 <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-sm">
-                  <Wifi className="size-4 text-emerald-500" />
+                  <Wifi className={`size-4 ${isSimReady ? "text-emerald-500" : "text-[#e2445c]"}`} />
                   <span>SIM Card & Cellular Provider</span>
                 </div>
                 <div className="space-y-2 text-xs">
@@ -1143,8 +1162,8 @@ export const CellularDeviceDetailCard: React.FC<
                     <span className="text-slate-500 dark:text-slate-400">
                       SIM Card Status
                     </span>
-                    <span className="font-semibold text-emerald-500 flex items-center gap-1">
-                      <CheckCircle2 className="size-3.5" /> {d.sim_card === "Aktif" || d.sim_card === "Active" || d.sim_card === "Ready" ? "Ready" : "Not Detected"}
+                    <span className={`font-semibold flex items-center gap-1 ${simStatusColor}`}>
+                      <SimIcon className="size-3.5" /> {isSimReady ? "Ready" : "Not Detected"}
                     </span>
                   </div>
                   <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1.5">
@@ -1216,20 +1235,26 @@ export const CellularDeviceDetailCard: React.FC<
                   RSRP Signal Strength
                 </span>
                 <div className="text-2xl font-bold text-slate-900 dark:text-white font-mono">
-                  {d.signal_strength.rsrp} dBm
+                  {isDeviceOffline ? "-" : `${d.signal_strength.rsrp} dBm`}
                 </div>
                 <div className="text-xs text-emerald-500 font-semibold flex items-center gap-1">
-                  <CheckCircle2 className="size-3.5" />{" "}
-                  {d.signal_strength.rsrp >= -85
-                    ? "Excellent"
-                    : d.signal_strength.rsrp >= -95
-                      ? "Good"
-                      : d.signal_strength.rsrp >= -105
-                        ? "Fair"
-                        : "Poor"}{" "}
-                  {d.signal_strength.csq
-                    ? `(CSQ ${d.signal_strength.csq})`
-                    : ""}
+                  {isDeviceOffline ? (
+                    <span className="text-slate-400 font-medium">No Signal</span>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="size-3.5" />{" "}
+                      {d.signal_strength.rsrp >= -85
+                        ? "Excellent"
+                        : d.signal_strength.rsrp >= -95
+                          ? "Good"
+                          : d.signal_strength.rsrp >= -105
+                            ? "Fair"
+                            : "Poor"}{" "}
+                      {d.signal_strength.csq
+                        ? `(CSQ ${d.signal_strength.csq})`
+                        : ""}
+                    </>
+                  )}
                 </div>
               </div>
               <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-2">
