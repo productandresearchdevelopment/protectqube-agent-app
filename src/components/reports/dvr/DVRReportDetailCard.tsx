@@ -19,6 +19,7 @@ import {
   ChevronsUpDown,
   Layers,
   FileDown,
+  Loader2,
 } from "lucide-react";
 import {
   useDVRReportGatewayDetail,
@@ -89,7 +90,8 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
     try {
       setIsExportingPdf(true);
       const url = exportDVRDetailPdfUrl(gatewayId, dateRange);
-      await downloadReportFile(url, `dvr_detail_${gatewayId}.pdf`);
+      const locName = (data?.location || gatewayId).replace(/[^a-zA-Z0-9_-]/g, "_");
+      await downloadReportFile(url, `DVR_Detail_${locName}.pdf`);
     } catch (err) {
       console.error("Export dvr detail PDF error:", err);
     } finally {
@@ -627,10 +629,18 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
             type="button"
             onClick={handleExportPdf}
             disabled={isExportingPdf}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-500/10 hover:bg-blue-500/20 text-[#0073ea] dark:text-[#00d2ff] border border-blue-500/30 transition-all cursor-pointer shadow-xs active:scale-95 disabled:opacity-50"
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all shadow-xs ${
+              isExportingPdf
+                ? "bg-blue-500/20 text-[#0073ea] dark:text-[#00d2ff] border-blue-500/40 cursor-wait"
+                : "bg-blue-500/10 hover:bg-blue-500/20 text-[#0073ea] dark:text-[#00d2ff] border-blue-500/30 cursor-pointer active:scale-95"
+            }`}
             title="Export Device Detail to PDF"
           >
-            <FileDown className="size-3.5" />
+            {isExportingPdf ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <FileDown className="size-3.5" />
+            )}
             <span>{isExportingPdf ? "Exporting..." : "Export"}</span>
           </button>
 
