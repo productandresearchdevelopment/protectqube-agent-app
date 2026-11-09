@@ -431,6 +431,7 @@ export interface ICellularReportItem {
   network_success_rate?: number;
   network_avg_rsrp: number;
   network_avg_temp?: number;
+  sla?: number;
   trouble_events_count: number;
   trouble_last_offline: string;
 }
@@ -885,7 +886,9 @@ export interface IHealthReportItem {
   temp_avg: number;
   temp_max: number;
   uptime_duration: string;
+  downtime_duration?: string;
   uptime_pct: number;
+  sla?: number;
   jumlah_event: number;
 }
 

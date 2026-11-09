@@ -312,6 +312,38 @@ export default function ReportCellularPage() {
           </span>
         ),
       },
+      // Trailing Group: SLA (Combined: CPU-Modem Success Rate + Network Success Rate) / 2
+      {
+        id: "sla",
+        header: "SLA",
+        align: "center",
+        className: "bg-purple-500/[0.025] dark:bg-purple-500/[0.04] border-r-2 border-r-purple-300 dark:border-r-purple-700/80",
+        cell: (gw) => {
+          const cpuSr = Number(gw.cpu_modem_success_rate ?? 100);
+          const netSr = Number(gw.network_success_rate ?? 100);
+          const calculatedSla = Number(((cpuSr + netSr) / 2).toFixed(1));
+          const finalSla = gw.sla !== undefined ? gw.sla : calculatedSla;
+
+          const isAchieved = finalSla >= 98.0;
+          const isWarning = finalSla >= 85.0 && finalSla < 98.0;
+
+          return (
+            <div className="flex items-center justify-center">
+              <span
+                className={`inline-flex items-center justify-center px-2.5 py-0.5 rounded-full font-bold text-xs font-mono border whitespace-nowrap ${
+                  isAchieved
+                    ? "bg-[#00c875]/15 text-[#00c875] border-[#00c875]/30"
+                    : isWarning
+                    ? "bg-[#fdab3d]/15 text-[#fdab3d] border-[#fdab3d]/30"
+                    : "bg-[#e2445c]/15 text-[#e2445c] border-[#e2445c]/30"
+                }`}
+              >
+                {finalSla}%
+              </span>
+            </div>
+          );
+        },
+      },
       /* Sementara di-comment (Incident Period):
       // Group 3: Incident Period (Apple Purple Tint)
       {
@@ -393,6 +425,11 @@ export default function ReportCellularPage() {
           className="py-2 px-3 text-center border-r-2 border-r-teal-300 dark:border-r-teal-700 font-bold text-teal-900 dark:text-teal-200 bg-[#e6fbf5] dark:bg-[#062422] border-b border-b-teal-200 dark:border-b-teal-800/60"
         >
           Network Connection
+        </th>
+
+        {/* Individual Trailing Column: SLA (Apple Purple) */}
+        <th rowSpan={2} className="py-2.5 px-4 text-center whitespace-nowrap border-r-2 border-r-purple-300 dark:border-r-purple-700 font-bold bg-[#f5f0ff] dark:bg-[#1a0f30] text-purple-900 dark:text-purple-200">
+          SLA
         </th>
 
         {/* Sementara di-comment (Incident Period):

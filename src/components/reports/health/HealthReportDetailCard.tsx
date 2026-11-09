@@ -6,6 +6,7 @@ import {
   Calendar,
   CheckCircle2,
   Clock,
+  Activity,
   BarChart2,
   TrendingUp,
   Thermometer,
@@ -92,6 +93,8 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
 }) => {
   const { data, isLoading, isError, refetch } = useHealthReportGatewayDetail(gatewayId, dateRange);
   const [selectedEventDate, setSelectedEventDate] = useState<string>("ALL");
+  const [selectedBarDay, setSelectedBarDay] = useState<number | null>(null);
+  const [hoveredDay, setHoveredDay] = useState<any | null>(null);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
 
   const handleExportPdf = async () => {
@@ -113,6 +116,164 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
   const periodInfo = useMemo(() => {
     return parseReportPeriod(data?.period || dateRange);
   }, [data?.period, dateRange]);
+
+  const handleSelectDay = (day: number | null, dateKey?: string) => {
+    if (day === null || (selectedBarDay === day && (!dateKey || selectedEventDate === dateKey))) {
+      setSelectedBarDay(null);
+      setSelectedEventDate("ALL");
+    } else {
+      setSelectedBarDay(day);
+      if (dateKey) {
+        setSelectedEventDate(dateKey);
+      } else {
+        const dayNumStr = day < 10 ? `0${day}` : `${day}`;
+        setSelectedEventDate(`${dayNumStr} ${periodInfo.monthStr}`);
+      }
+    }
+  };
+
+  const minActiveDay = useMemo(() => {
+    const rawBreakdown = (data?.daily_breakdown as any[]) || [];
+    if (rawBreakdown.length > 0 && typeof rawBreakdown[0].day === "number") {
+      return Math.max(periodInfo.startDay, rawBreakdown[0].day);
+    }
+    return periodInfo.startDay;
+  }, [data?.daily_breakdown, periodInfo.startDay]);
+
+  const dailyStatusList = useMemo(() => {
+    const { daysInMonth, monthStr, yearStr, todayDay, isCurrentMonth } = periodInfo;
+    const minDay = minActiveDay;
+    const maxDay = periodInfo.endDay;
+    const breakdown = (data?.daily_breakdown as any[]) || [];
+
+    const totalDays = Math.max(daysInMonth, maxDay);
+    const list = [];
+    for (let day = 1; day <= totalDays; day++) {
+      const dayNumStr = day < 10 ? `0${day}` : `${day}`;
+      const dateKey = `${dayNumStr} ${monthStr}`;
+      const fullDate = `${dayNumStr} ${monthStr} ${yearStr}`;
+
+      const isInRange = day >= minDay && day <= maxDay;
+      const isFutureDate = Boolean(isCurrentMonth && todayDay && day > todayDay);
+      const hasBar = isInRange && !isFutureDate;
+
+      const daySla = breakdown.find((r) => r.day === day || r.date?.startsWith(dayNumStr));
+
+      let status: "online" | "offline" | "future" = !hasBar ? "future" : "online";
+      let uptimePct = 100;
+      let downtimePct = 0;
+      let visualDownPct = 0;
+      let visualUpPct = 100;
+      let totalDurationStr = "0m";
+
+      if (hasBar) {
+        if (daySla) {
+          const downMin = daySla.downtime_min ?? daySla.cpu_modem_downtime_min ?? 0;
+          const upMin = daySla.uptime_min ?? daySla.cpu_modem_uptime_min ?? 1440;
+          const sr = daySla.success_rate ?? daySla.cpu_modem_success_rate ?? 100;
+
+          const totalObs = upMin + downMin;
+          if (totalObs > 0) {
+            uptimePct = Number(((upMin / totalObs) * 100).toFixed(1));
+            downtimePct = Number(((downMin / totalObs) * 100).toFixed(1));
+          } else {
+            uptimePct = Number(sr.toFixed(1));
+            downtimePct = Number((100 - uptimePct).toFixed(1));
+          }
+
+          if (downMin > 0 || downtimePct > 0) {
+            status = "offline";
+            totalDurationStr = `${Math.round(downMin)}m`;
+            if (downtimePct <= 0 && downMin > 0) {
+              downtimePct = 0.1;
+              uptimePct = 99.9;
+            }
+            if (uptimePct <= 0) {
+              visualDownPct = 100;
+              visualUpPct = 0;
+            } else {
+              visualDownPct = Math.max(6, Math.min(95, downtimePct));
+              visualUpPct = 100 - visualDownPct;
+            }
+          } else {
+            status = "online";
+            uptimePct = 100;
+            downtimePct = 0;
+            visualDownPct = 0;
+            visualUpPct = 100;
+            totalDurationStr = "0m";
+          }
+        } else {
+          uptimePct = 100;
+          downtimePct = 0;
+          visualDownPct = 0;
+          visualUpPct = 100;
+          status = "online";
+          totalDurationStr = "0m";
+        }
+      }
+
+      list.push({
+        day,
+        dayNumStr,
+        dateKey,
+        fullDate,
+        status,
+        uptimePct,
+        downtimePct,
+        visualUpPct,
+        visualDownPct,
+        totalDurationStr,
+        isToday: Boolean(isCurrentMonth && todayDay === day),
+        isFuture: !hasBar,
+        isInRange,
+      });
+    }
+
+    return list;
+  }, [data?.daily_breakdown, periodInfo, minActiveDay]);
+
+  const activeDailyBreakdown = useMemo(() => {
+    const breakdown = (data?.daily_breakdown as any[]) || [];
+    return breakdown.filter((r) => {
+      const d = r.day ?? parseInt(r.date?.split(" ")[0] || "0", 10);
+      return d >= minActiveDay && d <= periodInfo.effectiveDays;
+    });
+  }, [data?.daily_breakdown, minActiveDay, periodInfo.effectiveDays]);
+
+  const displayedBreakdown = useMemo(() => {
+    if (selectedBarDay !== null) {
+      return activeDailyBreakdown.filter((r) => {
+        const d = r.day ?? parseInt(r.date?.split(" ")[0] || "0", 10);
+        return d === selectedBarDay;
+      });
+    }
+    return activeDailyBreakdown;
+  }, [activeDailyBreakdown, selectedBarDay]);
+
+  const displayedSummary = useMemo(() => {
+    if (displayedBreakdown.length === 0) return null;
+    let totalUp = 0;
+    let totalDown = 0;
+    let totalObs = 0;
+    displayedBreakdown.forEach((r) => {
+      const up = r.uptime_min ?? r.cpu_modem_uptime_min ?? 0;
+      const down = r.downtime_min ?? r.cpu_modem_downtime_min ?? 0;
+      const obs = r.observation_min ?? r.total_observed_min ?? (up + down);
+      totalUp += up;
+      totalDown += down;
+      totalObs += obs;
+    });
+    const avgSr = totalObs > 0 ? (totalUp / totalObs) * 100 : 100;
+    return {
+      count: displayedBreakdown.length,
+      totalObs: Math.round(totalObs),
+      totalUptime: Math.round(totalUp),
+      totalDowntime: Math.round(totalDown),
+      avgSuccessRate: Number(avgSr.toFixed(1)),
+      isSuccess: avgSr >= 99.5,
+    };
+  }, [displayedBreakdown]);
 
   // List of active days for date filtering dropdown
   const availableDays = useMemo(() => {
@@ -178,13 +339,27 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
   }, [rangeFilteredEvents]);
 
   const filteredEvents = useMemo(() => {
-    if (selectedEventDate === "ALL") return rangeFilteredEvents;
-    const target = selectedEventDate.trim().toLowerCase();
-    return rangeFilteredEvents.filter((e: any) => {
-      const trimmed = (e.start_time || "").trim().toLowerCase();
-      return trimmed.startsWith(target) || (e.date_str && e.date_str.toLowerCase() === target);
-    });
-  }, [rangeFilteredEvents, selectedEventDate]);
+    if (selectedBarDay !== null) {
+      const dayStr = selectedBarDay < 10 ? `0${selectedBarDay}` : `${selectedBarDay}`;
+      return rangeFilteredEvents.filter((e: any) => {
+        const trimmed = (e.start_time || "").trim();
+        const isoMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (isoMatch) {
+          return parseInt(isoMatch[3], 10) === selectedBarDay;
+        }
+        const parts = trimmed.split(" ");
+        return parseInt(parts[0], 10) === selectedBarDay;
+      });
+    }
+    if (selectedEventDate !== "ALL") {
+      const target = selectedEventDate.trim().toLowerCase();
+      return rangeFilteredEvents.filter((e: any) => {
+        const trimmed = (e.start_time || "").trim().toLowerCase();
+        return trimmed.startsWith(target) || (e.date_str && e.date_str.toLowerCase() === target);
+      });
+    }
+    return rangeFilteredEvents;
+  }, [rangeFilteredEvents, selectedEventDate, selectedBarDay]);
 
   // Memoized dynamic trend data for CPU, RAM, and Storage Usage based on selected date (per jam / hourly when day is selected)
   const { filteredCpuTrend, filteredRamTrend, filteredStorageTrend, dayStats } = useMemo(() => {
@@ -704,10 +879,318 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
             </div>
           </div>
 
-          {/* Incident History Table (Replaces redundant Accumulated SLA Panel) */}
-          <div className="bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-3.5 flex flex-col flex-1 shadow-xs justify-between min-h-[160px]">
+          {/* Daily Status Timeline Card (Replaces Incident History in top right section) */}
+          <div className="bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-3.5 shadow-xs flex flex-col justify-between">
+            {/* Header with Title & Legend */}
+            <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-slate-200 dark:border-slate-800/60">
+              <div className="flex items-center gap-2">
+                <div className="size-6 rounded-md bg-blue-500/15 flex items-center justify-center text-blue-600 dark:text-blue-400">
+                  <Activity className="size-3.5" />
+                </div>
+                <h4 className="text-xs font-bold text-slate-900 dark:text-white">
+                  Daily Status Timeline ({periodInfo.effectivePeriodStr})
+                </h4>
+                <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 bg-slate-200/60 dark:bg-slate-800 px-2 py-0.5 rounded-full">
+                  {periodInfo.endDay - periodInfo.startDay + 1} Days
+                </span>
+              </div>
+              <div className="flex items-center gap-3 text-[11px] text-slate-600 dark:text-slate-300">
+                <span className="flex items-center gap-1.5">
+                  <span className="size-2 rounded-full bg-[#00c875]" />
+                  Online
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="size-2 rounded-full bg-[#e2445c]" />
+                  Incident / Offline
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="size-2 rounded-full bg-blue-500" />
+                  Today
+                </span>
+              </div>
+            </div>
+
+            {/* Daily Bar Chart Card with Date Labels on TOP and Bars on BOTTOM */}
+            <div className="mt-2.5 p-3 rounded-xl bg-white dark:bg-[#070e1d] border border-slate-200/90 dark:border-slate-800/80 shadow-xs">
+              <div
+                className="grid gap-1 sm:gap-1.5 items-end pt-1"
+                style={{
+                  gridTemplateColumns: `repeat(${dailyStatusList.length}, minmax(0, 1fr))`,
+                }}
+              >
+                {dailyStatusList.map((item) => {
+                  const isSelected = selectedBarDay === item.day;
+                  return (
+                    <div
+                      key={item.day}
+                      onClick={() => {
+                        if (item.isFuture) return;
+                        handleSelectDay(item.day, item.dateKey);
+                      }}
+                      onMouseEnter={() => !item.isFuture && setHoveredDay(item)}
+                      onMouseLeave={() => setHoveredDay(null)}
+                      className={`flex flex-col items-center gap-1.5 ${
+                        item.isFuture ? "cursor-default" : "cursor-pointer group"
+                      }`}
+                      title={
+                        item.isFuture
+                          ? `${item.fullDate}`
+                          : `${item.fullDate}: ${
+                              item.status === "offline" ? "Incident / Offline" : "Online Normal"
+                            }`
+                      }
+                    >
+                      {/* Date label on top */}
+                      <span
+                        className={`text-[9px] sm:text-[10px] font-mono block leading-none transition-all select-none ${
+                          item.isToday
+                            ? "font-extrabold text-blue-600 dark:text-blue-400 bg-blue-500/20 px-1 py-0.5 rounded ring-1 ring-blue-500/50 scale-110 shadow-xs"
+                            : isSelected
+                            ? "font-bold text-amber-500 dark:text-amber-400 bg-amber-500/20 px-1 py-0.5 rounded ring-1 ring-amber-500/50 scale-110"
+                            : item.isFuture
+                            ? "text-slate-400 dark:text-slate-600 opacity-60"
+                            : "text-slate-500 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-slate-200"
+                        }`}
+                      >
+                        {item.dayNumStr}
+                      </span>
+
+                      {/* Bar underneath */}
+                      <div className="w-full h-16 sm:h-20 bg-slate-100 dark:bg-slate-900/60 rounded-md p-0.5 flex flex-col justify-end border border-slate-200/60 dark:border-slate-800/60">
+                        {!item.isFuture && item.isInRange ? (
+                          <div
+                            className={`w-full h-full rounded-xs overflow-hidden flex flex-col justify-end transition-all duration-200 ${
+                              item.isToday
+                                ? "ring-2 ring-blue-500 shadow-md shadow-blue-500/35"
+                                : ""
+                            } ${
+                              isSelected
+                                ? "ring-2 ring-amber-400 shadow-md shadow-amber-400/35 scale-105"
+                                : "group-hover:scale-105"
+                            }`}
+                          >
+                            {/* Downtime (Red segment on top) */}
+                            {item.visualDownPct > 0 && (
+                              <div
+                                style={{ height: `${item.visualDownPct}%` }}
+                                className="w-full bg-[#e2445c] hover:bg-[#ff4d6d] transition-all duration-200 shrink-0 rounded-t-xs"
+                                title={`Downtime: ${item.downtimePct}% (${item.totalDurationStr})`}
+                              />
+                            )}
+                            {/* Uptime (Green segment at bottom) */}
+                            {item.visualUpPct > 0 && (
+                              <div
+                                style={{ height: `${item.visualUpPct}%` }}
+                                className="w-full flex-1 bg-[#00c875] hover:bg-[#05e287] transition-all duration-200 shrink-0"
+                                title={`Uptime: ${item.uptimePct}%`}
+                              />
+                            )}
+                          </div>
+                        ) : (
+                          <div className="w-full h-1 bg-slate-200/40 dark:bg-slate-800/40 rounded-xs mb-0.5" />
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Hover / Selected Day Real-Time Info Bar */}
+              <div className="mt-2.5 pt-2 border-t border-slate-200/70 dark:border-slate-800/70 flex items-center justify-between text-xs min-h-6">
+                {hoveredDay ? (
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-slate-800 dark:text-slate-200">
+                      {hoveredDay.fullDate}
+                      {hoveredDay.isToday && (
+                        <span className="ml-1.5 px-1.5 py-0.2 rounded text-[10px] font-bold bg-blue-500/20 text-blue-500">
+                          Today
+                        </span>
+                      )}
+                      :
+                    </span>
+                    <span
+                      className={`font-medium ${
+                        (hoveredDay.downtimePct ?? 0) > 0
+                          ? "text-[#e2445c]"
+                          : "text-[#00c875]"
+                      }`}
+                    >
+                      {(hoveredDay.downtimePct ?? 0) > 0
+                        ? `Uptime ${hoveredDay.uptimePct}% | Downtime ${hoveredDay.downtimePct}% (${hoveredDay.totalDurationStr})`
+                        : `Normal Online (100% Uptime)`}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between w-full">
+                    <span>
+                      {selectedBarDay !== null ? (
+                        <span className="text-amber-500 dark:text-amber-400 font-semibold">
+                          Active filter: Date {selectedBarDay < 10 ? `0${selectedBarDay}` : selectedBarDay} {periodInfo.monthStr}
+                        </span>
+                      ) : (
+                        `Hover or click a date (${dailyStatusList[0]?.dayNumStr || "01"} - ${dailyStatusList[dailyStatusList.length - 1]?.dayNumStr || periodInfo.effectiveDays}) to inspect details.`
+                      )}
+                    </span>
+
+                    {selectedBarDay !== null && (
+                      <button
+                        onClick={() => handleSelectDay(null)}
+                        className="text-blue-500 hover:underline text-[11px] font-semibold cursor-pointer"
+                      >
+                        Reset Filter
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. Section: Left Column (Daily SLA Breakdown Table) & Right Column (Incident History Table) - Above Telemetry Usage Trend */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-start">
+        {/* Left Column (lg:col-span-6): Daily SLA Breakdown Table (Gateway System) */}
+        <div className="lg:col-span-6 bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 shadow-xs">
+          {/* Header: Title, Active Selection Badge & Days Count */}
+          <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200 dark:border-slate-800/60">
+            <div className="flex items-center gap-2">
+              <div className="size-6 rounded-md bg-blue-500/15 flex items-center justify-center text-blue-600 dark:text-blue-400">
+                <FileSpreadsheet className="size-3.5" />
+              </div>
+              <h4 className="text-xs font-bold text-slate-900 dark:text-white">
+                Daily SLA Breakdown (Gateway System)
+              </h4>
+              {selectedBarDay !== null ? (
+                <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-blue-600 dark:text-blue-400 bg-blue-500/10 dark:bg-blue-500/20 px-2 py-0.5 rounded-full border border-blue-500/30">
+                  <span>Date {selectedBarDay < 10 ? `0${selectedBarDay}` : selectedBarDay} {periodInfo.monthStr}</span>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleSelectDay(null);
+                    }}
+                    className="text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer"
+                    title="Show all days"
+                  >
+                    <X className="size-3" />
+                  </button>
+                </span>
+              ) : (
+                <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 bg-slate-200/60 dark:bg-slate-800 px-2 py-0.5 rounded-full">
+                  {activeDailyBreakdown.length} Days
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Table (Columns: Date, Uptime (Mins), Downtime (Mins), Success Rate, SLA Status) */}
+          <div className="overflow-x-auto mt-2 max-h-72 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead className="sticky top-0 z-10 bg-slate-100 dark:bg-[#0a1224] shadow-xs">
+                <tr className="text-[11px] text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800/60 font-semibold">
+                  <th className="py-2 px-3">Date</th>
+                  <th className="py-2 px-3 text-right">Uptime (Mins)</th>
+                  <th className="py-2 px-3 text-right">Downtime (Mins)</th>
+                  <th className="py-2 px-3 text-right">Success Rate</th>
+                  <th className="py-2 px-3 text-center">SLA Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200 dark:divide-slate-800/40 text-[11px]">
+                {displayedBreakdown.map((row: any) => {
+                  const upMin = row.uptime_min ?? row.cpu_modem_uptime_min ?? 0;
+                  const downMin = row.downtime_min ?? row.cpu_modem_downtime_min ?? 0;
+                  const sr = row.success_rate ?? row.cpu_modem_success_rate ?? 100;
+                  const isSuccess = sr >= 99.5 || row.sla_status === "Achieved" || row.is_sla_met;
+                  const isSelected = selectedBarDay === row.day;
+
+                  return (
+                    <tr
+                      key={row.day || row.date}
+                      onClick={() => handleSelectDay(row.day, `${row.day < 10 ? `0${row.day}` : row.day} ${periodInfo.monthStr}`)}
+                      className={`transition-colors cursor-pointer ${
+                        isSelected
+                          ? "bg-blue-500/10 dark:bg-blue-500/20 font-medium"
+                          : "hover:bg-slate-100/80 dark:hover:bg-slate-800/30"
+                      }`}
+                      title="Click to select this date"
+                    >
+                      <td className="py-2 px-3 text-slate-700 dark:text-slate-300 font-mono whitespace-nowrap">
+                        {row.date} {row.day_name ? `(${row.day_name})` : ""}
+                      </td>
+                      <td className="py-2 px-3 text-right font-mono text-emerald-600 dark:text-emerald-400 font-semibold">
+                        {Math.round(upMin).toLocaleString("en-US")}
+                      </td>
+                      <td className="py-2 px-3 text-right font-mono font-semibold">
+                        {downMin > 0 ? (
+                          <span className="text-rose-600 dark:text-rose-400">{Math.round(downMin).toLocaleString("en-US")}</span>
+                        ) : (
+                          <span className="text-slate-400">0</span>
+                        )}
+                      </td>
+                      <td className="py-2 px-3 text-right font-mono font-bold text-slate-900 dark:text-white">
+                        {sr.toFixed(1)}%
+                      </td>
+                      <td className="py-2 px-3 text-center whitespace-nowrap">
+                        {isSuccess ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-emerald-600 dark:text-[#00c875] border border-emerald-500/30">
+                            Achieved
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/15 text-rose-600 dark:text-[#e2445c] border border-rose-500/30">
+                            Not Achieved
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+                {displayedBreakdown.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="py-6 text-center text-slate-500 dark:text-slate-400 text-xs">
+                      No daily SLA breakdown data available for the selected date.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+              {displayedSummary && (
+                <tfoot className="sticky bottom-0 z-10 bg-slate-200/90 dark:bg-[#070e1d] font-bold text-[11px] border-t-2 border-slate-300 dark:border-slate-700 shadow-md">
+                  <tr>
+                    <td className="py-2 px-3 text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                      <span className="text-blue-600 dark:text-blue-400 mr-1.5">Total:</span>
+                      {displayedSummary.count} Days ({displayedSummary.totalObs.toLocaleString("en-US")}m)
+                    </td>
+                    <td className="py-2 px-3 text-right font-mono text-emerald-600 dark:text-emerald-400">
+                      {displayedSummary.totalUptime.toLocaleString("en-US")}
+                    </td>
+                    <td className="py-2 px-3 text-right font-mono text-rose-600 dark:text-rose-400">
+                      {displayedSummary.totalDowntime.toLocaleString("en-US")}
+                    </td>
+                    <td className="py-2 px-3 text-right font-mono text-slate-900 dark:text-white">
+                      {displayedSummary.avgSuccessRate.toFixed(1)}%
+                    </td>
+                    <td className="py-2 px-3 text-center">
+                      {displayedSummary.isSuccess ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-emerald-600 dark:text-[#00c875] border border-emerald-500/30">
+                          Achieved
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/15 text-rose-600 dark:text-[#e2445c] border border-rose-500/30">
+                          Not Achieved
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                </tfoot>
+              )}
+            </table>
+          </div>
+        </div>
+
+        {/* Right Column (lg:col-span-6): Incident History Table */}
+        <div className="lg:col-span-6 bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 flex flex-col justify-between shadow-xs h-full">
+          <div className="flex flex-col h-full">
             {/* Header: Title, Event Count Badge & Filter Dropdown */}
-            <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-slate-200 dark:border-slate-800/60 shrink-0">
+            <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200 dark:border-slate-800/60 shrink-0">
               <div className="flex items-center gap-2">
                 <div className="size-6 rounded-md bg-amber-500/15 flex items-center justify-center text-[#f59e0b]">
                   <Clock className="size-3.5" />
@@ -715,8 +1198,8 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
                 <h4 className="text-xs font-bold text-slate-900 dark:text-white">
                   Incident History
                 </h4>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
-                  {filteredEvents.length}
+                <span className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-500/10 dark:bg-amber-500/20 px-2 py-0.5 rounded-full border border-amber-500/30">
+                  {filteredEvents.length} event
                 </span>
               </div>
 
@@ -724,12 +1207,20 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
                 <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Filter Date:</span>
                 <select
                   value={selectedEventDate}
-                  onChange={(e) => setSelectedEventDate(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === "ALL") {
+                      handleSelectDay(null);
+                    } else {
+                      const d = parseInt(val.split(" ")[0], 10);
+                      handleSelectDay(isNaN(d) ? null : d, val);
+                    }
+                  }}
                   className="text-xs font-medium bg-white dark:bg-[#070e1d] border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer shadow-xs"
                 >
                   <option value="ALL">All Dates ({rangeFilteredEvents.length})</option>
                   {uniqueDates.map((dateStr) => {
-                    const count = rangeFilteredEvents.filter((e: any) => (e.start_time || "").startsWith(dateStr)).length;
+                    const count = rangeFilteredEvents.filter((ev: any) => (ev.start_time || "").startsWith(dateStr)).length;
                     return (
                       <option key={dateStr} value={dateStr}>
                         {dateStr} ({count} {count === 1 ? "incident" : "incidents"})
@@ -740,7 +1231,7 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
                 {selectedEventDate !== "ALL" && (
                   <button
                     type="button"
-                    onClick={() => setSelectedEventDate("ALL")}
+                    onClick={() => handleSelectDay(null)}
                     className="text-xs text-blue-500 hover:underline font-medium cursor-pointer ml-1"
                   >
                     Reset Filter
@@ -750,8 +1241,8 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
             </div>
 
             {/* Table */}
-            <div className={`overflow-x-auto flex-1 min-h-0 flex flex-col justify-start pr-1 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700 ${filteredEvents.length > 3 ? "max-h-[220px] overflow-y-auto" : "h-full min-h-[140px]"}`}>
-              <table className="w-full h-full flex-1 text-left text-xs border-collapse" style={{ height: "100%" }}>
+            <div className={`overflow-x-auto mt-2 flex-1 min-h-0 flex flex-col justify-start pr-1 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700 ${filteredEvents.length > 4 ? "max-h-72 overflow-y-auto" : "h-full min-h-[140px]"}`}>
+              <table className="w-full text-left text-xs border-collapse">
                 <thead className="sticky top-0 z-10 bg-slate-100 dark:bg-[#0a1224] shadow-xs shrink-0">
                   <tr className="text-[11px] text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800/60 font-semibold h-8">
                     <th className="py-2 px-2 text-center w-8">No.</th>
@@ -761,33 +1252,30 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
                     <th className="py-2 px-3 text-center">Status</th>
                   </tr>
                 </thead>
-                <tbody className={`divide-y divide-slate-200 dark:divide-slate-800/40 text-[11px] ${filteredEvents.length <= 1 ? "h-full" : ""}`} style={{ height: "100%" }}>
+                <tbody className="divide-y divide-slate-200 dark:divide-slate-800/40 text-[11px]">
                   {filteredEvents.map((event: any, idx: number) => {
                     const isStillActive = event.end_time === "-" || event.end_time?.toLowerCase().includes("sekarang") || event.end_time?.toLowerCase().includes("now");
                     return (
                       <tr
                         key={event.no || idx}
-                        style={filteredEvents.length === 1 ? { height: "100%" } : undefined}
-                        className={`hover:bg-slate-100/80 dark:hover:bg-slate-800/30 transition-colors ${
-                          filteredEvents.length === 1 ? "h-full" : ""
-                        }`}
+                        className="hover:bg-slate-100/80 dark:hover:bg-slate-800/30 transition-colors"
                       >
-                        <td className={`py-2 px-2 text-center text-slate-500 dark:text-slate-400 font-mono align-middle ${filteredEvents.length === 1 ? "py-4" : ""}`}>
+                        <td className="py-2 px-2 text-center text-slate-500 dark:text-slate-400 font-mono align-middle">
                           {idx + 1}
                         </td>
-                        <td className={`py-2 px-3 text-slate-700 dark:text-slate-300 font-mono whitespace-nowrap align-middle ${filteredEvents.length === 1 ? "py-4" : ""}`}>
+                        <td className="py-2 px-3 text-slate-700 dark:text-slate-300 font-mono whitespace-nowrap align-middle">
                           <div>{event.start_time}</div>
                           <div className="text-[10px] text-slate-500 dark:text-slate-400">to {event.end_time}</div>
                         </td>
-                        <td className={`py-2 px-3 font-semibold text-slate-900 dark:text-slate-100 align-middle ${filteredEvents.length === 1 ? "py-4" : ""}`}>
+                        <td className="py-2 px-3 font-semibold text-slate-900 dark:text-slate-100 align-middle">
                           {formatIncidentEn(event.title || event.description || event.cause)}
                         </td>
-                        <td className={`py-2 px-3 text-center whitespace-nowrap align-middle ${filteredEvents.length === 1 ? "py-4" : ""}`}>
+                        <td className="py-2 px-3 text-center whitespace-nowrap align-middle">
                           <span className="inline-flex items-center px-2 py-0.5 rounded-md font-bold text-xs bg-amber-500/10 dark:bg-amber-500/20 text-[#f59e0b] border border-amber-500/30">
                             {formatDurationEn(event.duration)}
                           </span>
                         </td>
-                        <td className={`py-2 px-3 text-center whitespace-nowrap align-middle ${filteredEvents.length === 1 ? "py-4" : ""}`}>
+                        <td className="py-2 px-3 text-center whitespace-nowrap align-middle">
                           {isStillActive ? (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/15 text-[#e2445c] border border-rose-500/30 animate-pulse">
                               Active
@@ -802,13 +1290,13 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
                     );
                   })}
                   {filteredEvents.length === 0 && (
-                    <tr className="h-full" style={{ height: "100%" }}>
-                      <td colSpan={5} className="py-8 text-center text-slate-500 dark:text-slate-400 text-xs align-middle h-full">
+                    <tr>
+                      <td colSpan={5} className="py-10 text-center text-slate-500 dark:text-slate-400 text-xs">
                         No incident history available for the selected date.
                         {selectedEventDate !== "ALL" && (
                           <button
                             type="button"
-                            onClick={() => setSelectedEventDate("ALL")}
+                            onClick={() => handleSelectDay(null)}
                             className="block mx-auto mt-1.5 text-blue-500 hover:underline font-semibold cursor-pointer"
                           >
                             Show All Incident History

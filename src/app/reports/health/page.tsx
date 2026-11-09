@@ -154,7 +154,7 @@ export default function ReportHealthPage() {
       {
         id: "tipe",
         header: "Type",
-        className: "border-r-2 border-slate-300 dark:border-slate-700/80",
+        className: "border-r border-slate-200/60 dark:border-slate-800/60",
         cell: (gw) => {
           const isBlack = gw.type.includes("Hitam");
           return (
@@ -176,6 +176,37 @@ export default function ReportHealthPage() {
                 {isBlack ? "Black" : "White"}
               </span>
             </div>
+          );
+        },
+      },
+      // Group: Gateway Device (Uptime & Downtime) - Placed directly after Type
+      {
+        id: "uptime",
+        header: "Uptime",
+        align: "center",
+        className: "bg-indigo-500/[0.025] dark:bg-indigo-500/[0.04]",
+        cell: (gw) => (
+          <span className="font-mono text-[11px] font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">
+            {gw.uptime_duration || "0m"}
+          </span>
+        ),
+      },
+      {
+        id: "downtime",
+        header: "Downtime",
+        align: "center",
+        className: "bg-indigo-500/[0.025] dark:bg-indigo-500/[0.04] border-r-2 border-r-indigo-300 dark:border-r-indigo-700/80",
+        cell: (gw) => {
+          const down = gw.downtime_duration || "0m";
+          const isZero = down === "0m" || down === "0s" || down === "0h 00m" || down === "-";
+          return (
+            <span
+              className={`font-mono text-[11px] font-semibold whitespace-nowrap ${
+                !isZero ? "text-[#e2445c]" : "text-slate-400 dark:text-slate-500"
+              }`}
+            >
+              {down}
+            </span>
           );
         },
       },
@@ -361,34 +392,35 @@ export default function ReportHealthPage() {
           </span>
         ),
       },
-      /* Sementara di-comment (Periode Gangguan / Total Events & Uptime):
-      // Trailing Group: Periode Gangguan (Apple Purple Group)
+      // Individual Trailing Column: SLA (Apple Purple Group)
       {
-        id: "incident_count",
-        header: "Total Events",
+        id: "sla",
+        header: "SLA",
         align: "center",
-        className: "bg-purple-500/[0.025] dark:bg-purple-500/[0.04]",
-        cell: (gw) => (
-          <span
-            className={`font-bold whitespace-nowrap ${
-              gw.jumlah_event > 0 ? "text-[#e2445c]" : "text-slate-400"
-            }`}
-          >
-            {gw.jumlah_event} event
-          </span>
-        ),
-      },
-      {
-        id: "incident_last_offline",
-        header: "Uptime",
         className: "bg-purple-500/[0.025] dark:bg-purple-500/[0.04] border-r-2 border-r-purple-300 dark:border-r-purple-700/80",
-        cell: (gw) => (
-          <span className="text-slate-500 dark:text-slate-400 whitespace-nowrap font-mono text-[11px]">
-            {gw.uptime_duration}
-          </span>
-        ),
+        cell: (gw) => {
+          const rawSla = gw.sla !== undefined ? gw.sla : gw.uptime_pct;
+          const finalSla = Number(Number(rawSla ?? 100).toFixed(1));
+          const isAchieved = finalSla >= 99.5;
+          const isWarning = finalSla >= 95.0 && finalSla < 99.5;
+
+          return (
+            <div className="flex items-center justify-center">
+              <span
+                className={`inline-flex items-center justify-center px-2.5 py-0.5 rounded-full font-bold text-xs font-mono border whitespace-nowrap ${
+                  isAchieved
+                    ? "bg-[#00c875]/15 text-[#00c875] border-[#00c875]/30"
+                    : isWarning
+                    ? "bg-[#fdab3d]/15 text-[#fdab3d] border-[#fdab3d]/30"
+                    : "bg-[#e2445c]/15 text-[#e2445c] border-[#e2445c]/30"
+                }`}
+              >
+                {finalSla}%
+              </span>
+            </div>
+          );
+        },
       },
-      */
     ],
     []
   );
@@ -408,8 +440,16 @@ export default function ReportHealthPage() {
         <th rowSpan={2} className="py-2.5 px-4 whitespace-nowrap border-r border-slate-200/60 dark:border-slate-800/60">
           Location
         </th>
-        <th rowSpan={2} className="py-2.5 px-3 whitespace-nowrap border-r-2 border-r-slate-300 dark:border-r-slate-700/80">
+        <th rowSpan={2} className="py-2.5 px-3 whitespace-nowrap border-r border-slate-200/60 dark:border-slate-800/60">
           Type
+        </th>
+
+        {/* Group: Gateway Device (Apple Indigo Group) - After Type */}
+        <th
+          colSpan={2}
+          className="py-2 px-3 text-center border-r-2 border-r-indigo-300 dark:border-r-indigo-700 font-bold text-indigo-900 dark:text-indigo-200 bg-[#eef2ff] dark:bg-[#1a1c3d] border-b border-b-indigo-200 dark:border-b-indigo-800/60"
+        >
+          Device
         </th>
 
         {/* Group 1: CPU (Apple Blue Group) */}
@@ -452,18 +492,23 @@ export default function ReportHealthPage() {
           System Temperature
         </th>
 
-        {/* Sementara di-comment (Total Events & Uptime):
-        <th rowSpan={2} className="py-2.5 px-3 text-center whitespace-nowrap border-r border-purple-200/60 dark:border-purple-900/50 font-bold bg-[#f5f0ff] dark:bg-[#1a0f30] text-purple-900 dark:text-purple-200">
-          Total Events
+        {/* Individual Trailing Column: SLA (Apple Purple Group) */}
+        <th
+          rowSpan={2}
+          className="py-2.5 px-4 text-center whitespace-nowrap border-r-2 border-r-purple-300 dark:border-r-purple-700 font-bold bg-[#f5f0ff] dark:bg-[#1a0f30] text-purple-900 dark:text-purple-200"
+        >
+          SLA
         </th>
-        <th rowSpan={2} className="py-2.5 px-3.5 whitespace-nowrap border-r-2 border-r-purple-300 dark:border-r-purple-700 bg-[#f5f0ff] dark:bg-[#1a0f30] text-purple-900 dark:text-purple-200">
-          Uptime
-        </th>
-        */}
       </tr>
 
       {/* Level 2 Sub-headers */}
       <tr className="border-b border-slate-200/80 dark:border-slate-800/80 text-[11px] font-semibold">
+        {/* Under Device (Indigo Sub-headers) - Placed after Type */}
+        <th className="py-2 px-2.5 text-center text-indigo-900 dark:text-indigo-200 bg-[#f5f7ff] dark:bg-[#12132e] border-r border-indigo-200/60 dark:border-indigo-900/50">Uptime</th>
+        <th className="py-2 px-2.5 text-center text-indigo-900 dark:text-indigo-200 bg-[#f5f7ff] dark:bg-[#12132e] border-r-2 border-r-indigo-300 dark:border-r-indigo-700">
+          Downtime
+        </th>
+
         {/* Under CPU (Blue Sub-headers) */}
         <th className="py-2 px-2.5 text-center text-blue-900 dark:text-blue-200 bg-[#f4f8ff] dark:bg-[#08152b] border-r border-blue-200/60 dark:border-blue-900/50">Average</th>
         <th className="py-2 px-2.5 text-center text-blue-900 dark:text-blue-200 bg-[#f4f8ff] dark:bg-[#08152b] border-r border-blue-200/60 dark:border-blue-900/50">Peak</th>
