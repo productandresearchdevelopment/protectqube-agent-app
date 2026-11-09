@@ -60,6 +60,10 @@ export const useTriggerInspection = () => {
 
 export interface ISystemHealthSummary {
   total_gateways: number;
+  online?: number;
+  online_percent?: number;
+  offline?: number;
+  offline_percent?: number;
   healthy: number;
   healthy_percent: number;
   warning: number;
@@ -70,6 +74,8 @@ export interface ISystemHealthSummary {
     name: string;
     model: string;
     total: number;
+    online?: number;
+    offline?: number;
     healthy: number;
     warning: number;
     critical: number;
@@ -78,6 +84,8 @@ export interface ISystemHealthSummary {
     name: string;
     model: string;
     total: number;
+    online?: number;
+    offline?: number;
     healthy: number;
     warning: number;
     critical: number;
@@ -97,15 +105,15 @@ export interface IGatewayItem {
   location: string;
   type: string;
   model: string;
-  cpu: number;
-  ram: number;
-  sd_used_gb: number;
-  sd_total_gb: number;
-  sd_percent: number;
+  cpu: number | string;
+  ram: number | string;
+  sd_used_gb: number | string;
+  sd_total_gb: number | string;
+  sd_percent: number | string;
   sd_health: "Good" | "Wear" | "Bad" | string;
-  sd_health_percent?: number;
+  sd_health_percent?: number | string;
   uptime: string;
-  status: "Healthy" | "Warning" | "Critical" | string;
+  status: "Online" | "Offline" | "Healthy" | "Warning" | "Critical" | string;
   last_update: string;
   power_source?: string;
   power_status?: string;
@@ -113,6 +121,7 @@ export interface IGatewayItem {
   power_text?: string;
   battery_percent?: number | null;
   is_power_drop?: boolean;
+  voltage?: string;
 }
 
 export interface ISystemHealthDashboardData {
@@ -1063,11 +1072,11 @@ export const useHealthReportGatewayDetail = (
 
 export interface ISDHealthDetails {
   status: string;
-  health_percent?: number;
-  bad_sector: number;
+  health_percent?: number | string;
+  bad_sector: number | string;
   wear_level: string;
   temperature: string;
-  io_error: number;
+  io_error: number | string;
 }
 
 export interface IDowntimeEvent {
@@ -1163,24 +1172,24 @@ export interface IGatewayDetailData {
   uptime: string;
   last_update: string;
   service_status: string;
-  cpu_percent: number;
+  cpu_percent: number | string;
   cpu_min: string;
   cpu_max: string;
   cpu_sparkline: number[];
-  ram_percent: number;
+  ram_percent: number | string;
   ram_min: string;
   ram_max: string;
   ram_sparkline: number[];
-  ram_total_gb?: number;
-  ram_used_gb?: number;
-  ram_free_gb?: number;
-  sd_percent: number;
-  sd_used_gb: number;
-  sd_total_gb: number;
+  ram_total_gb?: number | string;
+  ram_used_gb?: number | string;
+  ram_free_gb?: number | string;
+  sd_percent: number | string;
+  sd_used_gb: number | string;
+  sd_total_gb: number | string;
   sd_sparkline: number[];
   sd_health: ISDHealthDetails;
-  uptime_days: number;
-  uptime_hours: number;
+  uptime_days: number | string;
+  uptime_hours: number | string;
   uptime_status: string;
   uptime_subtext: string;
   month_period?: string;
@@ -1197,6 +1206,7 @@ export interface IGatewayDetailData {
   events?: ISystemHealthEventItem[];
   daily_uptime?: IDailyUptime;
   power_info?: IPowerInfo;
+  status?: string;
 }
 
 export const fetchGatewayDetail = async (

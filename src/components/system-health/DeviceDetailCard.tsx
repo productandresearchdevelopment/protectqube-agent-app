@@ -33,6 +33,7 @@ import {
   useGatewayDetail,
   IGatewayDetailData,
   IDowntimeEvent,
+  ISystemHealthEventItem,
 } from "@/store/api/monitoring";
 import { getCurrentMonthPeriodStr } from "@/lib/reportPeriodUtils";
 
@@ -112,15 +113,19 @@ const CircularGauge = ({
   label,
   sublabel,
 }: {
-  percent: number;
+  percent: number | string;
   strokeColor: string;
   label?: string;
   sublabel?: string;
 }) => {
+  const isNum = typeof percent === "number" && !isNaN(percent);
+  const numVal = isNum ? Math.max(0, Math.min(100, percent)) : 0;
   const radius = 32;
   const strokeWidth = 7;
   const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference - (percent / 100) * circumference;
+  const strokeDashoffset = isNum
+    ? circumference - (numVal / 100) * circumference
+    : circumference;
 
   return (
     <div className="flex flex-col items-center justify-center my-1 relative">
@@ -136,22 +141,24 @@ const CircularGauge = ({
             fill="transparent"
           />
           {/* Progress Stroke */}
-          <circle
-            cx="40"
-            cy="40"
-            r={radius}
-            stroke={strokeColor}
-            strokeWidth={strokeWidth}
-            strokeDasharray={circumference}
-            strokeDashoffset={strokeDashoffset}
-            strokeLinecap="round"
-            fill="transparent"
-            className="transition-all duration-700 ease-out"
-          />
+          {isNum && (
+            <circle
+              cx="40"
+              cy="40"
+              r={radius}
+              stroke={strokeColor}
+              strokeWidth={strokeWidth}
+              strokeDasharray={circumference}
+              strokeDashoffset={strokeDashoffset}
+              strokeLinecap="round"
+              fill="transparent"
+              className="transition-all duration-700 ease-out"
+            />
+          )}
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <span className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">
-            {percent}%
+            {isNum ? `${numVal}%` : "-"}
           </span>
           {label && (
             <span className="text-[9px] text-slate-400 font-medium">
@@ -424,20 +431,34 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
     ? d.model.replace(/^.*\((.*)\).*$/, "$1")
     : d.model;
 
+  const isOffline =
+    d.status === "Offline" ||
+    d.service_status === "Stopped" ||
+    d.service_status === "Offline";
+
   // Helper for SD Health icon & color
-  const isHealthGood = d.sd_health.status === "Good";
+  const isHealthGood =
+    !isOffline &&
+    (d.sd_health.status === "Good" || d.sd_health.status === "Normal");
   const isHealthCaution =
-    d.sd_health.status === "Caution" || d.sd_health.status === "Wear";
-  const healthColor = isHealthGood
-    ? "text-emerald-400"
-    : isHealthCaution
-      ? "text-amber-400"
-      : "text-rose-500";
-  const HealthIcon = isHealthGood
-    ? CheckCircle2
-    : isHealthCaution
-      ? AlertTriangle
-      : AlertCircle;
+    !isOffline &&
+    (d.sd_health.status === "Caution" ||
+      d.sd_health.status === "Wear" ||
+      d.sd_health.status === "Warning");
+  const healthColor = isOffline
+    ? "text-slate-400"
+    : isHealthGood
+      ? "text-emerald-400"
+      : isHealthCaution
+        ? "text-amber-400"
+        : "text-rose-500";
+  const HealthIcon = isOffline
+    ? AlertCircle
+    : isHealthGood
+      ? CheckCircle2
+      : isHealthCaution
+        ? AlertTriangle
+        : AlertCircle;
 
   // Monthly SLA 99.5% & Accumulation metrics (744 hours in October: 31 days x 24h)
   const totalMonthHours = d.month_total_hours || 744;
@@ -454,7 +475,19 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
     return `${h}h ${m.toString().padStart(2, "0")}m`;
   };
 
-  const sortedEvents = (d.events ? [...d.events] : []).sort((a, b) => {
+  const isSystemEvent = (ev: ISystemHealthEventItem) => {
+    const text = `${ev.title || ""} ${(ev as any).category || ""}`.toLowerCase();
+    if (
+      ["camera", "kamera", "nvr", "dvr", "cctv", "recording", "merekam", "modem", "cellular", "seluler", "sim:", "signal", "rsrp", "csq"].some((k) =>
+        text.includes(k)
+      )
+    ) {
+      return false;
+    }
+    return true;
+  };
+
+  const sortedEvents = (d.events ? d.events.filter(isSystemEvent) : []).sort((a, b) => {
     const epochA =
       typeof (a as any).epoch === "number" && !isNaN((a as any).epoch)
         ? (a as any).epoch
@@ -558,7 +591,24 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
     sla_status: dailyUptime.is_sla_met ? "Achieved" : "Not Achieved",
   };
 
-  const allDowntimeIncidents = dailyUptime.incidents || d.downtime_events || [];
+  // Filter out any DVR / Camera / Cellular / Modem incidents from System Health:
+  const isSystemIncident = (ev: IDowntimeEvent) => {
+    const text = `${ev.reason || ""} ${ev.title || ""} ${ev.description || ""} ${ev.category || ""}`.toLowerCase();
+    const metric = String((ev as any).metric || "").toLowerCase();
+    if (["cellular", "modem", "cpu_modem", "dvr", "cpu_dvr", "recording", "camera", "cctv"].includes(metric)) {
+      return false;
+    }
+    if (["cellular", "modem", "dvr", "camera", "nvr"].includes(String(ev.category || "").toLowerCase())) {
+      return false;
+    }
+    if (["kamera", "camera", "nvr", "dvr", "cctv", "recording", "merekam", "modem", "cellular", "seluler", "sim:", "signal", "rsrp"].some((k) => text.includes(k))) {
+      return false;
+    }
+    return true;
+  };
+
+  const rawIncidents = dailyUptime.incidents || d.downtime_events || [];
+  const allDowntimeIncidents = rawIncidents.filter(isSystemIncident);
 
   // Unique dates for the Incident History dropdown
   const uniqueIncidentDates: string[] = Array.from(
@@ -754,19 +804,23 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                           </h3>
                           <span
                             className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold border shrink-0 ${
-                              d.service_status === "Running"
+                              isOffline
+                                ? "bg-rose-500/15 text-rose-600 dark:text-[#e2445c] border-rose-500/30"
+                                : d.service_status === "Running"
                                 ? "bg-emerald-500/15 text-[#00a862] dark:text-emerald-400 border-emerald-500/30"
                                 : "bg-amber-500/15 text-amber-500 dark:text-amber-400 border-amber-500/30"
                             }`}
                           >
                             <span
                               className={`size-1.5 rounded-full ${
-                                d.service_status === "Running"
+                                isOffline
+                                  ? "bg-rose-500"
+                                  : d.service_status === "Running"
                                   ? "bg-emerald-400 animate-pulse"
                                   : "bg-amber-400"
                               }`}
                             />
-                            {d.service_status}
+                            {isOffline ? "Offline" : d.service_status}
                           </span>
                         </div>
                         <p
@@ -815,7 +869,7 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                           Uptime
                         </span>
                         <span className="text-slate-800 dark:text-slate-200 font-mono text-[11px]">
-                          : {d.uptime}
+                          : {isOffline ? "-" : d.uptime}
                         </span>
                       </div>
                       <div className="flex items-center">
@@ -830,9 +884,15 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                         <span className="text-slate-500 dark:text-slate-400 w-24 shrink-0 font-medium">
                           Service
                         </span>
-                        <span className="text-emerald-500 dark:text-emerald-400 font-semibold flex items-center gap-1.5">
-                          : Normal Operation
-                        </span>
+                        {isOffline ? (
+                          <span className="text-rose-500 dark:text-[#e2445c] font-semibold flex items-center gap-1.5">
+                            : Offline (Stopped)
+                          </span>
+                        ) : (
+                          <span className="text-emerald-500 dark:text-emerald-400 font-semibold flex items-center gap-1.5">
+                            : Normal Operation
+                          </span>
+                        )}
                       </div>
                       <div className="flex items-center">
                         <span className="text-slate-500 dark:text-slate-400 w-24 shrink-0 font-medium">
@@ -840,15 +900,19 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                         </span>
                         <span className="text-slate-800 dark:text-slate-200 font-medium flex items-center gap-1.5">
                           :{" "}
-                          <span
-                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                              powerInfo.is_drop
-                                ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30"
-                                : "bg-emerald-500/15 text-emerald-600 dark:text-[#00c875] border border-emerald-500/30"
-                            }`}
-                          >
-                            {powerInfo.badge}
-                          </span>
+                          {isOffline ? (
+                            <span className="font-mono text-slate-400 font-bold">-</span>
+                          ) : (
+                            <span
+                              className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                                powerInfo.is_drop
+                                  ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30"
+                                  : "bg-emerald-500/15 text-emerald-600 dark:text-[#00c875] border border-emerald-500/30"
+                              }`}
+                            >
+                              {powerInfo.badge}
+                            </span>
+                          )}
                         </span>
                       </div>
                     </div>
@@ -869,14 +933,16 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                     </div>
                     <span
                       className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                        isHealthGood
+                        isOffline
+                          ? "bg-slate-500/15 text-slate-500 border-slate-500/30"
+                          : isHealthGood
                           ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
                           : isHealthCaution
                             ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30"
                             : "bg-rose-500/15 text-rose-600 dark:text-rose-500 border-rose-500/30"
                       }`}
                     >
-                      {d.sd_health.status}
+                      {isOffline ? "-" : d.sd_health.status}
                     </span>
                   </div>
 
@@ -884,7 +950,9 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                   <div className="flex items-center justify-center gap-2.5 py-1.5 px-3 bg-white dark:bg-[#070e1c] rounded-lg border border-slate-200 dark:border-slate-800/80 mt-2 mb-2 shadow-xs">
                     <div
                       className={`size-7 rounded-full flex items-center justify-center shrink-0 ${
-                        isHealthGood
+                        isOffline
+                          ? "bg-slate-500/15 text-slate-400"
+                          : isHealthGood
                           ? "bg-emerald-500/20 text-emerald-500 dark:text-emerald-400"
                           : isHealthCaution
                             ? "bg-amber-500/20 text-amber-500 dark:text-amber-400"
@@ -897,18 +965,22 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                       <div
                         className={`text-sm font-bold tracking-tight leading-none ${healthColor}`}
                       >
-                        Condition {d.sd_health.status}{" "}
-                        {d.sd_health.health_percent
-                          ? `(${d.sd_health.health_percent}%)`
-                          : ""}
+                        {isOffline
+                          ? "Condition: -"
+                          : `Condition ${d.sd_health.status} ${
+                              d.sd_health.health_percent
+                                ? `(${d.sd_health.health_percent}%)`
+                                : ""
+                            }`}
                       </div>
                       <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 font-medium truncate">
-                        Health{" "}
-                        {d.sd_health.health_percent
-                          ? `${d.sd_health.health_percent}%`
-                          : "100%"}{" "}
-                        &bull; Temp {d.sd_health.temperature} &bull; Wear{" "}
-                        {d.sd_health.wear_level}
+                        {isOffline
+                          ? "Health - • Temp - • Wear -"
+                          : `Health ${
+                              d.sd_health.health_percent
+                                ? `${d.sd_health.health_percent}%`
+                                : "100%"
+                            } • Temp ${d.sd_health.temperature} • Wear ${d.sd_health.wear_level}`}
                       </div>
                     </div>
                   </div>
@@ -919,45 +991,45 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                   <div className="flex items-center justify-between">
                     <span className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
                       <span
-                        className={`size-1.5 rounded-full ${isHealthGood ? "bg-emerald-400" : "bg-amber-400"}`}
+                        className={`size-1.5 rounded-full ${isOffline ? "bg-slate-400" : isHealthGood ? "bg-emerald-400" : "bg-amber-400"}`}
                       />
                       Bad Sector
                     </span>
                     <span className="font-mono text-slate-800 dark:text-slate-200">
-                      : {d.sd_health.bad_sector}
+                      : {isOffline ? "-" : d.sd_health.bad_sector}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
                       <span
-                        className={`size-1.5 rounded-full ${isHealthGood ? "bg-emerald-400" : "bg-amber-400"}`}
+                        className={`size-1.5 rounded-full ${isOffline ? "bg-slate-400" : isHealthGood ? "bg-emerald-400" : "bg-amber-400"}`}
                       />
                       Wear Level
                     </span>
                     <span className="font-mono text-slate-800 dark:text-slate-200">
-                      : {d.sd_health.wear_level}
+                      : {isOffline ? "-" : d.sd_health.wear_level}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
                       <span
-                        className={`size-1.5 rounded-full ${isHealthGood ? "bg-emerald-400" : "bg-amber-400"}`}
+                        className={`size-1.5 rounded-full ${isOffline ? "bg-slate-400" : isHealthGood ? "bg-emerald-400" : "bg-amber-400"}`}
                       />
                       Temperature
                     </span>
                     <span className="font-mono text-slate-800 dark:text-slate-200">
-                      : {d.sd_health.temperature}
+                      : {isOffline ? "-" : d.sd_health.temperature}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
                       <span
-                        className={`size-1.5 rounded-full ${isHealthGood ? "bg-emerald-400" : "bg-amber-400"}`}
+                        className={`size-1.5 rounded-full ${isOffline ? "bg-slate-400" : isHealthGood ? "bg-emerald-400" : "bg-amber-400"}`}
                       />
                       I/O Error
                     </span>
                     <span className="font-mono text-slate-800 dark:text-slate-200">
-                      : {d.sd_health.io_error}
+                      : {isOffline ? "-" : d.sd_health.io_error}
                     </span>
                   </div>
                 </div>
@@ -1100,16 +1172,16 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                   <span className="font-semibold">CPU Usage</span>
                 </div>
 
-                <CircularGauge percent={d.cpu_percent} strokeColor="#00c875" />
+                <CircularGauge percent={isOffline ? "-" : d.cpu_percent} strokeColor="#00c875" />
 
                 <div>
                   <SparklineWave
-                    data={d.cpu_sparkline}
+                    data={isOffline ? [] : d.cpu_sparkline}
                     color="#00c875"
                     id="cpu"
                   />
-                  <div className="text-xs text-slate-500 dark:text-slate-400 text-center font-medium mt-1">
-                    {d.cpu_max} | {d.cpu_min}
+                  <div className="text-xs text-slate-500 dark:text-slate-400 text-center font-medium mt-1 font-mono">
+                    {isOffline ? "- | -" : `${d.cpu_max} | ${d.cpu_min}`}
                   </div>
                 </div>
               </div>
@@ -1121,16 +1193,16 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                   <span className="font-semibold">RAM Usage</span>
                 </div>
 
-                <CircularGauge percent={d.ram_percent} strokeColor="#0073ea" />
+                <CircularGauge percent={isOffline ? "-" : d.ram_percent} strokeColor="#0073ea" />
 
                 <div>
                   <SparklineWave
-                    data={d.ram_sparkline}
+                    data={isOffline ? [] : d.ram_sparkline}
                     color="#0073ea"
                     id="ram"
                   />
-                  <div className="text-xs text-slate-500 dark:text-slate-400 text-center font-medium mt-1">
-                    {d.ram_max} | {d.ram_min}
+                  <div className="text-xs text-slate-500 dark:text-slate-400 text-center font-medium mt-1 font-mono">
+                    {isOffline ? "- | -" : `${d.ram_max} | ${d.ram_min}`}
                   </div>
                 </div>
               </div>
@@ -1143,19 +1215,19 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                 </div>
 
                 <CircularGauge
-                  percent={d.sd_percent}
+                  percent={isOffline ? "-" : d.sd_percent}
                   strokeColor="#a855f7"
-                  sublabel={`${d.sd_used_gb} GB / ${d.sd_total_gb} GB`}
+                  sublabel={isOffline ? "-" : `${d.sd_used_gb} GB / ${d.sd_total_gb} GB`}
                 />
 
                 <div>
                   <SparklineWave
-                    data={d.sd_sparkline}
+                    data={isOffline ? [] : d.sd_sparkline}
                     color="#a855f7"
                     id="sd"
                   />
-                  <div className="text-xs text-slate-500 dark:text-slate-400 text-center font-medium mt-1">
-                    {d.sd_used_gb} GB used of {d.sd_total_gb} GB
+                  <div className="text-xs text-slate-500 dark:text-slate-400 text-center font-medium mt-1 font-mono">
+                    {isOffline ? "- used of -" : `${d.sd_used_gb} GB used of ${d.sd_total_gb} GB`}
                   </div>
                 </div>
               </div>
@@ -1169,16 +1241,30 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                   </div>
                   <span
                     className={`text-[10px] font-bold px-2 py-0.5 rounded-full border whitespace-nowrap ${
-                      powerInfo.is_drop
+                      isOffline
+                        ? "bg-rose-500/15 text-rose-600 dark:text-[#e2445c] border-rose-500/30"
+                        : powerInfo.is_drop
                         ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30"
                         : "bg-emerald-500/15 text-emerald-600 dark:text-[#00c875] border-emerald-500/30"
                     }`}
                   >
-                    {powerInfo.badge}
+                    {isOffline ? "Offline" : powerInfo.badge}
                   </span>
                 </div>
 
-                {isWhiteDevice ? (
+                {isOffline ? (
+                  <div className="my-auto py-3 flex flex-col items-center justify-center text-center">
+                    <div className="size-12 rounded-full flex items-center justify-center mb-1.5 border bg-rose-500/15 border-rose-500/30 text-rose-500">
+                      <Zap className="size-6" />
+                    </div>
+                    <div className="text-sm font-bold text-slate-400 font-mono">
+                      Offline (-)
+                    </div>
+                    <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                      Input Rail: -
+                    </div>
+                  </div>
+                ) : isWhiteDevice ? (
                   <CircularGauge
                     percent={powerInfo.battery_percent ?? 100}
                     strokeColor={
@@ -1213,15 +1299,15 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                 <div>
                   <div
                     className="p-1.5 rounded bg-white dark:bg-[#070e1c] border border-slate-200 dark:border-slate-800/80 text-[10px] font-mono text-slate-600 dark:text-slate-400 truncate text-center"
-                    title={powerInfo.raw_text}
+                    title={isOffline ? "Device Offline (No Telemetry)" : powerInfo.raw_text}
                   >
-                    {powerInfo.raw_text}
+                    {isOffline ? "Device Offline (No Telemetry)" : powerInfo.raw_text}
                   </div>
                   <div
                     className="text-[10px] text-slate-500 dark:text-slate-400 text-center font-medium mt-1 truncate"
-                    title={powerInfo.explanation}
+                    title={isOffline ? "Gateway is offline and not transmitting telemetry" : powerInfo.explanation}
                   >
-                    {powerInfo.explanation}
+                    {isOffline ? "Gateway is offline and not transmitting telemetry" : powerInfo.explanation}
                   </div>
                 </div>
               </div>
@@ -1474,6 +1560,7 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                         {filteredDowntimeEvents.length > 0 ? (
                           filteredDowntimeEvents.map((event, idx) => {
                             const isStillActive =
+                              event.status === "Active" ||
                               event.end_time === "-" ||
                               event.end_time
                                 ?.toLowerCase()
@@ -1488,9 +1575,13 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                                 </td>
                                 <td className="py-2.5 px-3 text-slate-700 dark:text-slate-300 font-mono whitespace-nowrap align-middle">
                                   <div>{event.start_time}</div>
-                                  {event.end_time && event.end_time !== "-" && (
+                                  {event.end_time && event.end_time !== "-" ? (
                                     <div className="text-[10px] text-slate-500 dark:text-slate-400">
                                       to {event.end_time}
+                                    </div>
+                                  ) : (
+                                    <div className="text-[10px] text-rose-500 dark:text-[#e2445c] font-semibold">
+                                      to Ongoing (Active)
                                     </div>
                                   )}
                                 </td>
@@ -1513,8 +1604,8 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                                       {event.status || "Resolved"}
                                     </span>
                                   ) : (
-                                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-500">
-                                      <span className="size-1.5 rounded-full bg-amber-500 animate-pulse" />
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/15 text-rose-600 dark:text-[#e2445c] border border-rose-500/30">
+                                      <span className="size-1.5 rounded-full bg-rose-500 animate-pulse" />
                                       {event.status || "Active"}
                                     </span>
                                   )}
@@ -1566,32 +1657,32 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                     CPU Utilization
                   </span>
                   <span className="text-[#00a862] dark:text-emerald-400 font-mono font-bold text-sm">
-                    {d.cpu_percent}%
+                    {isOffline || typeof d.cpu_percent !== "number" ? "-" : `${d.cpu_percent}%`}
                   </span>
                 </div>
-                <CircularGauge percent={d.cpu_percent} strokeColor="#00c875" />
+                <CircularGauge percent={isOffline ? "-" : d.cpu_percent} strokeColor="#00c875" />
                 <SparklineWave
-                  data={d.cpu_sparkline}
+                  data={isOffline ? [] : d.cpu_sparkline}
                   color="#00c875"
                   id="cpu-detail"
                 />
-                <div className="text-xs text-slate-500 dark:text-slate-400 space-y-1 border-t border-slate-200 dark:border-slate-800/60 pt-2">
+                <div className="text-xs text-slate-500 dark:text-slate-400 space-y-1 border-t border-slate-200 dark:border-slate-800/60 pt-2 font-mono">
                   <div className="flex justify-between">
                     <span>Architecture:</span>
-                    <strong className="text-slate-800 dark:text-slate-200">
+                    <strong className="text-slate-800 dark:text-slate-200 font-sans">
                       ARMv8 Cortex-A53 4-Core
                     </strong>
                   </div>
                   <div className="flex justify-between">
                     <span>Peak Max:</span>
                     <strong className="text-slate-800 dark:text-slate-200">
-                      {d.cpu_max}
+                      {isOffline ? "-" : d.cpu_max}
                     </strong>
                   </div>
                   <div className="flex justify-between">
                     <span>Idle Min:</span>
                     <strong className="text-slate-800 dark:text-slate-200">
-                      {d.cpu_min}
+                      {isOffline ? "-" : d.cpu_min}
                     </strong>
                   </div>
                 </div>
@@ -1603,37 +1694,44 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                     RAM Memory Usage
                   </span>
                   <span className="text-blue-600 dark:text-blue-400 font-mono font-bold text-sm">
-                    {d.ram_percent}%
+                    {isOffline || typeof d.ram_percent !== "number" ? "-" : `${d.ram_percent}%`}
                   </span>
                 </div>
-                <CircularGauge percent={d.ram_percent} strokeColor="#0073ea" />
+                <CircularGauge percent={isOffline ? "-" : d.ram_percent} strokeColor="#0073ea" />
                 <SparklineWave
-                  data={d.ram_sparkline}
+                  data={isOffline ? [] : d.ram_sparkline}
                   color="#0073ea"
                   id="ram-detail"
                 />
-                <div className="text-xs text-slate-500 dark:text-slate-400 space-y-1 border-t border-slate-200 dark:border-slate-800/60 pt-2">
+                <div className="text-xs text-slate-500 dark:text-slate-400 space-y-1 border-t border-slate-200 dark:border-slate-800/60 pt-2 font-mono">
                   <div className="flex justify-between">
                     <span>Total Capacity:</span>
                     <strong className="text-slate-800 dark:text-slate-200">
-                      {d.ram_total_gb ? `${d.ram_total_gb} GB` : "1 GB"} (SBC
-                      RAM)
+                      {isOffline ? "-" : d.ram_total_gb ? `${d.ram_total_gb} GB` : "1 GB (SBC RAM)"}
                     </strong>
                   </div>
                   <div className="flex justify-between">
                     <span>Used:</span>
                     <strong className="text-slate-800 dark:text-slate-200">
-                      {d.ram_used_gb !== undefined
+                      {isOffline
+                        ? "-"
+                        : d.ram_used_gb !== undefined
                         ? `${d.ram_used_gb} GB`
-                        : `${((d.ram_total_gb || 1) * (d.ram_percent / 100)).toFixed(1)} GB`}
+                        : typeof d.ram_percent === "number"
+                        ? `${((Number(d.ram_total_gb) || 1) * (d.ram_percent / 100)).toFixed(1)} GB`
+                        : "-"}
                     </strong>
                   </div>
                   <div className="flex justify-between">
                     <span>Available:</span>
                     <strong className="text-slate-800 dark:text-slate-200">
-                      {d.ram_free_gb !== undefined
+                      {isOffline
+                        ? "-"
+                        : d.ram_free_gb !== undefined
                         ? `${d.ram_free_gb} GB`
-                        : `${((d.ram_total_gb || 1) * (1 - d.ram_percent / 100)).toFixed(1)} GB`}
+                        : typeof d.ram_percent === "number"
+                        ? `${((Number(d.ram_total_gb) || 1) * (1 - d.ram_percent / 100)).toFixed(1)} GB`
+                        : "-"}
                     </strong>
                   </div>
                 </div>
@@ -1666,27 +1764,31 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                   Storage Capacity
                 </span>
                 <CircularGauge
-                  percent={d.sd_percent}
+                  percent={isOffline ? "-" : d.sd_percent}
                   strokeColor="#a855f7"
-                  sublabel={`${d.sd_used_gb} GB / ${d.sd_total_gb} GB`}
+                  sublabel={isOffline ? "-" : `${d.sd_used_gb} GB / ${d.sd_total_gb} GB`}
                 />
-                <div className="text-xs text-slate-500 dark:text-slate-400 space-y-1 border-t border-slate-200 dark:border-slate-800/60 pt-2">
+                <div className="text-xs text-slate-500 dark:text-slate-400 space-y-1 border-t border-slate-200 dark:border-slate-800/60 pt-2 font-mono">
                   <div className="flex justify-between">
                     <span>Total Storage:</span>
                     <strong className="text-slate-800 dark:text-slate-200">
-                      {d.sd_total_gb} GB Flash Storage
+                      {isOffline ? "-" : `${d.sd_total_gb} GB Flash Storage`}
                     </strong>
                   </div>
                   <div className="flex justify-between">
                     <span>Used:</span>
                     <strong className="text-slate-800 dark:text-slate-200">
-                      {d.sd_used_gb} GB ({d.sd_percent}%)
+                      {isOffline ? "-" : `${d.sd_used_gb} GB (${d.sd_percent}%)`}
                     </strong>
                   </div>
                   <div className="flex justify-between">
                     <span>Free Space:</span>
                     <strong className="text-[#00a862] dark:text-emerald-400">
-                      {Math.max(0, d.sd_total_gb - d.sd_used_gb)} GB Free
+                      {isOffline
+                        ? "-"
+                        : typeof d.sd_total_gb === "number" && typeof d.sd_used_gb === "number"
+                        ? `${Math.max(0, d.sd_total_gb - d.sd_used_gb)} GB Free`
+                        : "-"}
                     </strong>
                   </div>
                 </div>
@@ -1702,10 +1804,13 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                       Overall Health:
                     </span>
                     <span className="text-[#00a862] dark:text-emerald-400 font-bold">
-                      {d.sd_health.status}{" "}
-                      {d.sd_health.health_percent
-                        ? `(${d.sd_health.health_percent}%)`
-                        : ""}
+                      {isOffline
+                        ? "-"
+                        : `${d.sd_health.status} ${
+                            d.sd_health.health_percent
+                              ? `(${d.sd_health.health_percent}%)`
+                              : ""
+                          }`}
                     </span>
                   </div>
                   <div className="flex items-center justify-between p-2 rounded bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xs">
@@ -1713,7 +1818,7 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                       Bad Sectors:
                     </span>
                     <span className="text-slate-800 dark:text-slate-200 font-mono">
-                      {d.sd_health.bad_sector}
+                      {isOffline ? "-" : d.sd_health.bad_sector}
                     </span>
                   </div>
                   <div className="flex items-center justify-between p-2 rounded bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xs">
@@ -1721,7 +1826,7 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                       Wear Leveling:
                     </span>
                     <span className="text-slate-800 dark:text-slate-200 font-mono">
-                      {d.sd_health.wear_level}
+                      {isOffline ? "-" : d.sd_health.wear_level}
                     </span>
                   </div>
                   <div className="flex items-center justify-between p-2 rounded bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xs">
@@ -1729,7 +1834,7 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                       Operating Temperature:
                     </span>
                     <span className="text-slate-800 dark:text-slate-200 font-mono">
-                      {d.sd_health.temperature}
+                      {isOffline ? "-" : d.sd_health.temperature}
                     </span>
                   </div>
                   <div className="flex items-center justify-between p-2 rounded bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xs">
@@ -1737,7 +1842,7 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                       I/O Error Count:
                     </span>
                     <span className="text-slate-800 dark:text-slate-200 font-mono">
-                      {d.sd_health.io_error}
+                      {isOffline ? "-" : d.sd_health.io_error}
                     </span>
                   </div>
                 </div>
@@ -1772,10 +1877,10 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                   CPU Temperature
                 </span>
                 <div className="text-3xl font-bold text-[#00a862] dark:text-emerald-400 font-mono">
-                  {d.sd_health.temperature}
+                  {isOffline ? "-" : d.sd_health.temperature}
                 </div>
                 <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                  Normal (&lt; 70°C)
+                  {isOffline ? "Offline" : "Normal (< 70°C)"}
                 </span>
               </div>
               <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 text-center space-y-1 shadow-xs">

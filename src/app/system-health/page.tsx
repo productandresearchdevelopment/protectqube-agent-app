@@ -176,14 +176,12 @@ export default function SystemHealthPage() {
   ];
 
   const hitamTotal = summary?.smartbox_hitam.total ?? 0;
-  const hitamHealthy = summary?.smartbox_hitam.healthy ?? 0;
-  const hitamWarning = summary?.smartbox_hitam.warning ?? 0;
-  const hitamCritical = summary?.smartbox_hitam.critical ?? 0;
+  const hitamOnline = summary?.smartbox_hitam.online ?? summary?.smartbox_hitam.healthy ?? 0;
+  const hitamOffline = summary?.smartbox_hitam.offline ?? summary?.smartbox_hitam.critical ?? 0;
 
   const putihTotal = summary?.smartbox_putih.total ?? 0;
-  const putihHealthy = summary?.smartbox_putih.healthy ?? 0;
-  const putihWarning = summary?.smartbox_putih.warning ?? 0;
-  const putihCritical = summary?.smartbox_putih.critical ?? 0;
+  const putihOnline = summary?.smartbox_putih.online ?? summary?.smartbox_putih.healthy ?? 0;
+  const putihOffline = summary?.smartbox_putih.offline ?? summary?.smartbox_putih.critical ?? 0;
 
   // Table Columns
   const columns: ColumnDef<IGatewayItem>[] = [
@@ -226,25 +224,43 @@ export default function SystemHealthPage() {
       id: "cpu",
       header: "CPU",
       align: "center",
-      cell: (item) => <LoadProgressBar percent={item.cpu} />,
+      cell: (item) => {
+        if (item.status === "Offline" || typeof item.cpu !== "number") {
+          return <span className="font-mono text-slate-400 font-bold text-[11px]">-</span>;
+        }
+        return <LoadProgressBar percent={item.cpu} />;
+      },
     },
     {
       id: "ram",
       header: "RAM",
       align: "center",
-      cell: (item) => <LoadProgressBar percent={item.ram} />,
+      cell: (item) => {
+        if (item.status === "Offline" || typeof item.ram !== "number") {
+          return <span className="font-mono text-slate-400 font-bold text-[11px]">-</span>;
+        }
+        return <LoadProgressBar percent={item.ram} />;
+      },
     },
     {
       id: "sd_card",
       header: "Storage",
       align: "center",
-      cell: (item) => <LoadProgressBar percent={item.sd_percent} />,
+      cell: (item) => {
+        if (item.status === "Offline" || typeof item.sd_percent !== "number") {
+          return <span className="font-mono text-slate-400 font-bold text-[11px]">-</span>;
+        }
+        return <LoadProgressBar percent={item.sd_percent} />;
+      },
     },
     {
       id: "sd_health",
       header: "Storage Health",
       align: "center",
       cell: (item) => {
+        if (item.status === "Offline" || !item.sd_health || item.sd_health === "-") {
+          return <span className="font-mono text-slate-400 font-bold text-[11px]">-</span>;
+        }
         const isGood = item.sd_health === "Good" || item.sd_health === "Normal";
         const isWarn = item.sd_health === "Wear" || item.sd_health === "Warning" || item.sd_health === "Caution";
         const statusLabel = isGood ? "Good" : isWarn ? "Warning" : "Critical";
@@ -262,47 +278,61 @@ export default function SystemHealthPage() {
       header: "Battery / Power",
       align: "center",
       cell: (item) => {
+        if (item.status === "Offline") {
+          return <span className="font-mono text-slate-400 font-bold text-[11px]">-</span>;
+        }
         const isWhite = item.type.includes("Putih") || item.model.includes("210") || item.model.includes("RK3328");
         if (isWhite) {
           const isDischarging = item.is_power_drop || item.power_status === "Discharging" || item.power_source === "BATT";
-          const isCharging = item.power_status === "Charging";
-          const pct = item.battery_percent;
+          const pct = item.battery_percent ?? 100;
+          const isFull = pct >= 100 || item.power_status === "Full" || item.power_text?.toLowerCase().includes("100% full");
+
           if (isDischarging) {
             return (
               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-500/15 text-rose-600 dark:text-[#e2445c] border border-rose-500/30 whitespace-nowrap">
                 <span className="size-1.5 rounded-full bg-rose-500 animate-pulse" />
-                {pct ? `${pct}% Discharging` : "Discharging"}
+                Discharging ({pct}%)
               </span>
             );
           }
-          if (isCharging) {
+          if (!isFull && pct < 100) {
             return (
               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30 whitespace-nowrap">
                 <span className="size-1.5 rounded-full bg-blue-500" />
-                {pct ? `${pct}% Charging` : "Charging"}
+                Charging ({pct}%)
               </span>
             );
           }
           return (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-600 dark:text-[#00c875] border border-emerald-500/30 whitespace-nowrap">
               <span className="size-1.5 rounded-full bg-[#00c875]" />
-              {pct ? `${pct}% Full` : "100% Full"}
+              Full ({pct}%)
             </span>
           );
         } else {
-          const isDrop = item.is_power_drop || item.power_status === "Voltage Drop" || item.power_status === "Pernah Drop" || item.power_status === "Drop";
+          // SmartBox Hitam
+          const voltMatch = item.power_text?.match(/([0-9\.]+V)/i);
+          let voltStr = voltMatch ? voltMatch[1] : (item.voltage || "5.10V");
+          const numMatch = voltStr.match(/([0-9\.]+)/);
+          if (numMatch) {
+            const vFloat = parseFloat(numMatch[1]);
+            if (!isNaN(vFloat)) {
+              voltStr = `${vFloat.toFixed(2)}V`;
+            }
+          }
+          const isDrop = item.is_power_drop || item.power_status === "Voltage Drop" || item.power_status === "Pernah Drop";
           if (isDrop) {
             return (
               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 whitespace-nowrap">
                 <span className="size-1.5 rounded-full bg-amber-500" />
-                Voltage Drop
+                Charging ({voltStr})
               </span>
             );
           }
           return (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-600 dark:text-[#00c875] border border-emerald-500/30 whitespace-nowrap">
-              <span className="size-1.5 rounded-full bg-[#00c875]" />
-              Normal
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30 whitespace-nowrap">
+              <span className="size-1.5 rounded-full bg-blue-500" />
+              Charging ({voltStr})
             </span>
           );
         }
@@ -312,12 +342,15 @@ export default function SystemHealthPage() {
       id: "status",
       header: "Status",
       align: "center",
-      cell: (item) => (
-        <StatusBadge
-          status={item.status}
-          variant={item.status === "Healthy" ? "healthy" : item.status === "Warning" ? "warning" : "critical"}
-        />
-      ),
+      cell: (item) => {
+        const isOnline = item.status === "Online" || item.status === "Healthy";
+        return (
+          <StatusBadge
+            status={isOnline ? "Online" : "Offline"}
+            variant={isOnline ? "online" : "offline"}
+          />
+        );
+      },
     },
   ];
 
@@ -340,7 +373,7 @@ export default function SystemHealthPage() {
       <div className="w-full flex-1 flex flex-col min-h-0 space-y-3.5 font-sans transition-colors pb-2">
 
         {/* 2. Top Summary Metric Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 pt-1 pb-0.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 pt-1 pb-0.5">
           <SummaryCard
             title="Total Gateway"
             value={summary ? summary.total_gateways : 0}
@@ -350,31 +383,22 @@ export default function SystemHealthPage() {
             active={statusFilter === "All Statuses"}
           />
           <SummaryCard
-            title="Healthy"
-            value={summary ? summary.healthy : 0}
+            title="Online"
+            value={summary ? (summary.online ?? summary.healthy) : 0}
             icon={Check}
             color="emerald"
-            percentage={summary ? `${summary.healthy_percent}%` : "0%"}
-            onClick={() => handleCardFilter("Healthy")}
-            active={statusFilter === "Healthy"}
+            percentage={summary ? `${summary.online_percent ?? summary.healthy_percent}%` : "0%"}
+            onClick={() => handleCardFilter("Online")}
+            active={statusFilter === "Online"}
           />
           <SummaryCard
-            title="Warning"
-            value={summary ? summary.warning : 0}
-            icon={AlertCircle}
-            color="amber"
-            percentage={summary ? `${summary.warning_percent}%` : "0%"}
-            onClick={() => handleCardFilter("Warning")}
-            active={statusFilter === "Warning"}
-          />
-          <SummaryCard
-            title="Critical"
-            value={summary ? summary.critical : 0}
+            title="Offline"
+            value={summary ? (summary.offline ?? summary.critical) : 0}
             icon={AlertTriangle}
             color="rose"
-            percentage={summary ? `${summary.critical_percent}%` : "0%"}
-            onClick={() => handleCardFilter("Critical")}
-            active={statusFilter === "Critical"}
+            percentage={summary ? `${summary.offline_percent ?? summary.critical_percent}%` : "0%"}
+            onClick={() => handleCardFilter("Offline")}
+            active={statusFilter === "Offline"}
           />
           <SummaryCard
             title="SmartBox Black"
@@ -383,9 +407,9 @@ export default function SystemHealthPage() {
             deviceType="hitam"
             color="slate"
             breakdown={{
-              healthy: hitamHealthy,
-              warning: hitamWarning,
-              critical: hitamCritical,
+              healthy: hitamOnline,
+              warning: 0,
+              critical: hitamOffline,
             }}
           />
           <SummaryCard
@@ -395,9 +419,9 @@ export default function SystemHealthPage() {
             deviceType="putih"
             color="slate"
             breakdown={{
-              healthy: putihHealthy,
-              warning: putihWarning,
-              critical: putihCritical,
+              healthy: putihOnline,
+              warning: 0,
+              critical: putihOffline,
             }}
           />
         </div>

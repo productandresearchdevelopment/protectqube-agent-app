@@ -229,10 +229,12 @@ export const SummaryCard: React.FC<ISummaryCardItem> = ({
                 style={{ width: `${(breakdown.healthy / breakdownTotal) * 100}%` }}
                 className="bg-[#00c875] h-full"
               />
-              <div
-                style={{ width: `${(breakdown.warning / breakdownTotal) * 100}%` }}
-                className="bg-[#fdab3d] h-full"
-              />
+              {breakdown.warning > 0 && (
+                <div
+                  style={{ width: `${(breakdown.warning / breakdownTotal) * 100}%` }}
+                  className="bg-[#fdab3d] h-full"
+                />
+              )}
               <div
                 style={{ width: `${(breakdown.critical / breakdownTotal) * 100}%` }}
                 className="bg-[#e2445c] h-full"
@@ -243,10 +245,12 @@ export const SummaryCard: React.FC<ISummaryCardItem> = ({
                 <span className="size-1.5 rounded-full bg-[#00c875]" />
                 {breakdown.healthy}
               </span>
-              <span className="flex items-center gap-1 text-[#fdab3d]">
-                <span className="size-1.5 rounded-full bg-[#fdab3d]" />
-                {breakdown.warning}
-              </span>
+              {breakdown.warning > 0 && (
+                <span className="flex items-center gap-1 text-[#fdab3d]">
+                  <span className="size-1.5 rounded-full bg-[#fdab3d]" />
+                  {breakdown.warning}
+                </span>
+              )}
               <span className="flex items-center gap-1 text-[#e2445c]">
                 <span className="size-1.5 rounded-full bg-[#e2445c]" />
                 {breakdown.critical}
