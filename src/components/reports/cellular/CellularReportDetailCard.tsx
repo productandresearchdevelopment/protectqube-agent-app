@@ -318,14 +318,26 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
       const mIdx = MONTH_NAMES.findIndex((m) => m.toLowerCase() === periodInfo.monthStr.toLowerCase());
       const mNum = mIdx !== -1 ? String(mIdx + 1).padStart(2, "0") : "11";
       const isoPrefix = `${periodInfo.yearStr}-${mNum}-${dayNumStr}`;
+      const dStart = new Date(periodInfo.yearStr, mIdx, selectedBarDay, 0, 0, 0);
+      const dEnd = new Date(periodInfo.yearStr, mIdx, selectedBarDay, 23, 59, 59, 999);
+
       return rangeFilteredEvents.filter((ev) => {
         const trimmed = (ev.start_time || "").trim();
-        return (
+        const startMatches = (
           trimmed.startsWith(isoPrefix) ||
           trimmed.startsWith(prefix) ||
           trimmed.startsWith(`${selectedBarDay} ${periodInfo.monthStr}`) ||
           (ev.date_str && (ev.date_str === isoPrefix || ev.date_str.startsWith(prefix)))
         );
+        if (startMatches) return true;
+        if (ev.end_time && ev.end_time !== "-" && !ev.end_time.toLowerCase().includes("present")) {
+          const st = new Date(trimmed.replace(" ", "T"));
+          const et = new Date(ev.end_time.trim().replace(" ", "T"));
+          if (!isNaN(st.getTime()) && !isNaN(et.getTime())) {
+            return st.getTime() < dEnd.getTime() && et.getTime() > dStart.getTime();
+          }
+        }
+        return false;
       });
     }
     if (selectedEventDate === "ALL") {
@@ -1179,6 +1191,35 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
                           <span className="inline-flex items-center px-2 py-0.5 rounded-md font-bold text-xs bg-amber-500/10 dark:bg-amber-500/20 text-[#f59e0b] border border-amber-500/30">
                             {formatDurationEn(event.duration)}
                           </span>
+                          {selectedBarDay !== null && event.start_time && event.end_time && event.end_time !== "-" && (
+                            (() => {
+                              const mIdx = MONTH_NAMES.findIndex((m) => m.toLowerCase() === periodInfo.monthStr.toLowerCase());
+                              if (mIdx === -1) return null;
+                              const dStart = new Date(periodInfo.yearStr, mIdx, selectedBarDay, 0, 0, 0);
+                              const dEnd = new Date(periodInfo.yearStr, mIdx, selectedBarDay, 23, 59, 59, 999);
+                              const st = new Date(event.start_time.replace(" ", "T"));
+                              const et = new Date(event.end_time.replace(" ", "T"));
+                              if (isNaN(st.getTime()) || isNaN(et.getTime())) return null;
+                              const oStart = Math.max(st.getTime(), dStart.getTime());
+                              const oEnd = Math.min(et.getTime(), dEnd.getTime());
+                              if (oEnd > oStart) {
+                                const oMin = Math.round((oEnd - oStart) / 60000);
+                                const totMin = Math.round((et.getTime() - st.getTime()) / 60000);
+                                if (totMin > oMin) {
+                                  const dayStr = selectedBarDay < 10 ? `0${selectedBarDay}` : `${selectedBarDay}`;
+                                  return (
+                                    <div
+                                      className="text-[9px] text-amber-500/90 dark:text-amber-400/90 font-medium mt-0.5"
+                                      title={`Incident spans across midnight: ${oMin}m on Date ${dayStr}, ${totMin - oMin}m on adjacent day`}
+                                    >
+                                      ({oMin}m on Date {dayStr})
+                                    </div>
+                                  );
+                                }
+                              }
+                              return null;
+                            })()
+                          )}
                         </td>
                         <td className="py-2.5 px-3 text-center whitespace-nowrap">
                           {isStillActive ? (
