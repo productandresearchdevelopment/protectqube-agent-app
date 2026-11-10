@@ -30,7 +30,9 @@ export default function ReportCellularPage() {
   });
 
   const [selectedGateways, setSelectedGateways] = useState<string[]>([]);
-  const [selectedGatewayId, setSelectedGatewayId] = useState<string | null>(null);
+  const [selectedGatewayId, setSelectedGatewayId] = useState<string | null>(
+    null,
+  );
 
   const detailRef = useRef<HTMLDivElement>(null);
 
@@ -40,7 +42,10 @@ export default function ReportCellularPage() {
   const gateways = reportData?.gateways || [];
   const pagination = reportData?.pagination;
 
-  const handleFilterChange = (key: keyof ICellularReportFilters, value: any) => {
+  const handleFilterChange = (
+    key: keyof ICellularReportFilters,
+    value: any,
+  ) => {
     setFilters((prev) => ({
       ...prev,
       [key]: value,
@@ -66,7 +71,7 @@ export default function ReportCellularPage() {
 
   const toggleSelectOne = (id: string) => {
     setSelectedGateways((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
     );
   };
 
@@ -94,7 +99,8 @@ export default function ReportCellularPage() {
   };
 
   const isAllSelected =
-    gateways.length > 0 && gateways.every((g) => selectedGateways.includes(g.id));
+    gateways.length > 0 &&
+    gateways.every((g) => selectedGateways.includes(g.id));
 
   // Global FilterHeader configs
   const filterConfigs: IFilterConfig[] = [
@@ -165,7 +171,8 @@ export default function ReportCellularPage() {
         id: "modem_temp",
         header: "Avg Temp",
         align: "center",
-        className: "bg-indigo-500/[0.025] dark:bg-indigo-500/[0.04] border-r-2 border-r-indigo-300 dark:border-r-indigo-700/80",
+        className:
+          "bg-indigo-500/[0.025] dark:bg-indigo-500/[0.04] border-r-2 border-r-indigo-300 dark:border-r-indigo-700/80",
         cell: (gw) => {
           const temp = gw.modem_temp ?? gw.network_avg_temp ?? 42;
           return (
@@ -174,8 +181,8 @@ export default function ReportCellularPage() {
                 temp >= 65
                   ? "text-[#e2445c]"
                   : temp >= 50
-                  ? "text-[#fdab3d]"
-                  : "text-slate-800 dark:text-slate-200"
+                    ? "text-[#fdab3d]"
+                    : "text-slate-800 dark:text-slate-200"
               }`}
             >
               {temp}&deg;C
@@ -208,16 +215,26 @@ export default function ReportCellularPage() {
         id: "quota_remaining_gb",
         header: "Remaining Quota",
         align: "center",
-        className: "bg-amber-500/[0.025] dark:bg-amber-500/[0.04] border-r-2 border-r-amber-300 dark:border-r-amber-700/80",
+        className:
+          "bg-amber-500/[0.025] dark:bg-amber-500/[0.04] border-r-2 border-r-amber-300 dark:border-r-amber-700/80",
         cell: (gw) => {
-          if (gw.quota_remaining_gb === undefined || gw.quota_remaining_gb === null) {
-            return <span className="text-slate-400 font-mono text-[11px]">-</span>;
+          if (
+            gw.quota_remaining_gb === undefined ||
+            gw.quota_remaining_gb === null
+          ) {
+            return (
+              <span className="text-slate-400 font-mono text-[11px]">-</span>
+            );
           }
           const quota = gw.quota_remaining_gb;
           return (
             <span
               className={`font-mono font-semibold whitespace-nowrap ${
-                quota <= 3 ? "text-[#e2445c]" : quota <= 8 ? "text-[#fdab3d]" : "text-[#00c875]"
+                quota <= 3
+                  ? "text-[#e2445c]"
+                  : quota <= 8
+                    ? "text-[#fdab3d]"
+                    : "text-[#00c875]"
               }`}
             >
               {quota} GB
@@ -252,7 +269,8 @@ export default function ReportCellularPage() {
         id: "cpu_modem_success_rate",
         header: "Success Rate",
         align: "center",
-        className: "bg-blue-500/[0.025] dark:bg-blue-500/[0.04] border-r-2 border-r-blue-300 dark:border-r-blue-700/80",
+        className:
+          "bg-blue-500/[0.025] dark:bg-blue-500/[0.04] border-r-2 border-r-blue-300 dark:border-r-blue-700/80",
         cell: (gw) => (
           <span className="text-slate-800 dark:text-slate-200 whitespace-nowrap">
             {gw.cpu_modem_success_rate}%
@@ -297,15 +315,16 @@ export default function ReportCellularPage() {
         id: "network_avg_rsrp",
         header: "Avg RSRP (dBm)",
         align: "center",
-        className: "bg-teal-500/[0.025] dark:bg-teal-500/[0.04] border-r-2 border-r-teal-300 dark:border-r-teal-700/80",
+        className:
+          "bg-teal-500/[0.025] dark:bg-teal-500/[0.04] border-r-2 border-r-teal-300 dark:border-r-teal-700/80",
         cell: (gw) => (
           <span
             className={`whitespace-nowrap font-medium ${
               gw.network_avg_rsrp > -85
                 ? "text-[#00c875]"
                 : gw.network_avg_rsrp > -100
-                ? "text-[#fdab3d]"
-                : "text-[#e2445c]"
+                  ? "text-[#fdab3d]"
+                  : "text-[#e2445c]"
             }`}
           >
             {gw.network_avg_rsrp} dBm
@@ -317,7 +336,8 @@ export default function ReportCellularPage() {
         id: "sla",
         header: "SLA",
         align: "center",
-        className: "bg-purple-500/[0.025] dark:bg-purple-500/[0.04] border-r-2 border-r-purple-300 dark:border-r-purple-700/80",
+        className:
+          "bg-purple-500/[0.025] dark:bg-purple-500/[0.04] border-r-2 border-r-purple-300 dark:border-r-purple-700/80",
         cell: (gw) => {
           const cpuSr = Number(gw.cpu_modem_success_rate ?? 100);
           const netSr = Number(gw.network_success_rate ?? 100);
@@ -334,8 +354,8 @@ export default function ReportCellularPage() {
                   isAchieved
                     ? "bg-[#00c875]/15 text-[#00c875] border-[#00c875]/30"
                     : isWarning
-                    ? "bg-[#fdab3d]/15 text-[#fdab3d] border-[#fdab3d]/30"
-                    : "bg-[#e2445c]/15 text-[#e2445c] border-[#e2445c]/30"
+                      ? "bg-[#fdab3d]/15 text-[#fdab3d] border-[#fdab3d]/30"
+                      : "bg-[#e2445c]/15 text-[#e2445c] border-[#e2445c]/30"
                 }`}
               >
                 {finalSla}%
@@ -373,14 +393,17 @@ export default function ReportCellularPage() {
       },
       */
     ],
-    []
+    [],
   );
 
   // Grouped Multi-level 2-Tier Header for DataTable
   const customHeaderRow = (
     <>
       <tr className="border-b border-slate-200/80 dark:border-slate-800/80 bg-slate-100 dark:bg-[#0e1628] text-slate-700 dark:text-slate-200 font-semibold text-xs">
-        <th rowSpan={2} className="py-2.5 px-3 w-10 text-center border-r border-slate-200/80 dark:border-slate-800/60 bg-slate-100 dark:bg-[#0e1628]">
+        <th
+          rowSpan={2}
+          className="py-2.5 px-3 w-10 text-center border-r border-slate-200/80 dark:border-slate-800/60 bg-slate-100 dark:bg-[#0e1628]"
+        >
           <input
             type="checkbox"
             checked={isAllSelected}
@@ -388,10 +411,16 @@ export default function ReportCellularPage() {
             className="rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-[#0073ea] focus:ring-[#0073ea] size-3.5 cursor-pointer"
           />
         </th>
-        <th rowSpan={2} className="py-2.5 px-4 whitespace-nowrap border-r border-slate-200/80 dark:border-slate-800/60 bg-slate-100 dark:bg-[#0e1628]">
+        <th
+          rowSpan={2}
+          className="py-2.5 px-4 whitespace-nowrap border-r border-slate-200/80 dark:border-slate-800/60 bg-slate-100 dark:bg-[#0e1628]"
+        >
           Location
         </th>
-        <th rowSpan={2} className="py-2.5 px-3 whitespace-nowrap border-r-2 border-r-slate-300 dark:border-r-slate-700/80 bg-slate-100 dark:bg-[#0e1628]">
+        <th
+          rowSpan={2}
+          className="py-2.5 px-3 whitespace-nowrap border-r-2 border-r-slate-300 dark:border-r-slate-700/80 bg-slate-100 dark:bg-[#0e1628]"
+        >
           Type
         </th>
 
@@ -428,8 +457,11 @@ export default function ReportCellularPage() {
         </th>
 
         {/* Individual Trailing Column: SLA (Apple Purple) */}
-        <th rowSpan={2} className="py-2.5 px-4 text-center whitespace-nowrap border-r-2 border-r-purple-300 dark:border-r-purple-700 font-bold bg-[#f5f0ff] dark:bg-[#1a0f30] text-purple-900 dark:text-purple-200">
-          SLA
+        <th
+          rowSpan={2}
+          className="py-2.5 px-4 text-center whitespace-nowrap border-r-2 border-r-purple-300 dark:border-r-purple-700 font-bold bg-[#f5f0ff] dark:bg-[#1a0f30] text-purple-900 dark:text-purple-200"
+        >
+          UPTIME
         </th>
 
         {/* Sementara di-comment (Incident Period):
@@ -464,16 +496,26 @@ export default function ReportCellularPage() {
         </th>
 
         {/* Under CPU - Modem (Blue Sub-headers) */}
-        <th className="py-2 px-2.5 text-center text-[#00c875] bg-[#f4f8ff] dark:bg-[#08152b] border-r border-blue-200/60 dark:border-blue-900/50">Uptime</th>
-        <th className="py-2 px-2.5 text-center text-[#e2445c] bg-[#f4f8ff] dark:bg-[#08152b] border-r border-blue-200/60 dark:border-blue-900/50">Downtime</th>
+        <th className="py-2 px-2.5 text-center text-[#00c875] bg-[#f4f8ff] dark:bg-[#08152b] border-r border-blue-200/60 dark:border-blue-900/50">
+          Uptime
+        </th>
+        <th className="py-2 px-2.5 text-center text-[#e2445c] bg-[#f4f8ff] dark:bg-[#08152b] border-r border-blue-200/60 dark:border-blue-900/50">
+          Downtime
+        </th>
         <th className="py-2 px-2.5 text-center whitespace-nowrap text-blue-900 dark:text-blue-200 bg-[#f4f8ff] dark:bg-[#08152b] border-r-2 border-r-blue-300 dark:border-r-blue-700">
           Success Rate
         </th>
 
         {/* Under Network Connection (Teal Sub-headers) */}
-        <th className="py-2 px-2.5 text-center text-[#00c875] bg-[#effcf8] dark:bg-[#041a18] border-r border-teal-200/60 dark:border-teal-900/50">Uptime</th>
-        <th className="py-2 px-2.5 text-center text-[#e2445c] bg-[#effcf8] dark:bg-[#041a18] border-r border-teal-200/60 dark:border-teal-900/50">Downtime</th>
-        <th className="py-2 px-2.5 text-center whitespace-nowrap text-[#00c875] bg-[#effcf8] dark:bg-[#041a18] border-r border-teal-200/60 dark:border-teal-900/50">Success Rate</th>
+        <th className="py-2 px-2.5 text-center text-[#00c875] bg-[#effcf8] dark:bg-[#041a18] border-r border-teal-200/60 dark:border-teal-900/50">
+          Uptime
+        </th>
+        <th className="py-2 px-2.5 text-center text-[#e2445c] bg-[#effcf8] dark:bg-[#041a18] border-r border-teal-200/60 dark:border-teal-900/50">
+          Downtime
+        </th>
+        <th className="py-2 px-2.5 text-center whitespace-nowrap text-[#00c875] bg-[#effcf8] dark:bg-[#041a18] border-r border-teal-200/60 dark:border-teal-900/50">
+          Success Rate
+        </th>
         <th className="py-2 px-2.5 text-center whitespace-nowrap text-teal-900 dark:text-teal-200 bg-[#effcf8] dark:bg-[#041a18] border-r-2 border-r-teal-300 dark:border-r-teal-700">
           Avg RSRP (dBm)
         </th>
@@ -499,7 +541,6 @@ export default function ReportCellularPage() {
           searchPlaceholder="Search Gateway ID / Location..."
           filters={filterConfigs}
           timeframe={filters.date_range || getCurrentMonthPeriodStr()}
-
           onDateRangeChange={(range) => handleFilterChange("date_range", range)}
           onExportClick={handleExport}
           exportLoading={isExporting}
@@ -525,12 +566,17 @@ export default function ReportCellularPage() {
           onPageSizeChange={handlePageSizeChange}
           customHeaderRow={customHeaderRow}
           isLoading={isLoading}
-          className={selectedGatewayId ? "min-h-125" : "h-[calc(100vh-84px)] flex-1"}
+          className={
+            selectedGatewayId ? "min-h-125" : "h-[calc(100vh-84px)] flex-1"
+          }
         />
 
         {/* 3. Detail Performa Gateway - Muncul di bawah saat baris diklik */}
         {selectedGatewayId && (
-          <div ref={detailRef} className="pt-2 animate-in fade-in slide-in-from-top-4 duration-300">
+          <div
+            ref={detailRef}
+            className="pt-2 animate-in fade-in slide-in-from-top-4 duration-300"
+          >
             <CellularReportDetailCard
               gatewayId={selectedGatewayId}
               dateRange={filters.date_range}

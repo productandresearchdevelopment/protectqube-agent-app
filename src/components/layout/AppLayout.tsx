@@ -11,6 +11,7 @@ import {
   Video,
   FileText,
   Activity,
+  BarChart2,
   Menu,
   X,
   PanelLeft,
@@ -54,7 +55,8 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
     haveRoute("/reports") ||
     haveRoute("/reports/cellular") ||
     haveRoute("/reports/dvr") ||
-    haveRoute("/reports/health");
+    haveRoute("/reports/health") ||
+    haveRoute("/reports/sla");
 
   useEffect(() => {
     setMounted(true);
@@ -273,6 +275,20 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
                         >
                           <Activity className="size-4 shrink-0" />
                           <span className="truncate">Report Health</span>
+                        </Link>
+                      )}
+
+                      {haveRoute("/reports/sla") && (
+                        <Link
+                          href="/reports/sla"
+                          className={`flex items-center gap-2.5 text-xs font-medium rounded-lg px-3 py-2 transition-all ${
+                            pathname === "/reports/sla"
+                              ? "bg-[#0073ea] text-white font-semibold shadow-sm"
+                              : "text-slate-200 hover:text-white hover:bg-white/10"
+                          }`}
+                        >
+                          <BarChart2 className="size-4 shrink-0" />
+                          <span className="truncate">Report SLA</span>
                         </Link>
                       )}
                     </div>

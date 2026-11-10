@@ -2,43 +2,46 @@ import { IGatewayHealthTelemetry } from "@/types/model";
 import { getToken, handleFetchError } from "@/utils/common";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api/v1";
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api/v1";
 
-export const fetchGatewayHealth = async (): Promise<IGatewayHealthTelemetry> => {
-  const token = getToken();
-  const headers: HeadersInit = {};
-  if (token) headers["Authorization"] = `Bearer ${token}`;
+export const fetchGatewayHealth =
+  async (): Promise<IGatewayHealthTelemetry> => {
+    const token = getToken();
+    const headers: HeadersInit = {};
+    if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  const response = await fetch(`${API_BASE_URL}/monitoring/health`, {
-    headers,
-    cache: "no-store",
-  });
+    const response = await fetch(`${API_BASE_URL}/monitoring/health`, {
+      headers,
+      cache: "no-store",
+    });
 
-  if (!response.ok) {
-    await handleFetchError(response);
-  }
+    if (!response.ok) {
+      await handleFetchError(response);
+    }
 
-  const data = await response.json();
-  return data.data;
-};
+    const data = await response.json();
+    return data.data;
+  };
 
-export const triggerManualInspection = async (): Promise<IGatewayHealthTelemetry> => {
-  const token = getToken();
-  const headers: HeadersInit = { "Content-Type": "application/json" };
-  if (token) headers["Authorization"] = `Bearer ${token}`;
+export const triggerManualInspection =
+  async (): Promise<IGatewayHealthTelemetry> => {
+    const token = getToken();
+    const headers: HeadersInit = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  const response = await fetch(`${API_BASE_URL}/monitoring/trigger`, {
-    method: "POST",
-    headers,
-  });
+    const response = await fetch(`${API_BASE_URL}/monitoring/trigger`, {
+      method: "POST",
+      headers,
+    });
 
-  if (!response.ok) {
-    await handleFetchError(response);
-  }
+    if (!response.ok) {
+      await handleFetchError(response);
+    }
 
-  const data = await response.json();
-  return data.data;
-};
+    const data = await response.json();
+    return data.data;
+  };
 
 export const useGatewayHealth = () => {
   return useQuery({
@@ -152,7 +155,7 @@ export interface ISystemHealthFilters {
 }
 
 export const fetchSystemHealthDashboard = async (
-  filters?: ISystemHealthFilters
+  filters?: ISystemHealthFilters,
 ): Promise<ISystemHealthDashboardData> => {
   const token = getToken();
   const headers: HeadersInit = {};
@@ -160,8 +163,18 @@ export const fetchSystemHealthDashboard = async (
 
   const params = new URLSearchParams();
   if (filters?.search) params.append("search", filters.search);
-  if (filters?.type && !filters.type.startsWith("Semua") && !filters.type.startsWith("All")) params.append("gateway_type", filters.type);
-  if (filters?.status && !filters.status.startsWith("Semua") && !filters.status.startsWith("All")) params.append("status", filters.status);
+  if (
+    filters?.type &&
+    !filters.type.startsWith("Semua") &&
+    !filters.type.startsWith("All")
+  )
+    params.append("gateway_type", filters.type);
+  if (
+    filters?.status &&
+    !filters.status.startsWith("Semua") &&
+    !filters.status.startsWith("All")
+  )
+    params.append("status", filters.status);
   if (filters?.page) params.append("page", String(filters.page));
   if (filters?.pageSize) params.append("page_size", String(filters.pageSize));
 
@@ -273,7 +286,7 @@ export interface ICellularFilters {
 }
 
 export const fetchCellularDashboard = async (
-  filters?: ICellularFilters
+  filters?: ICellularFilters,
 ): Promise<ICellularDashboardData> => {
   const token = getToken();
   const headers: HeadersInit = {};
@@ -281,9 +294,24 @@ export const fetchCellularDashboard = async (
 
   const params = new URLSearchParams();
   if (filters?.search) params.append("search", filters.search);
-  if (filters?.type && !filters.type.startsWith("Semua") && !filters.type.startsWith("All")) params.append("gateway_type", filters.type);
-  if (filters?.status && !filters.status.startsWith("Semua") && !filters.status.startsWith("All")) params.append("status", filters.status);
-  if (filters?.provider && !filters.provider.startsWith("Semua") && !filters.provider.startsWith("All")) params.append("provider", filters.provider);
+  if (
+    filters?.type &&
+    !filters.type.startsWith("Semua") &&
+    !filters.type.startsWith("All")
+  )
+    params.append("gateway_type", filters.type);
+  if (
+    filters?.status &&
+    !filters.status.startsWith("Semua") &&
+    !filters.status.startsWith("All")
+  )
+    params.append("status", filters.status);
+  if (
+    filters?.provider &&
+    !filters.provider.startsWith("Semua") &&
+    !filters.provider.startsWith("All")
+  )
+    params.append("provider", filters.provider);
   if (filters?.page) params.append("page", String(filters.page));
   if (filters?.pageSize) params.append("page_size", String(filters.pageSize));
 
@@ -379,7 +407,7 @@ export interface IDVRFilters {
 }
 
 export const fetchDVRDashboard = async (
-  filters?: IDVRFilters
+  filters?: IDVRFilters,
 ): Promise<IDVRDashboardData> => {
   const token = getToken();
   const headers: HeadersInit = {};
@@ -387,8 +415,18 @@ export const fetchDVRDashboard = async (
 
   const params = new URLSearchParams();
   if (filters?.search) params.append("search", filters.search);
-  if (filters?.type && !filters.type.startsWith("Semua") && !filters.type.startsWith("All")) params.append("gateway_type", filters.type);
-  if (filters?.status && !filters.status.startsWith("Semua") && !filters.status.startsWith("All")) params.append("status", filters.status);
+  if (
+    filters?.type &&
+    !filters.type.startsWith("Semua") &&
+    !filters.type.startsWith("All")
+  )
+    params.append("gateway_type", filters.type);
+  if (
+    filters?.status &&
+    !filters.status.startsWith("Semua") &&
+    !filters.status.startsWith("All")
+  )
+    params.append("status", filters.status);
   if (filters?.page) params.append("page", String(filters.page));
   if (filters?.pageSize) params.append("page_size", String(filters.pageSize));
 
@@ -459,7 +497,7 @@ export interface ICellularReportFilters {
 }
 
 export const fetchCellularReport = async (
-  filters?: ICellularReportFilters
+  filters?: ICellularReportFilters,
 ): Promise<ICellularReportData> => {
   const token = getToken();
   const headers: HeadersInit = {};
@@ -467,9 +505,24 @@ export const fetchCellularReport = async (
 
   const params = new URLSearchParams();
   if (filters?.search) params.append("search", filters.search);
-  if (filters?.type && !filters.type.startsWith("Semua") && !filters.type.startsWith("All")) params.append("gateway_type", filters.type);
-  if (filters?.provider && !filters.provider.startsWith("Semua") && !filters.provider.startsWith("All")) params.append("provider", filters.provider);
-  if (filters?.location && !filters.location.startsWith("Semua") && !filters.location.startsWith("All")) params.append("location", filters.location);
+  if (
+    filters?.type &&
+    !filters.type.startsWith("Semua") &&
+    !filters.type.startsWith("All")
+  )
+    params.append("gateway_type", filters.type);
+  if (
+    filters?.provider &&
+    !filters.provider.startsWith("Semua") &&
+    !filters.provider.startsWith("All")
+  )
+    params.append("provider", filters.provider);
+  if (
+    filters?.location &&
+    !filters.location.startsWith("Semua") &&
+    !filters.location.startsWith("All")
+  )
+    params.append("location", filters.location);
   if (filters?.date_range) params.append("date_range", filters.date_range);
   if (filters?.page) params.append("page", String(filters.page));
   if (filters?.pageSize) params.append("page_size", String(filters.pageSize));
@@ -494,18 +547,38 @@ export const useCellularReport = (filters?: ICellularReportFilters) => {
   });
 };
 
-export const exportCellularReportExcelUrl = (filters?: ICellularReportFilters) => {
+export const exportCellularReportExcelUrl = (
+  filters?: ICellularReportFilters,
+) => {
   const params = new URLSearchParams();
   if (filters?.search) params.append("search", filters.search);
-  if (filters?.type && !filters.type.startsWith("Semua") && !filters.type.startsWith("All")) params.append("gateway_type", filters.type);
-  if (filters?.provider && !filters.provider.startsWith("Semua") && !filters.provider.startsWith("All")) params.append("provider", filters.provider);
-  if (filters?.location && !filters.location.startsWith("Semua") && !filters.location.startsWith("All")) params.append("location", filters.location);
+  if (
+    filters?.type &&
+    !filters.type.startsWith("Semua") &&
+    !filters.type.startsWith("All")
+  )
+    params.append("gateway_type", filters.type);
+  if (
+    filters?.provider &&
+    !filters.provider.startsWith("Semua") &&
+    !filters.provider.startsWith("All")
+  )
+    params.append("provider", filters.provider);
+  if (
+    filters?.location &&
+    !filters.location.startsWith("Semua") &&
+    !filters.location.startsWith("All")
+  )
+    params.append("location", filters.location);
   if (filters?.date_range) params.append("date_range", filters.date_range);
   return `${API_BASE_URL}/monitoring/reports/cellular/export-excel?${params.toString()}`;
 };
 export const exportCellularReportCsvUrl = exportCellularReportExcelUrl;
 
-export const exportCellularDetailPdfUrl = (gatewayId: string, dateRange?: string) => {
+export const exportCellularDetailPdfUrl = (
+  gatewayId: string,
+  dateRange?: string,
+) => {
   const params = new URLSearchParams();
   if (dateRange) params.append("date_range", dateRange);
   return `${API_BASE_URL}/monitoring/reports/cellular/gateway/${gatewayId}/export-pdf?${params.toString()}`;
@@ -631,7 +704,7 @@ export interface IDailySlaSummary {
 
 export const fetchCellularReportGatewayDetail = async (
   gatewayId: string,
-  dateRange?: string
+  dateRange?: string,
 ): Promise<ICellularReportGatewayDetail> => {
   const token = getToken();
   const headers: HeadersInit = {};
@@ -653,17 +726,17 @@ export const fetchCellularReportGatewayDetail = async (
 
 export const useCellularReportGatewayDetail = (
   gatewayId: string | null,
-  dateRange?: string
+  dateRange?: string,
 ) => {
   return useQuery({
     queryKey: ["cellularReportGatewayDetail", gatewayId, dateRange],
-    queryFn: () => (gatewayId ? fetchCellularReportGatewayDetail(gatewayId, dateRange) : null),
+    queryFn: () =>
+      gatewayId ? fetchCellularReportGatewayDetail(gatewayId, dateRange) : null,
     enabled: !!gatewayId,
     refetchInterval: 30000,
     staleTime: 20000,
   });
 };
-
 
 export interface IDVRReportItem {
   no: number;
@@ -714,7 +787,7 @@ export interface IDVRReportFilters {
 }
 
 export const fetchDVRReport = async (
-  filters?: IDVRReportFilters
+  filters?: IDVRReportFilters,
 ): Promise<IDVRReportData> => {
   const token = getToken();
   const headers: HeadersInit = {};
@@ -722,9 +795,20 @@ export const fetchDVRReport = async (
 
   const params = new URLSearchParams();
   if (filters?.search) params.append("search", filters.search);
-  if (filters?.type && filters.type !== "Semua Tipe") params.append("gateway_type", filters.type);
-  if (filters?.dvr_brand && !filters.dvr_brand.startsWith("Semua") && !filters.dvr_brand.startsWith("All")) params.append("dvr_brand", filters.dvr_brand);
-  if (filters?.location && !filters.location.startsWith("Semua") && !filters.location.startsWith("All")) params.append("location", filters.location);
+  if (filters?.type && filters.type !== "Semua Tipe")
+    params.append("gateway_type", filters.type);
+  if (
+    filters?.dvr_brand &&
+    !filters.dvr_brand.startsWith("Semua") &&
+    !filters.dvr_brand.startsWith("All")
+  )
+    params.append("dvr_brand", filters.dvr_brand);
+  if (
+    filters?.location &&
+    !filters.location.startsWith("Semua") &&
+    !filters.location.startsWith("All")
+  )
+    params.append("location", filters.location);
   if (filters?.date_range) params.append("date_range", filters.date_range);
   if (filters?.page) params.append("page", String(filters.page));
   if (filters?.pageSize) params.append("page_size", String(filters.pageSize));
@@ -752,15 +836,29 @@ export const useDVRReport = (filters?: IDVRReportFilters) => {
 export const exportDVRReportExcelUrl = (filters?: IDVRReportFilters) => {
   const params = new URLSearchParams();
   if (filters?.search) params.append("search", filters.search);
-  if (filters?.type && filters.type !== "Semua Tipe") params.append("gateway_type", filters.type);
-  if (filters?.dvr_brand && !filters.dvr_brand.startsWith("Semua") && !filters.dvr_brand.startsWith("All")) params.append("dvr_brand", filters.dvr_brand);
-  if (filters?.location && !filters.location.startsWith("Semua") && !filters.location.startsWith("All")) params.append("location", filters.location);
+  if (filters?.type && filters.type !== "Semua Tipe")
+    params.append("gateway_type", filters.type);
+  if (
+    filters?.dvr_brand &&
+    !filters.dvr_brand.startsWith("Semua") &&
+    !filters.dvr_brand.startsWith("All")
+  )
+    params.append("dvr_brand", filters.dvr_brand);
+  if (
+    filters?.location &&
+    !filters.location.startsWith("Semua") &&
+    !filters.location.startsWith("All")
+  )
+    params.append("location", filters.location);
   if (filters?.date_range) params.append("date_range", filters.date_range);
   return `${API_BASE_URL}/monitoring/reports/dvr/export-excel?${params.toString()}`;
 };
 export const exportDVRReportCsvUrl = exportDVRReportExcelUrl;
 
-export const exportDVRDetailPdfUrl = (gatewayId: string, dateRange?: string) => {
+export const exportDVRDetailPdfUrl = (
+  gatewayId: string,
+  dateRange?: string,
+) => {
   const params = new URLSearchParams();
   if (dateRange) params.append("date_range", dateRange);
   return `${API_BASE_URL}/monitoring/reports/dvr/gateway/${encodeURIComponent(gatewayId)}/export-pdf?${params.toString()}`;
@@ -833,7 +931,7 @@ export interface IDVRReportGatewayDetail {
 
 export const fetchDVRReportGatewayDetail = async (
   gatewayId: string,
-  dateRange?: string
+  dateRange?: string,
 ): Promise<IDVRReportGatewayDetail> => {
   const token = getToken();
   const headers: HeadersInit = {};
@@ -855,17 +953,17 @@ export const fetchDVRReportGatewayDetail = async (
 
 export const useDVRReportGatewayDetail = (
   gatewayId: string | null,
-  dateRange?: string
+  dateRange?: string,
 ) => {
   return useQuery({
     queryKey: ["dvrReportGatewayDetail", gatewayId, dateRange],
-    queryFn: () => (gatewayId ? fetchDVRReportGatewayDetail(gatewayId, dateRange) : null),
+    queryFn: () =>
+      gatewayId ? fetchDVRReportGatewayDetail(gatewayId, dateRange) : null,
     enabled: !!gatewayId,
     refetchInterval: 30000,
     staleTime: 20000,
   });
 };
-
 
 export interface IHealthReportItem {
   no: number;
@@ -914,7 +1012,7 @@ export interface IHealthReportFilters {
 }
 
 export const fetchHealthReport = async (
-  filters?: IHealthReportFilters
+  filters?: IHealthReportFilters,
 ): Promise<IHealthReportData> => {
   const token = getToken();
   const headers: HeadersInit = {};
@@ -922,8 +1020,14 @@ export const fetchHealthReport = async (
 
   const params = new URLSearchParams();
   if (filters?.search) params.append("search", filters.search);
-  if (filters?.type && filters.type !== "Semua Tipe") params.append("gateway_type", filters.type);
-  if (filters?.location && !filters.location.startsWith("Semua") && !filters.location.startsWith("All")) params.append("location", filters.location);
+  if (filters?.type && filters.type !== "Semua Tipe")
+    params.append("gateway_type", filters.type);
+  if (
+    filters?.location &&
+    !filters.location.startsWith("Semua") &&
+    !filters.location.startsWith("All")
+  )
+    params.append("location", filters.location);
   if (filters?.date_range) params.append("date_range", filters.date_range);
   if (filters?.page) params.append("page", String(filters.page));
   if (filters?.pageSize) params.append("page_size", String(filters.pageSize));
@@ -951,14 +1055,23 @@ export const useHealthReport = (filters?: IHealthReportFilters) => {
 export const exportHealthReportExcelUrl = (filters?: IHealthReportFilters) => {
   const params = new URLSearchParams();
   if (filters?.search) params.append("search", filters.search);
-  if (filters?.type && filters.type !== "Semua Tipe") params.append("gateway_type", filters.type);
-  if (filters?.location && !filters.location.startsWith("Semua") && !filters.location.startsWith("All")) params.append("location", filters.location);
+  if (filters?.type && filters.type !== "Semua Tipe")
+    params.append("gateway_type", filters.type);
+  if (
+    filters?.location &&
+    !filters.location.startsWith("Semua") &&
+    !filters.location.startsWith("All")
+  )
+    params.append("location", filters.location);
   if (filters?.date_range) params.append("date_range", filters.date_range);
   return `${API_BASE_URL}/monitoring/reports/health/export-excel?${params.toString()}`;
 };
 export const exportHealthReportCsvUrl = exportHealthReportExcelUrl;
 
-export const exportHealthDetailPdfUrl = (gatewayId: string, dateRange?: string) => {
+export const exportHealthDetailPdfUrl = (
+  gatewayId: string,
+  dateRange?: string,
+) => {
   const params = new URLSearchParams();
   if (dateRange) params.append("date_range", dateRange);
   return `${API_BASE_URL}/monitoring/reports/health/gateway/${encodeURIComponent(gatewayId)}/export-pdf?${params.toString()}`;
@@ -986,7 +1099,14 @@ export interface IHealthReportEvent {
 }
 
 export interface IHealthTimelineSegment {
-  status: "normal" | "cpu_high" | "ram_high" | "sd_high" | "suhu_high" | "no_data" | "offline";
+  status:
+    | "normal"
+    | "cpu_high"
+    | "ram_high"
+    | "sd_high"
+    | "suhu_high"
+    | "no_data"
+    | "offline";
   start_pct: number;
   width_pct: number;
   label: string;
@@ -1042,7 +1162,7 @@ export interface IHealthReportGatewayDetail {
 
 export const fetchHealthReportGatewayDetail = async (
   gatewayId: string,
-  dateRange?: string
+  dateRange?: string,
 ): Promise<IHealthReportGatewayDetail> => {
   const token = getToken();
   const headers: HeadersInit = {};
@@ -1064,17 +1184,17 @@ export const fetchHealthReportGatewayDetail = async (
 
 export const useHealthReportGatewayDetail = (
   gatewayId: string | null,
-  dateRange?: string
+  dateRange?: string,
 ) => {
   return useQuery({
     queryKey: ["healthReportGatewayDetail", gatewayId, dateRange],
-    queryFn: () => (gatewayId ? fetchHealthReportGatewayDetail(gatewayId, dateRange) : null),
+    queryFn: () =>
+      gatewayId ? fetchHealthReportGatewayDetail(gatewayId, dateRange) : null,
     enabled: !!gatewayId,
     refetchInterval: 30000,
     staleTime: 20000,
   });
 };
-
 
 export interface ISDHealthDetails {
   status: string;
@@ -1216,7 +1336,7 @@ export interface IGatewayDetailData {
 }
 
 export const fetchGatewayDetail = async (
-  gatewayId: string
+  gatewayId: string,
 ): Promise<IGatewayDetailData> => {
   const token = getToken();
   const headers: HeadersInit = {};
@@ -1329,7 +1449,7 @@ export interface ICellularGatewayDetailData {
 }
 
 export const fetchCellularGatewayDetail = async (
-  gatewayId: string
+  gatewayId: string,
 ): Promise<ICellularGatewayDetailData> => {
   const token = getToken();
   const headers: HeadersInit = {};
@@ -1436,7 +1556,7 @@ export interface IDVRGatewayDetailData {
 }
 
 export const fetchDVRGatewayDetail = async (
-  gatewayId: string
+  gatewayId: string,
 ): Promise<IDVRGatewayDetailData> => {
   const token = getToken();
   const headers: HeadersInit = {};
@@ -1467,10 +1587,13 @@ export const rebootDVRGateway = async (gatewayId: string): Promise<any> => {
   const headers: HeadersInit = { "Content-Type": "application/json" };
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  const response = await fetch(`${API_BASE_URL}/monitoring/dvr/gateway/${gatewayId}/reboot`, {
-    method: "POST",
-    headers,
-  });
+  const response = await fetch(
+    `${API_BASE_URL}/monitoring/dvr/gateway/${gatewayId}/reboot`,
+    {
+      method: "POST",
+      headers,
+    },
+  );
 
   if (!response.ok) {
     await handleFetchError(response);
@@ -1485,7 +1608,9 @@ export const useRebootDVRGateway = () => {
   return useMutation({
     mutationFn: (gatewayId: string) => rebootDVRGateway(gatewayId),
     onSuccess: (_, gatewayId) => {
-      queryClient.invalidateQueries({ queryKey: ["dvrGatewayDetail", gatewayId] });
+      queryClient.invalidateQueries({
+        queryKey: ["dvrGatewayDetail", gatewayId],
+      });
       queryClient.invalidateQueries({ queryKey: ["dvrDashboard"] });
     },
   });
@@ -1495,7 +1620,10 @@ export const useRebootDVRGateway = () => {
  * Client-side file downloader that carries authorization token headers,
  * extracts filename from Content-Disposition if present, and triggers browser save.
  */
-export const downloadReportFile = async (url: string, defaultFilename = "report_export"): Promise<void> => {
+export const downloadReportFile = async (
+  url: string,
+  defaultFilename = "report_export",
+): Promise<void> => {
   const token = getToken();
   const headers: HeadersInit = {};
   if (token) headers["Authorization"] = `Bearer ${token}`;
@@ -1530,10 +1658,227 @@ export const downloadReportFile = async (url: string, defaultFilename = "report_
   window.URL.revokeObjectURL(downloadUrl);
 };
 
+// =========================================================================
+// REPORT SLA (FLEET SLA & AVAILABILITY)
+// =========================================================================
 
+export interface ISLAReportFilters {
+  search?: string;
+  type?: string;
+  sla_status?: string;
+  date_range?: string;
+  page?: number;
+  pageSize?: number;
+}
 
+export interface ISLAReportItem {
+  no: number;
+  id: string;
+  location: string;
+  type: string;
+  customer: string;
+  hardware_model: string;
 
+  // Smartbox
+  smartbox_status: string;
+  smartbox_uptime_pct: number;
+  smartbox_uptime_duration?: string;
 
+  // DVR
+  dvr_status: string;
+  dvr_uptime_pct: number;
+  dvr_uptime_duration?: string;
 
+  // Network
+  network_status: string;
+  network_uptime_pct: number;
+  network_uptime_duration?: string;
 
+  // SLA
+  sla_uptime_pct: number;
+  sla_failure_rate_pct: number;
 
+  // References
+  overall_sla_pct: number;
+  gateway_sla_pct: number;
+  cellular_sla_pct: number;
+  dvr_sla_pct: number;
+  gateway_uptime_str?: string;
+  gateway_offline_str?: string;
+  cellular_uptime_str?: string;
+  cellular_offline_str?: string;
+  dvr_uptime_str?: string;
+  dvr_offline_str?: string;
+  events_count: number;
+  last_update?: string;
+}
+
+export interface ISLAReportSummary {
+  total_gateways: number;
+  total_locations: number;
+  device_online_count: number;
+  device_offline_count: number;
+  total_cameras: number;
+  cameras_online: number;
+  cameras_offline: number;
+  total_storage_tb: number;
+  storage_used_tb: number;
+  avg_sla_uptime: number;
+  avg_sla_failure_rate: number;
+  avg_smartbox_uptime: number;
+  avg_dvr_uptime: number;
+  avg_network_uptime: number;
+  total_incidents: number;
+  mttr_minutes: number;
+  mttr_formatted: string;
+  mtbf_hours: number;
+  mtbf_formatted: string;
+  meet_sla_count: number;
+  breach_sla_count: number;
+  meet_sla_percent: number;
+  smartbox_hitam_sla: number;
+  smartbox_putih_sla: number;
+}
+
+export interface ISLAReportData {
+  gateways: ISLAReportItem[];
+  summary: ISLAReportSummary;
+  pagination: {
+    total_items: number;
+    total_pages: number;
+    current_page: number;
+    page_size: number;
+    showing_start: number;
+    showing_end: number;
+  };
+}
+
+export const fetchSLAReport = async (
+  filters?: ISLAReportFilters,
+): Promise<ISLAReportData> => {
+  const token = getToken();
+  const headers: HeadersInit = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const params = new URLSearchParams();
+  if (filters?.search) params.append("search", filters.search);
+  if (
+    filters?.type &&
+    filters.type !== "All Types" &&
+    filters.type !== "Semua Tipe"
+  )
+    params.append("type", filters.type);
+  if (
+    filters?.sla_status &&
+    filters.sla_status !== "All SLA" &&
+    filters.sla_status !== "Semua SLA"
+  )
+    params.append("sla_status", filters.sla_status);
+  if (filters?.date_range) params.append("date_range", filters.date_range);
+  if (filters?.page) params.append("page", filters.page.toString());
+  if (filters?.pageSize)
+    params.append("page_size", filters.pageSize.toString());
+
+  const url = `${API_BASE_URL}/monitoring/reports/sla?${params.toString()}`;
+  const response = await fetch(url, { headers, cache: "no-store" });
+  if (!response.ok) {
+    await handleFetchError(response);
+  }
+  const json = await response.json();
+  return json.data;
+};
+
+export const useSLAReport = (filters?: ISLAReportFilters) => {
+  return useQuery({
+    queryKey: ["slaReport", filters],
+    queryFn: () => fetchSLAReport(filters),
+    refetchInterval: 30000,
+    staleTime: 20000,
+  });
+};
+
+export const exportSLAReportExcelUrl = (filters?: ISLAReportFilters) => {
+  const params = new URLSearchParams();
+  if (filters?.search) params.append("search", filters.search);
+  if (
+    filters?.type &&
+    filters.type !== "All Types" &&
+    filters.type !== "Semua Tipe"
+  )
+    params.append("type", filters.type);
+  if (
+    filters?.sla_status &&
+    filters.sla_status !== "All SLA" &&
+    filters.sla_status !== "Semua SLA"
+  )
+    params.append("sla_status", filters.sla_status);
+  if (filters?.date_range) params.append("date_range", filters.date_range);
+  return `${API_BASE_URL}/monitoring/reports/sla/export-excel?${params.toString()}`;
+};
+
+export interface ISLAReportGatewayDetail {
+  id: string;
+  location: string;
+  type: string;
+  customer: string;
+  hardware_model: string;
+  status: string;
+  period: string;
+  period_hours: string;
+  sla_target: number;
+  sla_uptime_pct: number;
+  sla_failure_rate_pct: number;
+  meets_sla: boolean;
+  smartbox_status: string;
+  smartbox_uptime_pct: number;
+  smartbox_uptime_duration: string;
+  smartbox_offline_duration: string;
+  dvr_status: string;
+  dvr_uptime_pct: number;
+  dvr_uptime_duration: string;
+  dvr_offline_duration: string;
+  network_status: string;
+  network_uptime_pct: number;
+  network_uptime_duration: string;
+  network_offline_duration: string;
+  trouble_events: any[];
+  daily_breakdown: any[];
+  daily_summary?: any;
+  timeline_tracks?: any[];
+}
+
+export const fetchSLAReportGatewayDetail = async (
+  gatewayId: string,
+  dateRange?: string,
+): Promise<ISLAReportGatewayDetail> => {
+  const token = getToken();
+  const headers: HeadersInit = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const params = new URLSearchParams();
+  if (dateRange) params.append("date_range", dateRange);
+
+  const url = `${API_BASE_URL}/monitoring/reports/sla/gateway/${encodeURIComponent(gatewayId)}/detail?${params.toString()}`;
+  const response = await fetch(url, { headers, cache: "no-store" });
+
+  if (!response.ok) {
+    await handleFetchError(response);
+  }
+
+  const json = await response.json();
+  return json.data;
+};
+
+export const useSLAReportGatewayDetail = (
+  gatewayId: string | null,
+  dateRange?: string,
+) => {
+  return useQuery({
+    queryKey: ["slaReportGatewayDetail", gatewayId, dateRange],
+    queryFn: () =>
+      gatewayId ? fetchSLAReportGatewayDetail(gatewayId, dateRange) : null,
+    enabled: Boolean(gatewayId),
+    refetchInterval: 30000,
+    staleTime: 15000,
+  });
+};

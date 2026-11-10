@@ -11,6 +11,7 @@ export type CardColorTheme =
   | "purple"
   | "indigo"
   | "cyan"
+  | "teal"
   | "slate";
 
 // Isometric 3D SVG of the SmartBox Gateway Device (Hitam or Putih)
@@ -61,14 +62,15 @@ export const SmartBoxIllustration: React.FC<{
 
 export interface ISummaryCardItem {
   id?: string;
-  title: string;
-  value: string | number;
+  title?: string;
+  value?: string | number;
   icon?: LucideIcon;
   color?: CardColorTheme;
   percentage?: string | number;
   sublabel?: string;
   deviceType?: "hitam" | "putih";
   deviceImage?: React.ReactNode;
+  children?: React.ReactNode;
   breakdown?: {
     healthy: number;
     warning: number;
@@ -135,6 +137,11 @@ const cardThemeMap: Record<
     iconBg: "bg-cyan-500 text-white",
     valColor: "text-cyan-600 dark:text-cyan-400",
   },
+  teal: {
+    cardBg: "bg-white dark:bg-[#04201a] border-slate-200/90 dark:border-teal-900/50 shadow-xs",
+    iconBg: "bg-teal-500 text-white",
+    valColor: "text-teal-600 dark:text-teal-400",
+  },
 };
 
 export const SummaryCard: React.FC<ISummaryCardItem> = ({
@@ -153,6 +160,7 @@ export const SummaryCard: React.FC<ISummaryCardItem> = ({
   onClick,
   active = false,
   className = "",
+  children,
 }) => {
   const theme = cardThemeMap[color] || cardThemeMap.blue;
 
@@ -197,78 +205,84 @@ export const SummaryCard: React.FC<ISummaryCardItem> = ({
 
       {/* Right Column: Values & Details */}
       <div className="flex-1 min-w-0">
-        {/* Value */}
-        <div className={`text-xl sm:text-2xl font-black tracking-tight leading-none ${theme.valColor}`}>
-          {typeof value === "number" ? value.toLocaleString() : value}
-        </div>
-
-        {/* Title & Sublabel */}
-        <div className="mt-1 flex items-baseline gap-1 flex-wrap">
-          <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 tracking-tight truncate">
-            {title}
-          </span>
-          {sublabel && (
-            <span className="text-[10px] text-slate-500 dark:text-slate-400 font-normal truncate">
-              {sublabel}
-            </span>
-          )}
-        </div>
-
-        {/* Percentage (e.g. 94.5% for Healthy, 4.0% for Warning) */}
-        {percentage && (
-          <div className={`text-xs font-bold leading-none mt-1 ${theme.valColor}`}>
-            {percentage}
-          </div>
-        )}
-
-        {/* Breakdown Progress Bar & Legend (for SmartBox Hitam & Putih) */}
-        {breakdown && (
-          <div className="mt-1.5 w-full">
-            <div className="h-1.5 w-full rounded-full bg-slate-100 dark:bg-slate-800 flex overflow-hidden">
-              <div
-                style={{ width: `${(breakdown.healthy / breakdownTotal) * 100}%` }}
-                className="bg-[#00c875] h-full"
-              />
-              {breakdown.warning > 0 && (
-                <div
-                  style={{ width: `${(breakdown.warning / breakdownTotal) * 100}%` }}
-                  className="bg-[#fdab3d] h-full"
-                />
-              )}
-              <div
-                style={{ width: `${(breakdown.critical / breakdownTotal) * 100}%` }}
-                className="bg-[#e2445c] h-full"
-              />
+        {children ? (
+          children
+        ) : (
+          <>
+            {/* Value */}
+            <div className={`text-xl sm:text-2xl font-black tracking-tight leading-none ${theme.valColor}`}>
+              {typeof value === "number" ? value.toLocaleString() : value}
             </div>
-            <div className="flex items-center gap-2.5 text-[10px] font-semibold mt-1">
-              <span className="flex items-center gap-1 text-[#00c875]">
-                <span className="size-1.5 rounded-full bg-[#00c875]" />
-                {breakdown.healthy}
+
+            {/* Title & Sublabel */}
+            <div className="mt-1 flex items-baseline gap-1 flex-wrap">
+              <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 tracking-tight truncate">
+                {title}
               </span>
-              {breakdown.warning > 0 && (
-                <span className="flex items-center gap-1 text-[#fdab3d]">
-                  <span className="size-1.5 rounded-full bg-[#fdab3d]" />
-                  {breakdown.warning}
+              {sublabel && (
+                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-normal truncate">
+                  {sublabel}
                 </span>
               )}
-              <span className="flex items-center gap-1 text-[#e2445c]">
-                <span className="size-1.5 rounded-full bg-[#e2445c]" />
-                {breakdown.critical}
-              </span>
             </div>
-          </div>
-        )}
 
-        {/* Fallback for legacy footer/subtext if passed and no breakdown/percentage */}
-        {!breakdown && !percentage && footer && (
-          <div className="mt-1.5 text-xs text-slate-400">
-            {footer}
-          </div>
-        )}
-        {!breakdown && !percentage && subtext && !footer && (
-          <div className="text-[10px] text-slate-400 mt-0.5 truncate">
-            {subtext}
-          </div>
+            {/* Percentage (e.g. 94.5% for Healthy, 4.0% for Warning) */}
+            {percentage && (
+              <div className={`text-xs font-bold leading-none mt-1 ${theme.valColor}`}>
+                {percentage}
+              </div>
+            )}
+
+            {/* Breakdown Progress Bar & Legend (for SmartBox Hitam & Putih) */}
+            {breakdown && (
+              <div className="mt-1.5 w-full">
+                <div className="h-1.5 w-full rounded-full bg-slate-100 dark:bg-slate-800 flex overflow-hidden">
+                  <div
+                    style={{ width: `${(breakdown.healthy / breakdownTotal) * 100}%` }}
+                    className="bg-[#00c875] h-full"
+                  />
+                  {breakdown.warning > 0 && (
+                    <div
+                      style={{ width: `${(breakdown.warning / breakdownTotal) * 100}%` }}
+                      className="bg-[#fdab3d] h-full"
+                    />
+                  )}
+                  <div
+                    style={{ width: `${(breakdown.critical / breakdownTotal) * 100}%` }}
+                    className="bg-[#e2445c] h-full"
+                  />
+                </div>
+                <div className="flex items-center gap-2.5 text-[10px] font-semibold mt-1">
+                  <span className="flex items-center gap-1 text-[#00c875]">
+                    <span className="size-1.5 rounded-full bg-[#00c875]" />
+                    {breakdown.healthy}
+                  </span>
+                  {breakdown.warning > 0 && (
+                    <span className="flex items-center gap-1 text-[#fdab3d]">
+                      <span className="size-1.5 rounded-full bg-[#fdab3d]" />
+                      {breakdown.warning}
+                    </span>
+                  )}
+                  <span className="flex items-center gap-1 text-[#e2445c]">
+                    <span className="size-1.5 rounded-full bg-[#e2445c]" />
+                    {breakdown.critical}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Fallback for legacy footer/subtext if passed and no breakdown/percentage */}
+            {!breakdown && !percentage && footer && (
+              <div className="mt-1.5 text-xs text-slate-400">
+                {footer}
+              </div>
+            )}
+            {!breakdown && !percentage && subtext && !footer && (
+              <div className="text-[10px] text-slate-400 mt-0.5 truncate">
+                {subtext}
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

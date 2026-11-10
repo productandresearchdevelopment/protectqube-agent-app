@@ -66,6 +66,7 @@ export default function LoginPage() {
           "/reports/cellular",
           "/reports/dvr",
           "/reports/health",
+          "/reports/sla",
         ];
         const allowed = candidateRoutes.find((r) =>
           loggedInUser.permissions.some(

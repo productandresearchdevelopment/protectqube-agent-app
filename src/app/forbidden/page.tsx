@@ -26,6 +26,7 @@ export default function ForbiddenPage() {
     "/reports/cellular",
     "/reports/dvr",
     "/reports/health",
+    "/reports/sla",
     "/",
   ];
 
