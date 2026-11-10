@@ -9,6 +9,7 @@ import {
 	Video,
 	Cpu,
 	Settings,
+	FileText,
 	ChevronLeft,
 	ChevronRight,
 	Boxes,
@@ -16,7 +17,7 @@ import {
 	LogOut,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useCurrentUser } from '@/store/api/auth';
+import { useAuthUser } from '@/hooks/useAuthUser';
 import { removeToken } from '@/utils/common';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
@@ -32,7 +33,7 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }) => {
 	const pathname = usePathname();
 	const router = useRouter();
-	const { data: user } = useCurrentUser();
+	const { user, haveRoute } = useAuthUser();
 
 	const handleLogout = () => {
 		removeToken();
@@ -70,25 +71,22 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggleCollapse, m
 			badgeColor: 'bg-[#0073ea]',
 		},
 		{
-			name: 'Integrations',
-			href: '/integrations',
-			icon: Boxes,
-			badge: 'Channels',
-			badgeColor: 'bg-[#a25ddc]',
+			name: 'Reports',
+			href: '/reports',
+			icon: FileText,
+			badge: 'Export',
+			badgeColor: 'bg-[#ff7a59]',
 		},
 		{
-			name: 'Notifications',
-			href: '/notifications',
-			icon: Bell,
-			badge: 'Rules',
-			badgeColor: 'bg-[#fdab3d]',
-		},
-		{
-			name: 'Gateway Settings',
-			href: '/settings',
+			name: 'Configuration',
+			href: '/configuration',
 			icon: Settings,
+			badge: 'RBAC',
+			badgeColor: 'bg-[#0073ea]',
 		},
 	];
+
+	const visibleNavItems = navItems.filter((item) => haveRoute(item.href) || haveRoute(item.name));
 
 	return (
 		<>
@@ -135,7 +133,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggleCollapse, m
 						)}
 
 						<nav className='px-2 space-y-1 mt-1'>
-							{navItems.map((item) => {
+							{visibleNavItems.map((item) => {
 								const isActive = pathname === item.href;
 								const Icon = item.icon;
 

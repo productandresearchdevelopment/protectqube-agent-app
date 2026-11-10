@@ -52,6 +52,7 @@ export const useLogin = () => {
     mutationFn: loginApi,
     onSuccess: (user) => {
       queryClient.setQueryData(["currentUser"], user);
+      queryClient.invalidateQueries({ queryKey: ["currentUser"] });
     },
   });
 };

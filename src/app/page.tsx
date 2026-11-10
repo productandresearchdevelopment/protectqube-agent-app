@@ -205,12 +205,12 @@ export default function OverviewPage() {
   const cellSummary = cellularDashboard?.summary;
   const dvrSummary = dvrDashboard?.summary;
 
-  const totalGateways = cellSummary?.total_gateways ?? sysSummary?.total_gateways ?? 2000;
-  const onlineCount = cellSummary?.online ?? sysSummary?.healthy ?? 1928;
-  const degradedCount = cellSummary?.degraded ?? sysSummary?.warning ?? 44;
-  const offlineCount = cellSummary?.offline ?? sysSummary?.critical ?? 28;
-  const onlinePct = cellSummary?.online_percent ?? sysSummary?.healthy_percent ?? 96.4;
-  const totalTrouble = degradedCount + offlineCount; // 72
+  const totalGateways = cellSummary?.total_gateways ?? sysSummary?.total_gateways ?? 0;
+  const onlineCount = cellSummary?.online ?? sysSummary?.online ?? 0;
+  const degradedCount = cellSummary?.degraded ?? sysSummary?.warning ?? 0;
+  const offlineCount = cellSummary?.offline ?? sysSummary?.offline ?? 0;
+  const onlinePct = cellSummary?.online_percent ?? sysSummary?.online_percent ?? 0;
+  const totalTrouble = degradedCount + offlineCount;
 
   // Chart data resolution based on active tab
   const getChartData = () => {

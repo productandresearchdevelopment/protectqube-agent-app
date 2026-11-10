@@ -20,9 +20,10 @@ import {
   ChevronDown,
   Boxes,
   Bell,
+  SlidersHorizontal,
 } from "lucide-react";
 import { useTheme } from "next-themes";
-import { useCurrentUser } from "@/store/api/auth";
+import { useAuthUser } from "@/hooks/useAuthUser";
 import { getToken, removeToken } from "@/utils/common";
 import { toast } from "sonner";
 import { AIPreventiveLogo } from "@/components/ui/AIPreventiveLogo";
@@ -42,12 +43,18 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   const pathname = usePathname();
   const router = useRouter();
   const { theme, setTheme } = useTheme();
-  const { data: user } = useCurrentUser();
+  const { user, isPrivileged, haveRoute, permissions } = useAuthUser();
 
   const [mounted, setMounted] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [desktopCollapsed, setDesktopCollapsed] = useState(false);
   const [reportOpen, setReportOpen] = useState(true);
+
+  const canSeeReports =
+    haveRoute("/reports") ||
+    haveRoute("/reports/cellular") ||
+    haveRoute("/reports/dvr") ||
+    haveRoute("/reports/health");
 
   useEffect(() => {
     setMounted(true);
@@ -55,6 +62,19 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
       router.push("/auth/login");
     }
   }, [router, pathname]);
+
+  // Route Guard enforcement
+  useEffect(() => {
+    if (mounted && user && !isPrivileged && user.permissions) {
+      // Don't guard public / auth paths or forbidden page
+      if (pathname.startsWith("/auth") || pathname === "/forbidden") return;
+
+      const isAllowed = haveRoute(pathname);
+      if (!isAllowed) {
+        router.replace("/forbidden");
+      }
+    }
+  }, [mounted, user, pathname, isPrivileged, router, haveRoute]);
 
   useEffect(() => {
     if (pathname.startsWith("/reports")) {
@@ -96,185 +116,188 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         </div>
 
         <nav className={`p-3 ${isCollapsed ? "space-y-2 px-2" : "space-y-1.5"}`}>
-          <Link
-            href="/"
-            title="Overview"
-            className={`flex items-center ${
-              isCollapsed ? "justify-center px-2 py-2.5" : "gap-3 px-3.5 py-2.5"
-            } text-sm font-medium rounded-xl transition-all ${
-              pathname === "/"
-                ? "bg-[#0073ea] text-white shadow-md shadow-blue-500/25 font-semibold"
-                : "text-slate-200 hover:text-white hover:bg-white/10"
-            }`}
-          >
-            <Home className="size-5 shrink-0" />
-            {!isCollapsed && <span>Overview</span>}
-          </Link>
-
-          <Link
-            href="/system-health"
-            title="System Health"
-            className={`flex items-center ${
-              isCollapsed ? "justify-center px-2 py-2.5" : "gap-3 px-3.5 py-2.5"
-            } text-sm font-medium rounded-xl transition-all ${
-              pathname === "/system-health"
-                ? "bg-[#0073ea] text-white shadow-md shadow-blue-500/25 font-semibold"
-                : "text-slate-200 hover:text-white hover:bg-white/10"
-            }`}
-          >
-            <Cog className="size-5 shrink-0" />
-            {!isCollapsed && <span>System Health</span>}
-          </Link>
-
-          <Link
-            href="/cellular"
-            title="Cellular"
-            className={`flex items-center ${
-              isCollapsed ? "justify-center px-2 py-2.5" : "gap-3 px-3.5 py-2.5"
-            } text-sm font-medium rounded-xl transition-all ${
-              pathname === "/cellular" || pathname === "/cellular-connectivity"
-                ? "bg-[#0073ea] text-white shadow-md shadow-blue-500/25 font-semibold"
-                : "text-slate-200 hover:text-white hover:bg-white/10"
-            }`}
-          >
-            <Radio className="size-5 shrink-0" />
-            {!isCollapsed && <span>Cellular</span>}
-          </Link>
-
-          <Link
-            href="/dvr-recording"
-            title="DVR & Recording"
-            className={`flex items-center ${
-              isCollapsed ? "justify-center px-2 py-2.5" : "gap-3 px-3.5 py-2.5"
-            } text-sm font-medium rounded-xl transition-all ${
-              pathname === "/dvr-recording"
-                ? "bg-[#0073ea] text-white shadow-md shadow-blue-500/25 font-semibold"
-                : "text-slate-200 hover:text-white hover:bg-white/10"
-            }`}
-          >
-            <Video className="size-5 shrink-0" />
-            {!isCollapsed && <span>DVR & Recording</span>}
-          </Link>
-
-          <div className="pt-0.5">
-            <button
-              type="button"
-              onClick={() => {
-                if (isCollapsed) {
-                  setDesktopCollapsed(false);
-                  setReportOpen(true);
-                } else {
-                  setReportOpen((prev) => !prev);
-                }
-              }}
-              title="Report"
-              className={`w-full flex items-center ${
-                isCollapsed
-                  ? "justify-center px-2 py-2.5"
-                  : "justify-between px-3.5 py-2.5"
-              } text-sm font-medium rounded-xl transition-all text-left outline-none cursor-pointer ${
-                pathname.startsWith("/reports") && (!reportOpen || isCollapsed)
-                  ? "bg-[#0073ea] text-white font-semibold shadow-md shadow-blue-500/25"
+          {haveRoute("/") && (
+            <Link
+              href="/"
+              title="Overview"
+              className={`flex items-center ${
+                isCollapsed ? "justify-center px-2 py-2.5" : "gap-3 px-3.5 py-2.5"
+              } text-sm font-medium rounded-xl transition-all ${
+                pathname === "/"
+                  ? "bg-[#0073ea] text-white shadow-md shadow-blue-500/25 font-semibold"
                   : "text-slate-200 hover:text-white hover:bg-white/10"
               }`}
             >
-              <div
-                className={`flex items-center ${
-                  isCollapsed ? "justify-center" : "gap-3"
-                } min-w-0`}
+              <Home className="size-5 shrink-0" />
+              {!isCollapsed && <span>Overview</span>}
+            </Link>
+          )}
+
+          {haveRoute("/system-health") && (
+            <Link
+              href="/system-health"
+              title="System Health"
+              className={`flex items-center ${
+                isCollapsed ? "justify-center px-2 py-2.5" : "gap-3 px-3.5 py-2.5"
+              } text-sm font-medium rounded-xl transition-all ${
+                pathname === "/system-health"
+                  ? "bg-[#0073ea] text-white shadow-md shadow-blue-500/25 font-semibold"
+                  : "text-slate-200 hover:text-white hover:bg-white/10"
+              }`}
+            >
+              <Cog className="size-5 shrink-0" />
+              {!isCollapsed && <span>System Health</span>}
+            </Link>
+          )}
+
+          {haveRoute("/cellular") && (
+            <Link
+              href="/cellular"
+              title="Cellular"
+              className={`flex items-center ${
+                isCollapsed ? "justify-center px-2 py-2.5" : "gap-3 px-3.5 py-2.5"
+              } text-sm font-medium rounded-xl transition-all ${
+                pathname === "/cellular" || pathname === "/cellular-connectivity"
+                  ? "bg-[#0073ea] text-white shadow-md shadow-blue-500/25 font-semibold"
+                  : "text-slate-200 hover:text-white hover:bg-white/10"
+              }`}
+            >
+              <Radio className="size-5 shrink-0" />
+              {!isCollapsed && <span>Cellular</span>}
+            </Link>
+          )}
+
+          {haveRoute("/dvr-recording") && (
+            <Link
+              href="/dvr-recording"
+              title="DVR & Recording"
+              className={`flex items-center ${
+                isCollapsed ? "justify-center px-2 py-2.5" : "gap-3 px-3.5 py-2.5"
+              } text-sm font-medium rounded-xl transition-all ${
+                pathname === "/dvr-recording"
+                  ? "bg-[#0073ea] text-white shadow-md shadow-blue-500/25 font-semibold"
+                  : "text-slate-200 hover:text-white hover:bg-white/10"
+              }`}
+            >
+              <Video className="size-5 shrink-0" />
+              {!isCollapsed && <span>DVR & Recording</span>}
+            </Link>
+          )}
+
+          {canSeeReports && (
+            <div className="pt-0.5">
+              <button
+                type="button"
+                onClick={() => {
+                  if (isCollapsed) {
+                    setDesktopCollapsed(false);
+                    setReportOpen(true);
+                  } else {
+                    setReportOpen((prev) => !prev);
+                  }
+                }}
+                title="Report"
+                className={`w-full flex items-center ${
+                  isCollapsed
+                    ? "justify-center px-2 py-2.5"
+                    : "justify-between px-3.5 py-2.5"
+                } text-sm font-medium rounded-xl transition-all text-left outline-none cursor-pointer ${
+                  pathname.startsWith("/reports") && (!reportOpen || isCollapsed)
+                    ? "bg-[#0073ea] text-white font-semibold shadow-md shadow-blue-500/25"
+                    : "text-slate-200 hover:text-white hover:bg-white/10"
+                }`}
               >
-                <FileText className="size-5 shrink-0" />
-                {!isCollapsed && <span className="truncate">Report</span>}
-              </div>
-              {!isCollapsed && (
-                <ChevronDown
-                  className={`size-4 shrink-0 transition-transform duration-200 ${
-                    reportOpen ? "rotate-180 text-white" : "text-slate-300"
-                  }`}
-                />
-              )}
-            </button>
-
-            <AnimatePresence initial={false}>
-              {reportOpen && !isCollapsed && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: "auto", opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.2, ease: "easeInOut" }}
-                  className="overflow-hidden"
+                <div
+                  className={`flex items-center ${
+                    isCollapsed ? "justify-center" : "gap-3"
+                  } min-w-0`}
                 >
-                  <div className="relative mt-1 ml-5.5 flex flex-col gap-1 border-l border-white/20 pl-3.5 py-1">
-                    <Link
-                      href="/reports/cellular"
-                      className={`flex items-center gap-2.5 text-xs font-medium rounded-lg px-3 py-2 transition-all ${
-                        pathname === "/reports/cellular"
-                          ? "bg-[#0073ea] text-white font-semibold shadow-sm"
-                          : "text-slate-200 hover:text-white hover:bg-white/10"
-                      }`}
-                    >
-                      <Radio className="size-4 shrink-0" />
-                      <span className="truncate">Report Cellular</span>
-                    </Link>
+                  <FileText className="size-5 shrink-0" />
+                  {!isCollapsed && <span className="truncate">Report</span>}
+                </div>
+                {!isCollapsed && (
+                  <ChevronDown
+                    className={`size-4 shrink-0 transition-transform duration-200 ${
+                      reportOpen ? "rotate-180 text-white" : "text-slate-300"
+                    }`}
+                  />
+                )}
+              </button>
 
-                    <Link
-                      href="/reports/dvr"
-                      className={`flex items-center gap-2.5 text-xs font-medium rounded-lg px-3 py-2 transition-all ${
-                        pathname === "/reports/dvr"
-                          ? "bg-[#0073ea] text-white font-semibold shadow-sm"
-                          : "text-slate-200 hover:text-white hover:bg-white/10"
-                      }`}
-                    >
-                      <Video className="size-4 shrink-0" />
-                      <span className="truncate">Report DVR</span>
-                    </Link>
+              <AnimatePresence initial={false}>
+                {reportOpen && !isCollapsed && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2, ease: "easeInOut" }}
+                    className="overflow-hidden"
+                  >
+                    <div className="relative mt-1 ml-5.5 flex flex-col gap-1 border-l border-white/20 pl-3.5 py-1">
+                      {haveRoute("/reports/cellular") && (
+                        <Link
+                          href="/reports/cellular"
+                          className={`flex items-center gap-2.5 text-xs font-medium rounded-lg px-3 py-2 transition-all ${
+                            pathname === "/reports/cellular"
+                              ? "bg-[#0073ea] text-white font-semibold shadow-sm"
+                              : "text-slate-200 hover:text-white hover:bg-white/10"
+                          }`}
+                        >
+                          <Radio className="size-4 shrink-0" />
+                          <span className="truncate">Report Cellular</span>
+                        </Link>
+                      )}
 
-                    <Link
-                      href="/reports/health"
-                      className={`flex items-center gap-2.5 text-xs font-medium rounded-lg px-3 py-2 transition-all ${
-                        pathname === "/reports/health"
-                          ? "bg-[#0073ea] text-white font-semibold shadow-sm"
-                          : "text-slate-200 hover:text-white hover:bg-white/10"
-                      }`}
-                    >
-                      <Activity className="size-4 shrink-0" />
-                      <span className="truncate">Report Health</span>
-                    </Link>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+                      {haveRoute("/reports/dvr") && (
+                        <Link
+                          href="/reports/dvr"
+                          className={`flex items-center gap-2.5 text-xs font-medium rounded-lg px-3 py-2 transition-all ${
+                            pathname === "/reports/dvr"
+                              ? "bg-[#0073ea] text-white font-semibold shadow-sm"
+                              : "text-slate-200 hover:text-white hover:bg-white/10"
+                          }`}
+                        >
+                          <Video className="size-4 shrink-0" />
+                          <span className="truncate">Report DVR</span>
+                        </Link>
+                      )}
 
-          <Link
-            href="/integrations"
-            title="Integrations"
-            className={`flex items-center ${
-              isCollapsed ? "justify-center px-2 py-2.5" : "gap-3 px-3.5 py-2.5"
-            } text-sm font-medium rounded-xl transition-all ${
-              pathname.startsWith("/integrations")
-                ? "bg-[#0073ea] text-white shadow-md shadow-blue-500/25 font-semibold"
-                : "text-slate-200 hover:text-white hover:bg-white/10"
-            }`}
-          >
-            <Boxes className="size-5 shrink-0" />
-            {!isCollapsed && <span>Integrations</span>}
-          </Link>
+                      {haveRoute("/reports/health") && (
+                        <Link
+                          href="/reports/health"
+                          className={`flex items-center gap-2.5 text-xs font-medium rounded-lg px-3 py-2 transition-all ${
+                            pathname === "/reports/health"
+                              ? "bg-[#0073ea] text-white font-semibold shadow-sm"
+                              : "text-slate-200 hover:text-white hover:bg-white/10"
+                          }`}
+                        >
+                          <Activity className="size-4 shrink-0" />
+                          <span className="truncate">Report Health</span>
+                        </Link>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          )}
 
-          <Link
-            href="/notifications"
-            title="Notifications"
-            className={`flex items-center ${
-              isCollapsed ? "justify-center px-2 py-2.5" : "gap-3 px-3.5 py-2.5"
-            } text-sm font-medium rounded-xl transition-all ${
-              pathname.startsWith("/notifications")
-                ? "bg-[#0073ea] text-white shadow-md shadow-blue-500/25 font-semibold"
-                : "text-slate-200 hover:text-white hover:bg-white/10"
-            }`}
-          >
-            <Bell className="size-5 shrink-0" />
-            {!isCollapsed && <span>Notifications</span>}
-          </Link>
+          {haveRoute("/configuration") && (
+            <Link
+              href="/configuration"
+              title="Configuration"
+              className={`flex items-center ${
+                isCollapsed ? "justify-center px-2 py-2.5" : "gap-3 px-3.5 py-2.5"
+              } text-sm font-medium rounded-xl transition-all ${
+                pathname.startsWith("/configuration")
+                  ? "bg-[#0073ea] text-white shadow-md shadow-blue-500/25 font-semibold"
+                  : "text-slate-200 hover:text-white hover:bg-white/10"
+              }`}
+            >
+              <SlidersHorizontal className="size-5 shrink-0" />
+              {!isCollapsed && <span>Configuration</span>}
+            </Link>
+          )}
         </nav>
       </div>
 

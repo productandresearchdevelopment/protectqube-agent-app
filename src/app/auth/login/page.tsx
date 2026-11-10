@@ -39,7 +39,7 @@ export default function LoginPage() {
     }
 
     try {
-      await loginMutation.mutateAsync({
+      const loggedInUser = await loginMutation.mutateAsync({
         username_or_email: identifier.trim(),
         password: password.trim(),
       });
@@ -48,7 +48,34 @@ export default function LoginPage() {
       } else {
         localStorage.removeItem("savedIdentifier");
       }
-      window.location.href = "/";
+
+      // Check if user has permission for "/" (Overview) or first allowed route
+      const isPrivileged = Boolean(
+        loggedInUser?.role_name?.toLowerCase().includes("super") ||
+        loggedInUser?.role_alias?.toLowerCase().includes("super") ||
+        loggedInUser?.role_name?.toLowerCase() === "developer" ||
+        loggedInUser?.role_alias?.toLowerCase() === "developer"
+      );
+
+      let targetUrl = "/";
+      if (!isPrivileged && loggedInUser?.permissions && loggedInUser.permissions.length > 0) {
+        const candidateRoutes = [
+          "/system-health",
+          "/cellular",
+          "/dvr-recording",
+          "/reports/cellular",
+          "/reports/dvr",
+          "/reports/health",
+        ];
+        const allowed = candidateRoutes.find((r) =>
+          loggedInUser.permissions.some(
+            (p: string) => p === r || p.startsWith(r) || r.startsWith(p)
+          )
+        );
+        targetUrl = allowed || loggedInUser.permissions.find((p: string) => p && p.startsWith("/")) || "/";
+      }
+
+      window.location.href = targetUrl;
     } catch (err: any) {
       setErrorMessage(
         err.message || "Incorrect username or password. Please check and try again."

@@ -7,12 +7,18 @@ export interface IUser {
   address?: string | null;
   avatarId?: string | null;
   roleId: string;
+  role_id?: string;
   roleName?: string | null;
   roleAlias?: string | null;
   role_name?: string | null;
   role_alias?: string | null;
+  role_color?: string | null;
+  role?: IRole | null;
   permissions?: string[];
   lastLogin?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  deleted_at?: string | null;
 }
 
 export interface IRole {
@@ -25,8 +31,10 @@ export interface IRole {
 
 export interface IModule {
   id: number;
-  moduleTypeId: string;
+  moduleTypeId?: string;
+  module_type_id?: string;
   parentId?: number | null;
+  parent_id?: number | null;
   path?: string | null;
   name: string;
   icon?: string | null;

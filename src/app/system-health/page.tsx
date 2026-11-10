@@ -176,12 +176,12 @@ export default function SystemHealthPage() {
   ];
 
   const hitamTotal = summary?.smartbox_hitam.total ?? 0;
-  const hitamOnline = summary?.smartbox_hitam.online ?? summary?.smartbox_hitam.healthy ?? 0;
-  const hitamOffline = summary?.smartbox_hitam.offline ?? summary?.smartbox_hitam.critical ?? 0;
+  const hitamOnline = summary?.smartbox_hitam.online ?? 0;
+  const hitamOffline = summary?.smartbox_hitam.offline ?? 0;
 
   const putihTotal = summary?.smartbox_putih.total ?? 0;
-  const putihOnline = summary?.smartbox_putih.online ?? summary?.smartbox_putih.healthy ?? 0;
-  const putihOffline = summary?.smartbox_putih.offline ?? summary?.smartbox_putih.critical ?? 0;
+  const putihOnline = summary?.smartbox_putih.online ?? 0;
+  const putihOffline = summary?.smartbox_putih.offline ?? 0;
 
   // Table Columns
   const columns: ColumnDef<IGatewayItem>[] = [
@@ -384,19 +384,19 @@ export default function SystemHealthPage() {
           />
           <SummaryCard
             title="Online"
-            value={summary ? (summary.online ?? summary.healthy) : 0}
+            value={summary ? (summary.online ?? 0) : 0}
             icon={Check}
             color="emerald"
-            percentage={summary ? `${summary.online_percent ?? summary.healthy_percent}%` : "0%"}
+            percentage={summary ? `${summary.online_percent ?? 0}%` : "0%"}
             onClick={() => handleCardFilter("Online")}
             active={statusFilter === "Online"}
           />
           <SummaryCard
             title="Offline"
-            value={summary ? (summary.offline ?? summary.critical) : 0}
+            value={summary ? (summary.offline ?? 0) : 0}
             icon={AlertTriangle}
             color="rose"
-            percentage={summary ? `${summary.offline_percent ?? summary.critical_percent}%` : "0%"}
+            percentage={summary ? `${summary.offline_percent ?? 0}%` : "0%"}
             onClick={() => handleCardFilter("Offline")}
             active={statusFilter === "Offline"}
           />
