@@ -499,6 +499,7 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
 
   const d = data;
   const isWhite = (d.type || "").includes("Putih");
+  const isOffline = (d.status || "").toLowerCase() === "offline";
 
   return (
     <div className="bg-white dark:bg-[#070e1d] text-slate-800 dark:text-slate-100 rounded-2xl border border-slate-200 dark:border-slate-800/90 shadow-xl p-4 sm:p-5 space-y-4 font-sans transition-all duration-300">
@@ -509,9 +510,15 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
             <FileSpreadsheet className="size-4" />
           </div>
           <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white tracking-tight">
-            Gateway Performance Details &ndash; {d.location || d.id}
+            Detail Device &ndash; {d.location || d.id}
           </h2>
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#00c875]/15 dark:bg-[#00c875]/20 text-[#00c875] border border-[#00c875]/30">
+          <span
+            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
+              isOffline
+                ? "bg-rose-500/15 dark:bg-rose-500/20 text-[#e2445c] border-rose-500/30"
+                : "bg-[#00c875]/15 dark:bg-[#00c875]/20 text-[#00c875] border-[#00c875]/30"
+            }`}
+          >
             {d.status}
           </span>
         </div>
@@ -584,7 +591,15 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
               </div>
               <div className="grid grid-cols-[80px_1fr] items-center">
                 <span className="text-slate-500 dark:text-slate-400 text-[11px]">SIM Status</span>
-                <span className="text-[#00c875] text-[11px] font-medium">: {d.sim_status}</span>
+                <span
+                  className={`text-[11px] font-medium ${
+                    isOffline || (d.sim_status || "").toLowerCase() !== "active"
+                      ? "text-[#e2445c]"
+                      : "text-[#00c875]"
+                  }`}
+                >
+                  : {isOffline ? "Offline" : d.sim_status}
+                </span>
               </div>
               <div className="grid grid-cols-[80px_1fr] items-center">
                 <span className="text-slate-500 dark:text-slate-400 text-[11px]">Remaining Quota</span>
@@ -595,10 +610,6 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
               <div className="grid grid-cols-[80px_1fr] items-center">
                 <span className="text-slate-500 dark:text-slate-400 text-[11px]">IP Address</span>
                 <span className="text-slate-800 dark:text-slate-200 text-[11px] font-mono">: {d.ip_address}</span>
-              </div>
-              <div className="grid grid-cols-[80px_1fr] items-start">
-                <span className="text-slate-500 dark:text-slate-400 text-[11px]">Location</span>
-                <span className="text-slate-800 dark:text-slate-200 text-[11px] font-medium truncate">: {d.location}</span>
               </div>
             </div>
           </div>
@@ -688,7 +699,7 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
             </div>
             <div className="mt-2.5">
               <div className="text-sm font-bold text-slate-900 dark:text-white leading-tight">
-                {d.avg_response_time}
+                {isOffline ? "-" : (d.avg_response_time || "-")}
               </div>
             </div>
           </div>
@@ -739,7 +750,7 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
             </div>
             <div className="mt-2.5">
               <div className="text-sm font-bold text-slate-900 dark:text-white leading-tight">
-                {d.avg_rsrp}
+                {isOffline ? "-" : (d.avg_rsrp || "-")}
               </div>
             </div>
           </div>
@@ -754,10 +765,10 @@ export const CellularReportDetailCard: React.FC<CellularReportDetailCardProps> =
             </div>
             <div className="mt-2.5">
               <div className="text-sm font-bold text-slate-900 dark:text-white leading-tight">
-                {d.avg_modem_temp}
+                {isOffline ? "-" : (d.avg_modem_temp || "-")}
               </div>
               <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">
-                {d.temp_range}
+                {isOffline ? "Gateway Offline" : d.temp_range}
               </div>
             </div>
           </div>

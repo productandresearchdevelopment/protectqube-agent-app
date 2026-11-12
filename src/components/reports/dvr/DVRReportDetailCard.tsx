@@ -630,7 +630,7 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
             <FileSpreadsheet className="size-4" />
           </div>
           <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white tracking-tight">
-            Gateway Performance Details &ndash; {d.location || d.id}
+            Detail Device &ndash; {d.location || d.id}
           </h2>
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#00c875]/15 dark:bg-[#00c875]/20 text-[#00c875] border border-[#00c875]/30">
             {d.status}
@@ -701,10 +701,6 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
               <div className="grid grid-cols-[100px_1fr] items-center">
                 <span className="text-slate-500 dark:text-slate-400 text-[11px]">HDD Capacity</span>
                 <span className="text-slate-800 dark:text-slate-200 text-[11px] font-medium">: {d.storage_capacity}</span>
-              </div>
-              <div className="grid grid-cols-[100px_1fr] items-start">
-                <span className="text-slate-500 dark:text-slate-400 text-[11px]">Location</span>
-                <span className="text-slate-800 dark:text-slate-200 text-[11px] font-medium truncate">: {d.location}</span>
               </div>
             </div>
           </div>

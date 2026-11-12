@@ -14,6 +14,7 @@ import {
   DeviceTypeBadge,
   LoadProgressBar,
   IFilterConfig,
+  TypeFilterDropdown,
 } from "@/components/ui";
 import { DeviceDetailCard } from "@/components/system-health/DeviceDetailCard";
 import {
@@ -66,6 +67,8 @@ export default function SystemHealthPage() {
   const [statusFilter, setStatusFilter] = useState("All Statuses");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [sortBy, setSortBy] = useState<string | null>(null);
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc" | null>(null);
   const [selectedGateways, setSelectedGateways] = useState<string[]>([]);
   const [selectedGatewayId, setSelectedGatewayId] = useState<string | null>(null);
 
@@ -82,6 +85,8 @@ export default function SystemHealthPage() {
     status: statusFilter,
     page: currentPage,
     pageSize,
+    sortBy,
+    sortOrder,
   });
 
   const summary = dashboard?.summary;
@@ -118,6 +123,15 @@ export default function SystemHealthPage() {
       setStatusFilter("All Statuses");
     } else {
       setStatusFilter(statusVal);
+    }
+    setCurrentPage(1);
+  };
+
+  const handleTypeCardFilter = (typeVal: string) => {
+    if (typeFilter === typeVal) {
+      setTypeFilter("All Types");
+    } else {
+      setTypeFilter(typeVal);
     }
     setCurrentPage(1);
   };
@@ -186,17 +200,22 @@ export default function SystemHealthPage() {
   // Table Columns
   const columns: ColumnDef<IGatewayItem>[] = [
     {
-      id: "id",
-      header: "Gateway ID",
+      id: "location",
+      header: "Location",
+      accessorKey: "location",
+      className: "w-[200px] max-w-[200px]",
       cell: (item) => {
         const isSelected = selectedGatewayId === item.id;
         return (
           <div className="flex items-center gap-1.5">
-            <span className="font-bold text-slate-900 dark:text-white font-mono hover:text-[#0073ea] transition-colors">
-              {item.id}
+            <span
+              className="font-semibold text-slate-900 dark:text-white truncate block max-w-[180px]"
+              title={item.location}
+            >
+              {item.location}
             </span>
             {isSelected && (
-              <span className="relative flex h-2 w-2">
+              <span className="relative flex h-2 w-2 shrink-0">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#0073ea] opacity-75" />
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-[#0073ea]" />
               </span>
@@ -206,12 +225,16 @@ export default function SystemHealthPage() {
       },
     },
     {
-      id: "location",
-      header: "Location",
-      accessorKey: "location",
+      id: "customer",
+      header: "Client",
+      align: "center",
+      className: "w-[120px] max-w-[120px]",
       cell: (item) => (
-        <span className="text-slate-700 dark:text-slate-300 font-medium">
-          {item.location}
+        <span
+          className="text-xs text-slate-600 dark:text-slate-400 font-medium truncate block max-w-[110px]"
+          title={item.customer || item.client_name || "-"}
+        >
+          {item.customer || item.client_name || "-"}
         </span>
       ),
     },
@@ -224,6 +247,8 @@ export default function SystemHealthPage() {
       id: "cpu",
       header: "CPU",
       align: "center",
+      sortable: true,
+      defaultSortOrder: "desc",
       cell: (item) => {
         if (item.status === "Offline" || typeof item.cpu !== "number") {
           return <span className="font-mono text-slate-400 font-bold text-[11px]">-</span>;
@@ -235,6 +260,8 @@ export default function SystemHealthPage() {
       id: "ram",
       header: "RAM",
       align: "center",
+      sortable: true,
+      defaultSortOrder: "desc",
       cell: (item) => {
         if (item.status === "Offline" || typeof item.ram !== "number") {
           return <span className="font-mono text-slate-400 font-bold text-[11px]">-</span>;
@@ -246,6 +273,8 @@ export default function SystemHealthPage() {
       id: "sd_card",
       header: "Storage",
       align: "center",
+      sortable: true,
+      defaultSortOrder: "desc",
       cell: (item) => {
         if (item.status === "Offline" || typeof item.sd_percent !== "number") {
           return <span className="font-mono text-slate-400 font-bold text-[11px]">-</span>;
@@ -257,6 +286,8 @@ export default function SystemHealthPage() {
       id: "sd_health",
       header: "Storage Health",
       align: "center",
+      sortable: true,
+      defaultSortOrder: "asc",
       cell: (item) => {
         if (item.status === "Offline" || !item.sd_health || item.sd_health === "-") {
           return <span className="font-mono text-slate-400 font-bold text-[11px]">-</span>;
@@ -277,6 +308,8 @@ export default function SystemHealthPage() {
       id: "battery",
       header: "Battery / Power",
       align: "center",
+      sortable: true,
+      defaultSortOrder: "asc",
       cell: (item) => {
         if (item.status === "Offline") {
           return <span className="font-mono text-slate-400 font-bold text-[11px]">-</span>;
@@ -342,6 +375,8 @@ export default function SystemHealthPage() {
       id: "status",
       header: "Status",
       align: "center",
+      sortable: true,
+      defaultSortOrder: "asc",
       cell: (item) => {
         const isOnline = item.status === "Online" || item.status === "Healthy";
         return (
@@ -366,7 +401,15 @@ export default function SystemHealthPage() {
             setCurrentPage(1);
           }}
           searchPlaceholder="Search Gateway ID or Location..."
-          filters={filters}
+          actions={
+            <TypeFilterDropdown
+              value={typeFilter}
+              onChange={(val) => {
+                setTypeFilter(val);
+                setCurrentPage(1);
+              }}
+            />
+          }
         />
       }
     >
@@ -406,6 +449,8 @@ export default function SystemHealthPage() {
             value={hitamTotal}
             deviceType="hitam"
             color="slate"
+            onClick={() => handleTypeCardFilter("SmartBox Hitam")}
+            active={typeFilter === "SmartBox Hitam"}
             breakdown={{
               healthy: hitamOnline,
               warning: 0,
@@ -418,6 +463,8 @@ export default function SystemHealthPage() {
             value={putihTotal}
             deviceType="putih"
             color="slate"
+            onClick={() => handleTypeCardFilter("SmartBox Putih")}
+            active={typeFilter === "SmartBox Putih"}
             breakdown={{
               healthy: putihOnline,
               warning: 0,
@@ -426,18 +473,29 @@ export default function SystemHealthPage() {
           />
         </div>
 
-        {/* Status Filter Indicator */}
-        {statusFilter !== "All Statuses" && (
+        {/* Status / Type Filter Indicator */}
+        {(statusFilter !== "All Statuses" || typeFilter !== "All Types") && (
           <div className="flex items-center justify-between bg-blue-50/70 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/40 px-3.5 py-2 rounded-xl text-xs shrink-0">
-            <div className="flex items-center gap-2">
-              <span className="text-slate-500 dark:text-slate-400">Filtering table by status:</span>
-              <span className="font-bold text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/50 px-2.5 py-0.5 rounded-full">
-                {statusFilter}
-              </span>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-slate-500 dark:text-slate-400">Filtering table by:</span>
+              {statusFilter !== "All Statuses" && (
+                <span className="font-bold text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/50 px-2.5 py-0.5 rounded-full">
+                  Status: {statusFilter}
+                </span>
+              )}
+              {typeFilter !== "All Types" && (
+                <span className="font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-100 dark:bg-indigo-900/50 px-2.5 py-0.5 rounded-full">
+                  Type: {typeFilter}
+                </span>
+              )}
             </div>
             <button
               type="button"
-              onClick={() => handleCardFilter("All Statuses")}
+              onClick={() => {
+                setStatusFilter("All Statuses");
+                setTypeFilter("All Types");
+                setCurrentPage(1);
+              }}
               className="text-blue-500 hover:underline font-semibold cursor-pointer"
             >
               Reset Filter (Show All)
@@ -462,6 +520,13 @@ export default function SystemHealthPage() {
           onPageChange={setCurrentPage}
           onPageSizeChange={(newSize) => {
             setPageSize(newSize);
+            setCurrentPage(1);
+          }}
+          sortBy={sortBy}
+          sortOrder={sortOrder}
+          onSortChange={(col, order) => {
+            setSortBy(col);
+            setSortOrder(order);
             setCurrentPage(1);
           }}
           className={selectedGatewayId ? "min-h-100" : "h-[calc(100vh-215px)] flex-1"}

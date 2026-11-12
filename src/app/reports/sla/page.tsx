@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useMemo } from "react";
+import React, { useState, useRef, useMemo, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import {
   useSLAReport,
@@ -31,6 +31,8 @@ import {
   Bell,
   Clock,
   Activity,
+  ChevronDown,
+  Check,
 } from "lucide-react";
 import { getCurrentMonthPeriodStr } from "@/lib/reportPeriodUtils";
 import { SLAReportDetailCard } from "@/components/reports/sla/SLAReportDetailCard";
@@ -39,15 +41,31 @@ export default function ReportSLAPage() {
   const [filters, setFilters] = useState<ISLAReportFilters>({
     search: "",
     type: "All Types",
-    sla_status: "All SLA",
     date_range: getCurrentMonthPeriodStr(),
     page: 1,
     pageSize: 50,
   });
 
   const [selectedGateways, setSelectedGateways] = useState<string[]>([]);
-  const [selectedGatewayId, setSelectedGatewayId] = useState<string | null>(null);
+  const [selectedGatewayId, setSelectedGatewayId] = useState<string | null>(
+    null,
+  );
   const detailRef = useRef<HTMLDivElement>(null);
+  const [isTypeDropdownOpen, setIsTypeDropdownOpen] = useState(false);
+  const typeDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        typeDropdownRef.current &&
+        !typeDropdownRef.current.contains(e.target as Node)
+      ) {
+        setIsTypeDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   // Fetch real SLA report data from FastAPI backend
   const { data: reportData, isLoading } = useSLAReport(filters);
@@ -82,7 +100,7 @@ export default function ReportSLAPage() {
 
   const toggleSelectOne = (id: string) => {
     setSelectedGateways((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
     );
   };
 
@@ -101,7 +119,12 @@ export default function ReportSLAPage() {
     try {
       setIsExporting(true);
       const url = exportSLAReportExcelUrl(filters);
-      await downloadReportFile(url, "report_sla_compliance.xlsx");
+      const now = new Date();
+      const dd = String(now.getDate()).padStart(2, "0");
+      const mm = String(now.getMonth() + 1).padStart(2, "0");
+      const yyyy = now.getFullYear();
+      const filename = `SLA_REPORT_${dd}${mm}${yyyy}.xlsx`;
+      await downloadReportFile(url, filename);
     } catch (err) {
       console.error("Export SLA report error:", err);
     } finally {
@@ -113,37 +136,134 @@ export default function ReportSLAPage() {
     gateways.length > 0 &&
     gateways.every((g) => selectedGateways.includes(g.id));
 
-  const filterConfigs: IFilterConfig[] = [
-    {
-      id: "type",
-      value: filters.type || "All Types",
-      onChange: (val) => handleFilterChange("type", val),
-      options: [
-        { label: "All Types", value: "All Types" },
-        { label: "SmartBox Hitam", value: "Hitam" },
-        { label: "SmartBox Putih", value: "Putih" },
-      ],
-    },
-    {
-      id: "sla_status",
-      value: filters.sla_status || "All SLA",
-      onChange: (val) => handleFilterChange("sla_status", val),
-      options: [
-        { label: "All SLA", value: "All SLA" },
-        { label: "Meet SLA (≥ 99%)", value: "meet" },
-        { label: "SLA Breach (< 99%)", value: "breach" },
-      ],
-    },
-  ];
+  const renderTypeFilterDropdown = () => {
+    const curType = filters.type || "All Types";
+    const isBlack = curType.toLowerCase().includes("hitam");
+    const isWhite = curType.toLowerCase().includes("putih");
+
+    return (
+      <div className="relative" ref={typeDropdownRef}>
+        <button
+          type="button"
+          onClick={() => setIsTypeDropdownOpen((prev) => !prev)}
+          className={`flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-xl border transition-all cursor-pointer shadow-xs ${
+            isBlack
+              ? "bg-slate-900 border-slate-700 text-white"
+              : isWhite
+              ? "bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-100"
+              : "bg-slate-100 dark:bg-slate-800/90 border-slate-200 dark:border-slate-700/80 text-slate-700 dark:text-slate-200 hover:bg-slate-200/70 dark:hover:bg-slate-800"
+          }`}
+        >
+          {isBlack ? (
+            <div className="size-4 rounded flex items-center justify-center shrink-0 bg-slate-950 border border-slate-700">
+              <div className="w-2.5 h-1 rounded-xs bg-slate-500" />
+            </div>
+          ) : isWhite ? (
+            <div className="size-4 rounded flex items-center justify-center shrink-0 bg-white border border-slate-300">
+              <div className="w-2.5 h-1 rounded-xs bg-slate-300" />
+            </div>
+          ) : (
+            <Package className="size-3.5 text-slate-500" />
+          )}
+
+          <span>
+            {isBlack
+              ? "SmartBox Black"
+              : isWhite
+              ? "SmartBox White"
+              : "All Types"}
+          </span>
+          <ChevronDown
+            className={`size-3.5 text-slate-400 transition-transform ${
+              isTypeDropdownOpen ? "rotate-180" : ""
+            }`}
+          />
+        </button>
+
+        {isTypeDropdownOpen && (
+          <div className="absolute right-0 mt-1.5 w-44 rounded-xl bg-white dark:bg-[#0c1527] border border-slate-200 dark:border-slate-800 shadow-xl py-1 z-50 animate-in fade-in zoom-in-95 duration-150">
+            {/* All Types */}
+            <button
+              type="button"
+              onClick={() => {
+                handleFilterChange("type", "All Types");
+                setIsTypeDropdownOpen(false);
+              }}
+              className={`w-full flex items-center justify-between px-3 py-2 text-xs font-medium transition-colors ${
+                curType === "All Types"
+                  ? "bg-blue-50 dark:bg-blue-950/40 text-[#0073ea] font-semibold"
+                  : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/60"
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <Package className="size-3.5 text-slate-400" />
+                <span>All Types</span>
+              </div>
+              {curType === "All Types" && (
+                <Check className="size-3.5 text-[#0073ea]" />
+              )}
+            </button>
+
+            {/* SmartBox Black */}
+            <button
+              type="button"
+              onClick={() => {
+                handleFilterChange("type", "Hitam");
+                setIsTypeDropdownOpen(false);
+              }}
+              className={`w-full flex items-center justify-between px-3 py-2 text-xs font-medium transition-colors ${
+                isBlack
+                  ? "bg-blue-50 dark:bg-blue-950/40 text-[#0073ea] font-semibold"
+                  : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/60"
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <div className="size-4 rounded flex items-center justify-center shrink-0 bg-slate-900 border border-slate-700">
+                  <div className="w-2.5 h-1 rounded-xs bg-slate-500" />
+                </div>
+                <span>SmartBox Black</span>
+              </div>
+              {isBlack && <Check className="size-3.5 text-[#0073ea]" />}
+            </button>
+
+            {/* SmartBox White */}
+            <button
+              type="button"
+              onClick={() => {
+                handleFilterChange("type", "Putih");
+                setIsTypeDropdownOpen(false);
+              }}
+              className={`w-full flex items-center justify-between px-3 py-2 text-xs font-medium transition-colors ${
+                isWhite
+                  ? "bg-blue-50 dark:bg-blue-950/40 text-[#0073ea] font-semibold"
+                  : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/60"
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <div className="size-4 rounded flex items-center justify-center shrink-0 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-600">
+                  <div className="w-2.5 h-1 rounded-xs bg-white" />
+                </div>
+                <span>SmartBox White</span>
+              </div>
+              {isWhite && <Check className="size-3.5 text-[#0073ea]" />}
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const activeGateway = useMemo(
     () => gateways.find((g) => g.id === selectedGatewayId) || null,
-    [gateways, selectedGatewayId]
+    [gateways, selectedGatewayId],
   );
 
   const storageUsedPct = useMemo(() => {
-    if (!summary || !summary.total_storage_tb || summary.total_storage_tb <= 0) return 0;
-    return Math.round((summary.storage_used_tb / summary.total_storage_tb) * 100);
+    if (!summary || !summary.total_storage_tb || summary.total_storage_tb <= 0)
+      return 0;
+    return Math.round(
+      (summary.storage_used_tb / summary.total_storage_tb) * 100,
+    );
   }, [summary]);
 
   // Status Badge Helper matching the client visual spec
@@ -165,18 +285,11 @@ export default function ReportSLAPage() {
     );
   };
 
-  // SLA Uptime Pill Badge Helper matching the client visual spec
+  // SLA Uptime Pill Badge Helper matching client 98% threshold
   const renderSlaBadge = (pct: number) => {
-    if (pct >= 99.0) {
+    if (pct >= 98.0) {
       return (
         <span className="inline-block px-3 py-1 rounded-md text-xs font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-mono tracking-tight">
-          {pct.toFixed(2)}%
-        </span>
-      );
-    }
-    if (pct >= 95.0) {
-      return (
-        <span className="inline-block px-3 py-1 rounded-md text-xs font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 font-mono tracking-tight">
           {pct.toFixed(2)}%
         </span>
       );
@@ -193,8 +306,12 @@ export default function ReportSLAPage() {
       {
         id: "location",
         header: "Location",
+        className: "w-[200px] max-w-[200px]",
         cell: (gw) => (
-          <span className="font-semibold text-slate-900 dark:text-white text-xs whitespace-nowrap">
+          <span
+            className="font-semibold text-slate-900 dark:text-white text-xs truncate block max-w-[190px]"
+            title={gw.location}
+          >
             {gw.location}
           </span>
         ),
@@ -204,12 +321,24 @@ export default function ReportSLAPage() {
         header: "Type",
         align: "center",
         cell: (gw) => {
-          const isBlack = gw.type.includes("Hitam");
+          const isBlack = (gw.type || "").toLowerCase().includes("hitam");
           return (
-            <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs">
-              <span className={`size-2.5 rounded-xs ${isBlack ? "bg-slate-900 dark:bg-slate-300" : "bg-slate-300 dark:bg-white"}`} />
-              <span className="text-[11px] font-medium text-slate-700 dark:text-slate-300">
-                {gw.type}
+            <div className="flex items-center gap-2 justify-center">
+              <div
+                className={`size-5 rounded flex items-center justify-center shrink-0 border ${
+                  isBlack
+                    ? "bg-slate-900 border-slate-700 text-white"
+                    : "bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-600 text-slate-700"
+                }`}
+              >
+                <div
+                  className={`w-3 h-1.5 rounded-xs ${
+                    isBlack ? "bg-slate-700" : "bg-white"
+                  }`}
+                />
+              </div>
+              <span className="text-slate-700 dark:text-slate-300 text-[11px] font-medium">
+                {isBlack ? "Black" : "White"}
               </span>
             </div>
           );
@@ -217,7 +346,7 @@ export default function ReportSLAPage() {
       },
       {
         id: "customer",
-        header: "Customer",
+        header: "Client",
         align: "center",
         cell: (gw) => (
           <span className="text-xs text-slate-600 dark:text-slate-400 font-medium">
@@ -231,14 +360,15 @@ export default function ReportSLAPage() {
         id: "sb_status",
         header: "Status",
         align: "center",
-        className: "bg-blue-500/[0.02] dark:bg-blue-500/[0.03]",
+        className: "bg-blue-500/[0.02] dark:bg-blue-500/[0.03] border-r border-blue-100/60 dark:border-blue-950/40",
         cell: (gw) => renderStatusBadge(gw.smartbox_status),
       },
       {
         id: "sb_uptime",
         header: "Uptime",
         align: "center",
-        className: "bg-blue-500/[0.02] dark:bg-blue-500/[0.03] border-r border-slate-200/80 dark:border-slate-800",
+        className:
+          "bg-blue-500/[0.02] dark:bg-blue-500/[0.03] border-r-2 border-r-blue-300 dark:border-r-blue-700/80",
         cell: (gw) => (
           <span className="font-mono text-xs font-semibold text-slate-800 dark:text-slate-200">
             {gw.smartbox_uptime_pct.toFixed(1)}%
@@ -251,14 +381,15 @@ export default function ReportSLAPage() {
         id: "dvr_status",
         header: "Status",
         align: "center",
-        className: "bg-emerald-500/[0.02] dark:bg-emerald-500/[0.03]",
+        className: "bg-emerald-500/[0.02] dark:bg-emerald-500/[0.03] border-r border-emerald-100/60 dark:border-emerald-950/40",
         cell: (gw) => renderStatusBadge(gw.dvr_status),
       },
       {
         id: "dvr_uptime",
         header: "Uptime",
         align: "center",
-        className: "bg-emerald-500/[0.02] dark:bg-emerald-500/[0.03] border-r border-slate-200/80 dark:border-slate-800",
+        className:
+          "bg-emerald-500/[0.02] dark:bg-emerald-500/[0.03] border-r-2 border-r-emerald-300 dark:border-r-emerald-700/80",
         cell: (gw) => (
           <span className="font-mono text-xs font-semibold text-slate-800 dark:text-slate-200">
             {gw.dvr_uptime_pct.toFixed(1)}%
@@ -271,14 +402,15 @@ export default function ReportSLAPage() {
         id: "net_status",
         header: "Status",
         align: "center",
-        className: "bg-purple-500/[0.02] dark:bg-purple-500/[0.03]",
+        className: "bg-purple-500/[0.02] dark:bg-purple-500/[0.03] border-r border-purple-100/60 dark:border-purple-950/40",
         cell: (gw) => renderStatusBadge(gw.network_status),
       },
       {
         id: "net_uptime",
         header: "Uptime",
         align: "center",
-        className: "bg-purple-500/[0.02] dark:bg-purple-500/[0.03] border-r border-slate-200/80 dark:border-slate-800",
+        className:
+          "bg-purple-500/[0.02] dark:bg-purple-500/[0.03] border-r-2 border-r-purple-300 dark:border-r-purple-700/80",
         cell: (gw) => (
           <span className="font-mono text-xs font-semibold text-slate-800 dark:text-slate-200">
             {gw.network_uptime_pct.toFixed(1)}%
@@ -291,14 +423,14 @@ export default function ReportSLAPage() {
         id: "sla_uptime",
         header: "Uptime",
         align: "center",
-        className: "bg-amber-500/[0.02] dark:bg-amber-500/[0.03]",
+        className: "bg-amber-500/[0.02] dark:bg-amber-500/[0.03] border-r border-amber-100/60 dark:border-amber-950/40",
         cell: (gw) => renderSlaBadge(gw.sla_uptime_pct),
       },
       {
         id: "sla_fail",
         header: "Failure Rate",
         align: "center",
-        className: "bg-amber-500/[0.02] dark:bg-amber-500/[0.03]",
+        className: "bg-amber-500/[0.02] dark:bg-amber-500/[0.03] border-r-2 border-r-amber-300 dark:border-r-amber-700/80",
         cell: (gw) => (
           <span className="font-mono text-xs font-semibold text-rose-500 dark:text-rose-400">
             {gw.sla_failure_rate_pct.toFixed(2)}%
@@ -306,7 +438,7 @@ export default function ReportSLAPage() {
         ),
       },
     ],
-    []
+    [],
   );
 
   // Multi-Level Grouped Header Row matching the exact mockup
@@ -326,7 +458,7 @@ export default function ReportSLAPage() {
         </th>
         <th
           rowSpan={2}
-          className="py-3 px-4 text-left border-r border-slate-200/80 dark:border-slate-800 whitespace-nowrap text-slate-900 dark:text-white"
+          className="py-3 px-3.5 text-left border-r border-slate-200/80 dark:border-slate-800 text-slate-900 dark:text-white w-[200px] max-w-[200px]"
         >
           Location
         </th>
@@ -340,13 +472,13 @@ export default function ReportSLAPage() {
           rowSpan={2}
           className="py-3 px-3 text-center border-r border-slate-200/80 dark:border-slate-800 whitespace-nowrap text-slate-900 dark:text-white"
         >
-          Customer
+          Client
         </th>
 
         {/* Group: Smartbox (Blue Theme) */}
         <th
           colSpan={2}
-          className="py-2.5 px-3 text-center border-r border-blue-200 dark:border-blue-900 bg-[#edf5ff] dark:bg-[#0c1e3d] text-blue-700 dark:text-blue-300 font-bold border-b border-b-blue-200 dark:border-b-blue-800/60"
+          className="py-2.5 px-3 text-center border-r-2 border-r-blue-300 dark:border-r-blue-700/80 bg-[#edf5ff] dark:bg-[#0c1e3d] text-blue-700 dark:text-blue-300 font-bold border-b border-b-blue-200 dark:border-b-blue-800/60"
         >
           <div className="flex items-center justify-center gap-1.5">
             <Package className="size-4" />
@@ -357,7 +489,7 @@ export default function ReportSLAPage() {
         {/* Group: DVR (Green Theme) */}
         <th
           colSpan={2}
-          className="py-2.5 px-3 text-center border-r border-emerald-200 dark:border-emerald-900 bg-[#eefbf3] dark:bg-[#072414] text-emerald-700 dark:text-emerald-300 font-bold border-b border-b-emerald-200 dark:border-b-emerald-800/60"
+          className="py-2.5 px-3 text-center border-r-2 border-r-emerald-300 dark:border-r-emerald-700/80 bg-[#eefbf3] dark:bg-[#072414] text-emerald-700 dark:text-emerald-300 font-bold border-b border-b-emerald-200 dark:border-b-emerald-800/60"
         >
           <div className="flex items-center justify-center gap-1.5">
             <Video className="size-4" />
@@ -368,7 +500,7 @@ export default function ReportSLAPage() {
         {/* Group: Network (Purple Theme) */}
         <th
           colSpan={2}
-          className="py-2.5 px-3 text-center border-r border-purple-200 dark:border-purple-900 bg-[#f7f0ff] dark:bg-[#1a0f30] text-purple-700 dark:text-purple-300 font-bold border-b border-b-purple-200 dark:border-b-purple-800/60"
+          className="py-2.5 px-3 text-center border-r-2 border-r-purple-300 dark:border-r-purple-700/80 bg-[#f7f0ff] dark:bg-[#1a0f30] text-purple-700 dark:text-purple-300 font-bold border-b border-b-purple-200 dark:border-b-purple-800/60"
         >
           <div className="flex items-center justify-center gap-1.5">
             <Wifi className="size-4" />
@@ -379,7 +511,7 @@ export default function ReportSLAPage() {
         {/* Group: SLA (Gold/Slate Theme) */}
         <th
           colSpan={2}
-          className="py-2.5 px-3 text-center bg-[#fffbeb] dark:bg-[#261d07] text-amber-800 dark:text-amber-300 font-bold border-b border-b-amber-200 dark:border-b-amber-800/60"
+          className="py-2.5 px-3 text-center bg-[#fffbeb] dark:bg-[#261d07] text-amber-800 dark:text-amber-300 font-bold border-b border-b-amber-200 dark:border-b-amber-800/60 border-r-2 border-r-amber-300 dark:border-r-amber-700/80"
         >
           <div className="flex items-center justify-center gap-1.5">
             <Award className="size-4" />
@@ -391,34 +523,34 @@ export default function ReportSLAPage() {
       {/* Level 2 Sub-Headers */}
       <tr className="border-b border-slate-200/80 dark:border-slate-800/80 text-[11px] font-semibold text-slate-700 dark:text-slate-300">
         {/* Smartbox */}
-        <th className="py-2 px-2.5 text-center bg-[#f4f8ff] dark:bg-[#08152b] border-r border-blue-100 dark:border-blue-950">
+        <th className="py-2 px-2.5 text-center bg-[#f4f8ff] dark:bg-[#08152b] border-r border-blue-200 dark:border-blue-900/40">
           Status
         </th>
-        <th className="py-2 px-2.5 text-center bg-[#f4f8ff] dark:bg-[#08152b] border-r border-slate-200/80 dark:border-slate-800">
+        <th className="py-2 px-2.5 text-center bg-[#f4f8ff] dark:bg-[#08152b] border-r-2 border-r-blue-300 dark:border-r-blue-700/80">
           Uptime
         </th>
 
         {/* DVR */}
-        <th className="py-2 px-2.5 text-center bg-[#f4fdf7] dark:bg-[#041a0d] border-r border-emerald-100 dark:border-emerald-950">
+        <th className="py-2 px-2.5 text-center bg-[#f4fdf7] dark:bg-[#041a0d] border-r border-emerald-200 dark:border-emerald-900/40">
           Status
         </th>
-        <th className="py-2 px-2.5 text-center bg-[#f4fdf7] dark:bg-[#041a0d] border-r border-slate-200/80 dark:border-slate-800">
+        <th className="py-2 px-2.5 text-center bg-[#f4fdf7] dark:bg-[#041a0d] border-r-2 border-r-emerald-300 dark:border-r-emerald-700/80">
           Uptime
         </th>
 
         {/* Network */}
-        <th className="py-2 px-2.5 text-center bg-[#faf5ff] dark:bg-[#140b24] border-r border-purple-100 dark:border-purple-950">
+        <th className="py-2 px-2.5 text-center bg-[#faf5ff] dark:bg-[#140b24] border-r border-purple-200 dark:border-purple-900/40">
           Status
         </th>
-        <th className="py-2 px-2.5 text-center bg-[#faf5ff] dark:bg-[#140b24] border-r border-slate-200/80 dark:border-slate-800">
+        <th className="py-2 px-2.5 text-center bg-[#faf5ff] dark:bg-[#140b24] border-r-2 border-r-purple-300 dark:border-r-purple-700/80">
           Uptime
         </th>
 
         {/* SLA */}
-        <th className="py-2 px-2.5 text-center bg-[#fffdf5] dark:bg-[#1c1503] border-r border-amber-100 dark:border-amber-950">
+        <th className="py-2 px-2.5 text-center bg-[#fffdf5] dark:bg-[#1c1503] border-r border-amber-200 dark:border-amber-900/40">
           Uptime
         </th>
-        <th className="py-2 px-2.5 text-center bg-[#fffdf5] dark:bg-[#1c1503]">
+        <th className="py-2 px-2.5 text-center bg-[#fffdf5] dark:bg-[#1c1503] border-r-2 border-r-amber-300 dark:border-r-amber-700/80">
           Failure Rate
         </th>
       </tr>
@@ -434,7 +566,7 @@ export default function ReportSLAPage() {
           search={filters.search || ""}
           onSearchChange={(val) => handleFilterChange("search", val)}
           searchPlaceholder="Search Gateway ID / Location..."
-          filters={filterConfigs}
+          actions={renderTypeFilterDropdown()}
           timeframe={filters.date_range || getCurrentMonthPeriodStr()}
           onDateRangeChange={(range) => handleFilterChange("date_range", range)}
           onExportClick={handleExport}
@@ -444,7 +576,7 @@ export default function ReportSLAPage() {
     >
       <div className="w-full flex-1 flex flex-col min-h-0 font-sans transition-colors pb-2">
         {/* Executive Period Summary Cards (2 Baris x 4 Kolom) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 p-3 bg-slate-50 dark:bg-slate-900/40 border-b border-slate-200/80 dark:border-slate-800/80 shrink-0">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 bg-slate-50 dark:bg-slate-900/40 border-b pb-2 border-slate-200/80 dark:border-slate-800/80 shrink-0">
           {/* Row 1 / Card 1: Location */}
           <SummaryCard
             title="Location"
@@ -454,11 +586,8 @@ export default function ReportSLAPage() {
             subtext="Total Unique Sites"
           />
 
-          {/* Row 1 / Card 2: Device Status (Gambar 1: Split 2 Kolom dengan |) */}
-          <SummaryCard
-            icon={Server}
-            color="emerald"
-          >
+          {/* Row 1 / Card 2: Device Status */}
+          <SummaryCard icon={Server} color="emerald">
             <div>
               <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block mb-1">
                 Device Status
@@ -470,10 +599,20 @@ export default function ReportSLAPage() {
                     <span className="text-xl sm:text-2xl font-black text-[#00c875] tracking-tight leading-none">
                       {summary?.device_online_count ?? 0}
                     </span>
-                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Online</span>
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                      Online
+                    </span>
                   </div>
                   <div className="text-[11px] font-semibold text-[#00c875] mt-0.5">
-                    ({summary && summary.total_gateways > 0 ? ((summary.device_online_count / summary.total_gateways) * 100).toFixed(1) : "0.0"}%)
+                    (
+                    {summary && summary.total_gateways > 0
+                      ? (
+                          (summary.device_online_count /
+                            summary.total_gateways) *
+                          100
+                        ).toFixed(1)
+                      : "0.0"}
+                    %)
                   </div>
                 </div>
 
@@ -486,52 +625,68 @@ export default function ReportSLAPage() {
                     <span className="text-xl sm:text-2xl font-black text-[#e2445c] tracking-tight leading-none">
                       {summary?.device_offline_count ?? 0}
                     </span>
-                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Offline</span>
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                      Offline
+                    </span>
                   </div>
                   <div className="text-[11px] font-semibold text-[#e2445c] mt-0.5">
-                    ({summary && summary.total_gateways > 0 ? ((summary.device_offline_count / summary.total_gateways) * 100).toFixed(1) : "0.0"}%)
+                    (
+                    {summary && summary.total_gateways > 0
+                      ? (
+                          (summary.device_offline_count /
+                            summary.total_gateways) *
+                          100
+                        ).toFixed(1)
+                      : "0.0"}
+                    %)
                   </div>
                 </div>
               </div>
             </div>
           </SummaryCard>
 
-          {/* Row 1 / Card 3: Total Camera (Gambar 2: Count Online & Offline Dot) */}
-          <SummaryCard
-            icon={Video}
-            color="cyan"
-          >
+          {/* Row 1 / Card 3: Total Cameras */}
+          <SummaryCard icon={Video} color="cyan">
             <div>
               <div className="flex items-baseline gap-1.5">
                 <span className="text-xl sm:text-2xl font-black tracking-tight text-[#0073ea] dark:text-[#0091ff] leading-none">
                   {summary?.total_cameras?.toLocaleString() ?? 0}
                 </span>
-                <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Total Cameras</span>
+                <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                  Total Cameras
+                </span>
               </div>
               <div className="flex items-center gap-3 text-xs font-semibold mt-1.5">
                 <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
                   <span className="size-2 rounded-full bg-[#00c875]" />
-                  <span>{summary?.cameras_online?.toLocaleString() ?? 0} Online</span>
+                  <span>
+                    {summary?.cameras_online?.toLocaleString() ?? 0} Online
+                  </span>
                 </div>
                 <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
                   <span className="size-2 rounded-full bg-[#e2445c]" />
-                  <span>{summary?.cameras_offline?.toLocaleString() ?? 0} Offline</span>
+                  <span>
+                    {summary?.cameras_offline?.toLocaleString() ?? 0} Offline
+                  </span>
                 </div>
               </div>
             </div>
           </SummaryCard>
 
-          {/* Row 1 / Card 4: Total Storage (Gambar 3: PB/TB, Used % & Progress Bar) */}
-          <SummaryCard
-            icon={Database}
-            color="purple"
-          >
+          {/* Row 1 / Card 4: Total Storage */}
+          <SummaryCard icon={Database} color="purple">
             <div className="w-full">
               <div className="flex items-baseline gap-1.5">
                 <span className="text-xl sm:text-2xl font-black tracking-tight text-purple-600 dark:text-purple-400 leading-none">
-                  {summary?.total_storage_tb ? (summary.total_storage_tb >= 1000 ? `${(summary.total_storage_tb / 1000).toFixed(1)} PB` : `${summary.total_storage_tb} TB`) : "0 TB"}
+                  {summary?.total_storage_tb
+                    ? summary.total_storage_tb >= 1000
+                      ? `${(summary.total_storage_tb / 1000).toFixed(1)} PB`
+                      : `${summary.total_storage_tb} TB`
+                    : "0 TB"}
                 </span>
-                <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Total Storage</span>
+                <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                  Total Storage
+                </span>
               </div>
               <div className="text-[11px] font-bold text-purple-600 dark:text-purple-400 mt-1">
                 {storageUsedPct}% Used
@@ -539,7 +694,9 @@ export default function ReportSLAPage() {
               <div className="mt-1 w-full h-1.5 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
                 <div
                   className="h-full rounded-full bg-purple-600 dark:bg-purple-500 transition-all duration-500"
-                  style={{ width: `${Math.min(100, Math.max(0, storageUsedPct))}%` }}
+                  style={{
+                    width: `${Math.min(100, Math.max(0, storageUsedPct))}%`,
+                  }}
                 />
               </div>
             </div>
@@ -551,7 +708,7 @@ export default function ReportSLAPage() {
             value={`${summary ? summary.avg_sla_uptime.toFixed(2) : "100.00"}%`}
             icon={Award}
             color="purple"
-            subtext="Fleet Target: ≥ 99.50%"
+            subtext="Fleet Target: ≥ 98.0%"
           />
 
           {/* Row 2 / Card 6: Failure Rate */}
@@ -566,17 +723,18 @@ export default function ReportSLAPage() {
           {/* Row 2 / Card 7: Incident Count */}
           <SummaryCard
             title="Incident Count"
-            value={summary?.total_incidents ? summary.total_incidents.toLocaleString() : 0}
+            value={
+              summary?.total_incidents
+                ? summary.total_incidents.toLocaleString()
+                : 0
+            }
             icon={Bell}
             color="amber"
             subtext="Recorded Trouble Events"
           />
 
-          {/* Row 2 / Card 8: MTTR & MTBF (Gambar 1: Split 2 Kolom dengan |) */}
-          <SummaryCard
-            icon={Clock}
-            color="indigo"
-          >
+          {/* Row 2 / Card 8: MTTR & MTBF */}
+          <SummaryCard icon={Clock} color="indigo">
             <div>
               <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block mb-1">
                 MTTR &amp; MTBF
@@ -586,9 +744,14 @@ export default function ReportSLAPage() {
                 <div>
                   <div className="flex items-baseline gap-1">
                     <span className="text-xl sm:text-2xl font-black text-indigo-600 dark:text-indigo-400 tracking-tight leading-none">
-                      {summary?.mttr_minutes ? Math.round(summary.mttr_minutes) : 0}m
+                      {summary?.mttr_minutes
+                        ? Math.round(summary.mttr_minutes)
+                        : 0}
+                      m
                     </span>
-                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200">MTTR</span>
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                      MTTR
+                    </span>
                   </div>
                   <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 font-medium truncate">
                     Mean Repair
@@ -602,9 +765,12 @@ export default function ReportSLAPage() {
                 <div>
                   <div className="flex items-baseline gap-1">
                     <span className="text-xl sm:text-2xl font-black text-indigo-600 dark:text-indigo-400 tracking-tight leading-none">
-                      {summary?.mtbf_hours ? Math.round(summary.mtbf_hours) : 0}h
+                      {summary?.mtbf_hours ? Math.round(summary.mtbf_hours) : 0}
+                      h
                     </span>
-                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200">MTBF</span>
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                      MTBF
+                    </span>
                   </div>
                   <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 font-medium truncate">
                     Between Failure
@@ -642,7 +808,7 @@ export default function ReportSLAPage() {
         {selectedGatewayId && (
           <div
             ref={detailRef}
-            className="pt-2 animate-in fade-in slide-in-from-top-4 duration-300 mx-3 pb-4"
+            className="pt-2 animate-in fade-in slide-in-from-top-4 duration-300 pb-2"
           >
             <SLAReportDetailCard
               gatewayId={selectedGatewayId}

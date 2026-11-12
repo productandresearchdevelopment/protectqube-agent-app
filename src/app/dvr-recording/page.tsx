@@ -14,6 +14,7 @@ import {
   DeviceTypeBadge,
   LoadProgressBar,
   IFilterConfig,
+  TypeFilterDropdown,
 } from "@/components/ui";
 import { DVRDeviceDetailCard } from "@/components/dvr/DVRDeviceDetailCard";
 import {
@@ -89,6 +90,8 @@ export default function DVRRecordingPage() {
   const [statusFilter, setStatusFilter] = useState("All Statuses");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [sortBy, setSortBy] = useState<string | null>(null);
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc" | null>(null);
   const [selectedGateways, setSelectedGateways] = useState<string[]>([]);
   const [selectedGatewayId, setSelectedGatewayId] = useState<string | null>(null);
 
@@ -105,6 +108,8 @@ export default function DVRRecordingPage() {
     status: statusFilter,
     page: currentPage,
     pageSize,
+    sortBy,
+    sortOrder,
   });
 
   const summary = dashboard?.summary;
@@ -201,11 +206,15 @@ export default function DVRRecordingPage() {
       id: "location",
       header: "Location",
       accessorKey: "location",
+      className: "w-[200px] max-w-[200px]",
       cell: (item) => {
         const isSelected = selectedGatewayId === item.id;
         return (
           <div className="flex items-center gap-1.5">
-            <span className="font-semibold text-slate-900 dark:text-white hover:text-[#0073ea] transition-colors">
+            <span
+              className="font-semibold text-slate-900 dark:text-white hover:text-[#0073ea] transition-colors truncate block max-w-[180px]"
+              title={item.location}
+            >
               {item.location}
             </span>
             {isSelected && (
@@ -217,6 +226,20 @@ export default function DVRRecordingPage() {
           </div>
         );
       },
+    },
+    {
+      id: "customer",
+      header: "Client",
+      align: "center",
+      className: "w-[120px] max-w-[120px]",
+      cell: (item) => (
+        <span
+          className="text-xs text-slate-600 dark:text-slate-400 font-medium truncate block max-w-[110px]"
+          title={item.customer || item.client_name || "-"}
+        >
+          {item.customer || item.client_name || "-"}
+        </span>
+      ),
     },
     {
       id: "type",
@@ -237,6 +260,8 @@ export default function DVRRecordingPage() {
       id: "status",
       header: "Status",
       align: "center",
+      sortable: true,
+      defaultSortOrder: "asc",
       cell: (item) => {
         const isOnline = item.status === "Online";
         return (
@@ -251,6 +276,8 @@ export default function DVRRecordingPage() {
       id: "cpu_dvr",
       header: "CPU – DVR",
       align: "center",
+      sortable: true,
+      defaultSortOrder: "asc",
       cell: (item) => {
         const isOffline = item.status === "Offline";
         const isConnected = !isOffline && item.cpu_dvr === "Connected";
@@ -282,15 +309,19 @@ export default function DVRRecordingPage() {
       id: "camera",
       header: "Camera",
       align: "center",
+      sortable: true,
+      defaultSortOrder: "asc",
       cell: (item) => {
         if (item.status === "Offline" || typeof item.kamera_online !== "number") {
           return <span className="font-mono text-slate-400 font-bold text-[11px]">-</span>;
         }
-        const isAllUp = item.kamera_online === item.total_kamera;
+        const isConnected = item.cpu_dvr === "Connected";
+        const isAllUp = isConnected && item.kamera_online === item.total_kamera && item.total_kamera > 0;
+        const isZero = item.kamera_online === 0 || !isConnected;
         return (
           <span
             className={`font-mono font-bold text-[11px] ${
-              isAllUp ? "text-[#00c875]" : "text-[#fdab3d]"
+              isAllUp ? "text-[#00c875]" : isZero ? "text-[#e2445c]" : "text-[#fdab3d]"
             }`}
           >
             {item.kamera_online} / {item.total_kamera} Online
@@ -302,6 +333,8 @@ export default function DVRRecordingPage() {
       id: "recording_status",
       header: "Recording Status",
       align: "center",
+      sortable: true,
+      defaultSortOrder: "asc",
       cell: (item) => {
         const isOffline = item.status === "Offline";
         if (isOffline) {
@@ -350,6 +383,8 @@ export default function DVRRecordingPage() {
       id: "storage_percent",
       header: "Storage",
       align: "center",
+      sortable: true,
+      defaultSortOrder: "desc",
       cell: (item) => {
         if (item.status === "Offline" || typeof item.storage_usage_percent !== "number") {
           return <span className="font-mono text-slate-400 font-bold text-[11px]">-</span>;
@@ -361,6 +396,8 @@ export default function DVRRecordingPage() {
       id: "dvr_health",
       header: "DVR Health",
       align: "center",
+      sortable: true,
+      defaultSortOrder: "asc",
       cell: (item) => {
         if (item.status === "Offline") {
           return <StatusBadge status="Critical" variant="critical" />;
@@ -393,7 +430,15 @@ export default function DVRRecordingPage() {
             setCurrentPage(1);
           }}
           searchPlaceholder="Search Location, Gateway ID, Model, IP..."
-          filters={filters}
+          actions={
+            <TypeFilterDropdown
+              value={typeFilter}
+              onChange={(val) => {
+                setTypeFilter(val);
+                setCurrentPage(1);
+              }}
+            />
+          }
         />
       }
     >
@@ -498,6 +543,13 @@ export default function DVRRecordingPage() {
           onPageChange={setCurrentPage}
           onPageSizeChange={(newSize) => {
             setPageSize(newSize);
+            setCurrentPage(1);
+          }}
+          sortBy={sortBy}
+          sortOrder={sortOrder}
+          onSortChange={(col, order) => {
+            setSortBy(col);
+            setSortOrder(order);
             setCurrentPage(1);
           }}
           className={selectedGatewayId ? "min-h-100" : "h-[calc(100vh-215px)] flex-1"}

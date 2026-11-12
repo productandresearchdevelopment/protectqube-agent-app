@@ -14,6 +14,7 @@ import {
   ColumnDef,
   FilterHeader,
   IFilterConfig,
+  TypeFilterDropdown,
 } from "@/components/ui";
 import { DVRReportDetailCard } from "@/components/reports/dvr/DVRReportDetailCard";
 import { MoreHorizontal, Video } from "lucide-react";
@@ -87,7 +88,12 @@ export default function ReportDVRPage() {
     try {
       setIsExporting(true);
       const url = exportDVRReportExcelUrl(filters);
-      await downloadReportFile(url, "dvr_report.xlsx");
+      const now = new Date();
+      const dd = String(now.getDate()).padStart(2, "0");
+      const mm = String(now.getMonth() + 1).padStart(2, "0");
+      const yyyy = now.getFullYear();
+      const filename = `DVR_REPORT_${dd}${mm}${yyyy}.xlsx`;
+      await downloadReportFile(url, filename);
     } catch (err) {
       console.error("Export dvr report error:", err);
     } finally {
@@ -126,19 +132,39 @@ export default function ReportDVRPage() {
       {
         id: "location",
         header: "Location",
+        className: "w-[200px] max-w-[200px] border-r border-slate-200/80 dark:border-slate-800/60",
         cell: (gw) => (
-          <span className="font-semibold text-slate-900 dark:text-white whitespace-nowrap">
+          <span
+            className="font-semibold text-slate-900 dark:text-white truncate block max-w-[190px]"
+            title={gw.location}
+          >
             {gw.location}
+          </span>
+        ),
+      },
+      {
+        id: "customer",
+        header: "Client",
+        align: "center",
+        className: "border-r border-slate-200/80 dark:border-slate-800/60 w-[110px] max-w-[110px]",
+        cell: (gw) => (
+          <span
+            className="text-xs text-slate-600 dark:text-slate-400 font-medium truncate block max-w-[100px]"
+            title={gw.customer || "-"}
+          >
+            {gw.customer || "-"}
           </span>
         ),
       },
       {
         id: "type",
         header: "Type",
+        align: "center",
+        className: "border-r-2 border-slate-300 dark:border-slate-700/80",
         cell: (gw) => {
           const isBlack = gw.type.includes("Hitam");
           return (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 justify-center">
               <div
                 className={`size-5 rounded flex items-center justify-center shrink-0 border ${
                   isBlack
@@ -158,16 +184,6 @@ export default function ReportDVRPage() {
             </div>
           );
         },
-      },
-      {
-        id: "dvr_model",
-        header: "DVR/NVR",
-        className: "border-r-2 border-slate-300 dark:border-slate-700/80",
-        cell: (gw) => (
-          <span className="font-semibold text-slate-800 dark:text-slate-200 whitespace-nowrap">
-            {gw.dvr_model}
-          </span>
-        ),
       },
       // Group 1: Komunikasi CPU – DVR (Apple Blue Group)
       {
@@ -410,21 +426,21 @@ export default function ReportDVRPage() {
         </th>
         <th
           rowSpan={2}
-          className="py-2.5 px-4 whitespace-nowrap border-r border-slate-200/80 dark:border-slate-800/60 bg-slate-100 dark:bg-[#0e1628]"
+          className="py-2.5 px-3.5 text-left border-r border-slate-200/80 dark:border-slate-800/60 bg-slate-100 dark:bg-[#0e1628] w-[200px] max-w-[200px]"
         >
           Location
         </th>
         <th
           rowSpan={2}
-          className="py-2.5 px-3 whitespace-nowrap border-r border-slate-200/80 dark:border-slate-800/60 bg-slate-100 dark:bg-[#0e1628]"
+          className="py-2.5 px-3 text-center border-r border-slate-200/80 dark:border-slate-800/60 whitespace-nowrap bg-slate-100 dark:bg-[#0e1628] w-[110px] max-w-[110px]"
         >
-          Type
+          Client
         </th>
         <th
           rowSpan={2}
-          className="py-2.5 px-3.5 whitespace-nowrap border-r-2 border-r-slate-300 dark:border-r-slate-700/80 bg-slate-100 dark:bg-[#0e1628]"
+          className="py-2.5 px-3 text-center whitespace-nowrap border-r-2 border-r-slate-300 dark:border-r-slate-700/80 bg-slate-100 dark:bg-[#0e1628]"
         >
-          DVR/NVR
+          Type
         </th>
 
         {/* Group 1: Komunikasi CPU – DVR (Apple Blue) */}
@@ -529,7 +545,12 @@ export default function ReportDVRPage() {
           search={filters.search || ""}
           onSearchChange={(val) => handleFilterChange("search", val)}
           searchPlaceholder="Search Gateway ID / Location..."
-          filters={filterConfigs}
+          actions={
+            <TypeFilterDropdown
+              value={filters.type || "All Types"}
+              onChange={(val) => handleFilterChange("type", val)}
+            />
+          }
           timeframe={filters.date_range || getCurrentMonthPeriodStr()}
           onDateRangeChange={(range) => handleFilterChange("date_range", range)}
           onExportClick={handleExport}

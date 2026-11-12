@@ -3,8 +3,10 @@
 import React, { useState } from 'react';
 import {
 	useNotificationEvents,
+	useUpdateNotificationEvent,
 	useDeleteNotificationEvent,
 } from '@/store/api/notifications';
+import { useDebounce } from '@/hooks/useDebounce';
 import { NotificationRuleModal } from '@/components/notifications/NotificationRuleModal';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { INotificationEvent } from '@/types/notifications';
@@ -47,6 +49,9 @@ const CHANNEL_ICONS: Record<string, React.ElementType> = {
 
 export const NotificationsTab: React.FC = () => {
 	const [search, setSearch] = useState('');
+	const debouncedSearch = useDebounce(search, 400);
+	const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+	const [togglingId, setTogglingId] = useState<string | null>(null);
 	const [selectedRule, setSelectedRule] = useState<INotificationEvent | null>(null);
 	const [isRuleModalOpen, setIsRuleModalOpen] = useState(false);
 	const [deleteDialog, setDeleteDialog] = useState<{ isOpen: boolean; rule: INotificationEvent | null }>({
@@ -54,13 +59,41 @@ export const NotificationsTab: React.FC = () => {
 		rule: null,
 	});
 
-	const { data: eventsData, isLoading } = useNotificationEvents(
-		1,
-		100,
-		{ search: search.trim() || undefined }
-	);
+	const { data: eventsData, isLoading } = useNotificationEvents(1, 100, {
+		search: debouncedSearch.trim() || undefined,
+	});
+	const { data: allEventsData } = useNotificationEvents(1, 100);
 
+	const updateMutation = useUpdateNotificationEvent();
 	const deleteMutation = useDeleteNotificationEvent();
+
+	const handleToggleRule = async (rule: INotificationEvent) => {
+		const currentChannels = rule.channels || [];
+		const currentlyActive = currentChannels.some((c) => c.is_enabled !== false);
+		const nextChannels = currentlyActive
+			? currentChannels.map((c) => ({ ...c, is_enabled: false }))
+			: currentChannels.length > 0
+				? currentChannels.map((c) => ({ ...c, is_enabled: true }))
+				: [{ channel_type: 'in_app', name: 'In-App Notification', is_enabled: true }];
+
+		setTogglingId(rule.id);
+		try {
+			await updateMutation.mutateAsync({
+				id: rule.id,
+				channels: nextChannels,
+			});
+			toast.success(
+				currentlyActive
+					? `Rule "${rule.name}" dinonaktifkan`
+					: `Rule "${rule.name}" diaktifkan`
+			);
+		} catch (err: unknown) {
+			const error = err as Error;
+			toast.error(error.message || 'Gagal mengubah status rule');
+		} finally {
+			setTogglingId(null);
+		}
+	};
 
 	const handleOpenCreate = () => {
 		setSelectedRule(null);
@@ -84,7 +117,16 @@ export const NotificationsTab: React.FC = () => {
 		}
 	};
 
-	const events = eventsData?.data || [];
+	const searchedEvents = eventsData?.data || [];
+	const allEvents = allEventsData?.data || searchedEvents;
+	const activeCount = searchedEvents.filter((e) => (e.channels || []).some((c) => c.is_enabled !== false)).length;
+	const inactiveCount = searchedEvents.length - activeCount;
+	const events = searchedEvents.filter((e) => {
+		const isAct = (e.channels || []).some((c) => c.is_enabled !== false);
+		if (statusFilter === 'active') return isAct;
+		if (statusFilter === 'inactive') return !isAct;
+		return true;
+	});
 
 	return (
 		<div className='space-y-6'>
@@ -109,15 +151,53 @@ export const NotificationsTab: React.FC = () => {
 			</div>
 
 			{/* Filter */}
-			<div className='relative max-w-md'>
-				<Search className='w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400' />
-				<input
-					type='text'
-					value={search}
-					onChange={(e) => setSearch(e.target.value)}
-					placeholder='Search notification rules...'
-					className='w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#0073ea] transition-all'
-				/>
+			<div className='flex flex-col sm:flex-row sm:items-center justify-between gap-3'>
+				<div className='relative max-w-md w-full'>
+					<Search className='w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400' />
+					<input
+						type='text'
+						value={search}
+						onChange={(e) => setSearch(e.target.value)}
+						placeholder='Search notification rules...'
+						className='w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#0073ea] transition-all'
+					/>
+				</div>
+
+				<div className='inline-flex items-center gap-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700/70 self-start sm:self-auto'>
+					<button
+						type='button'
+						onClick={() => setStatusFilter('all')}
+						className={`px-3 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
+							statusFilter === 'all'
+								? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs'
+								: 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+						}`}
+					>
+						All ({searchedEvents.length})
+					</button>
+					<button
+						type='button'
+						onClick={() => setStatusFilter('active')}
+						className={`px-3 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
+							statusFilter === 'active'
+								? 'bg-emerald-500/15 text-[#00a862] dark:text-[#00c875]'
+								: 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+						}`}
+					>
+						Active ({activeCount})
+					</button>
+					<button
+						type='button'
+						onClick={() => setStatusFilter('inactive')}
+						className={`px-3 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
+							statusFilter === 'inactive'
+								? 'bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-100'
+								: 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+						}`}
+					>
+						Inactive ({inactiveCount})
+					</button>
+				</div>
 			</div>
 
 			{/* Table */}
@@ -128,6 +208,7 @@ export const NotificationsTab: React.FC = () => {
 							<tr>
 								<th className='px-5 py-3.5'>Event Rule</th>
 								<th className='px-5 py-3.5'>Category</th>
+								<th className='px-5 py-3.5'>Status</th>
 								<th className='px-5 py-3.5'>Active Channels</th>
 								<th className='px-5 py-3.5'>Description</th>
 								<th className='px-5 py-3.5 text-right'>Actions</th>
@@ -139,6 +220,9 @@ export const NotificationsTab: React.FC = () => {
 									<tr key={i} className='animate-pulse'>
 										<td className='px-5 py-4'>
 											<div className='w-32 h-3.5 bg-slate-200 dark:bg-slate-800 rounded' />
+										</td>
+										<td className='px-5 py-4'>
+											<div className='w-16 h-5 bg-slate-200 dark:bg-slate-800 rounded-full' />
 										</td>
 										<td className='px-5 py-4'>
 											<div className='w-16 h-5 bg-slate-200 dark:bg-slate-800 rounded-full' />
@@ -156,13 +240,15 @@ export const NotificationsTab: React.FC = () => {
 								))
 							) : events.length === 0 ? (
 								<tr>
-									<td colSpan={5} className='px-5 py-12 text-center text-slate-400'>
+									<td colSpan={6} className='px-5 py-12 text-center text-slate-400'>
 										No notification rules found.
 									</td>
 								</tr>
 							) : (
 								events.map((e) => {
 									const channels = e.channels || [];
+									const isRuleActive = channels.some((c) => c.is_enabled !== false);
+									const isToggling = togglingId === e.id;
 
 									return (
 										<tr
@@ -187,17 +273,55 @@ export const NotificationsTab: React.FC = () => {
 											</td>
 
 											<td className='px-5 py-4'>
+												<button
+													type='button'
+													disabled={isToggling}
+													onClick={() => handleToggleRule(e)}
+													className='inline-flex items-center gap-2 cursor-pointer disabled:opacity-50'
+													title={isRuleActive ? 'Klik untuk nonaktifkan rule' : 'Klik untuk aktifkan rule'}
+												>
+													<span
+														className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
+															isRuleActive
+																? 'bg-[#00c875]'
+																: 'bg-slate-300 dark:bg-slate-700'
+														}`}
+													>
+														<span
+															className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
+																isRuleActive ? 'translate-x-4' : 'translate-x-0'
+															}`}
+														/>
+													</span>
+													<span
+														className={`text-[11px] font-semibold ${
+															isRuleActive
+																? 'text-[#00a862] dark:text-[#00c875]'
+																: 'text-slate-400'
+														}`}
+													>
+														{isRuleActive ? 'Active' : 'Inactive'}
+													</span>
+												</button>
+											</td>
+
+											<td className='px-5 py-4'>
 												{channels.length === 0 ? (
 													<span className='text-[11px] text-slate-400 italic'>None</span>
 												) : (
 													<div className='flex items-center gap-1.5'>
 														{channels.map((c, idx) => {
 															const Icon = CHANNEL_ICONS[c.channel_type] || Bell;
+															const chEnabled = c.is_enabled !== false;
 															return (
 																<div
 																	key={idx}
-																	className='p-1 rounded-md bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 text-[#0073ea] dark:text-[#3894ff]'
-																	title={c.channel_type}
+																	className={`p-1 rounded-md border ${
+																		chEnabled
+																			? 'bg-blue-50 dark:bg-blue-950/50 border-blue-200 dark:border-blue-800 text-[#0073ea] dark:text-[#3894ff]'
+																			: 'bg-slate-100 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 text-slate-400 opacity-50'
+																	}`}
+																	title={`${c.channel_type}${chEnabled ? '' : ' (Disabled)'}`}
 																>
 																	<Icon className='w-3.5 h-3.5' />
 																</div>
@@ -242,7 +366,7 @@ export const NotificationsTab: React.FC = () => {
 				isOpen={isRuleModalOpen}
 				onClose={() => setIsRuleModalOpen(false)}
 				rule={selectedRule}
-				availableEvents={events}
+				availableEvents={allEvents}
 			/>
 
 			<ConfirmDialog

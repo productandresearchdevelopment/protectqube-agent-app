@@ -14,6 +14,7 @@ import {
   ColumnDef,
   FilterHeader,
   IFilterConfig,
+  TypeFilterDropdown,
 } from "@/components/ui";
 import { CellularReportDetailCard } from "@/components/reports/cellular/CellularReportDetailCard";
 import { MoreHorizontal, Radio } from "lucide-react";
@@ -90,7 +91,12 @@ export default function ReportCellularPage() {
     try {
       setIsExporting(true);
       const url = exportCellularReportExcelUrl(filters);
-      await downloadReportFile(url, "cellular_report.xlsx");
+      const now = new Date();
+      const dd = String(now.getDate()).padStart(2, "0");
+      const mm = String(now.getMonth() + 1).padStart(2, "0");
+      const yyyy = now.getFullYear();
+      const filename = `CELLULAR_REPORT_${dd}${mm}${yyyy}.xlsx`;
+      await downloadReportFile(url, filename);
     } catch (err) {
       console.error("Export cellular report error:", err);
     } finally {
@@ -122,20 +128,39 @@ export default function ReportCellularPage() {
       {
         id: "location",
         header: "Location",
+        className: "w-[200px] max-w-[200px] border-r border-slate-200/80 dark:border-slate-800/60",
         cell: (gw) => (
-          <span className="font-semibold text-slate-900 dark:text-white whitespace-nowrap">
+          <span
+            className="font-semibold text-slate-900 dark:text-white truncate block max-w-[190px]"
+            title={gw.location}
+          >
             {gw.location}
+          </span>
+        ),
+      },
+      {
+        id: "customer",
+        header: "Client",
+        align: "center",
+        className: "border-r border-slate-200/80 dark:border-slate-800/60 w-[110px] max-w-[110px]",
+        cell: (gw) => (
+          <span
+            className="text-xs text-slate-600 dark:text-slate-400 font-medium truncate block max-w-[100px]"
+            title={gw.customer || "-"}
+          >
+            {gw.customer || "-"}
           </span>
         ),
       },
       {
         id: "type",
         header: "Type",
+        align: "center",
         className: "border-r-2 border-slate-300 dark:border-slate-700/80",
         cell: (gw) => {
           const isBlack = gw.type.includes("Hitam");
           return (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 justify-center">
               <div
                 className={`size-5 rounded flex items-center justify-center shrink-0 border ${
                   isBlack
@@ -156,23 +181,13 @@ export default function ReportCellularPage() {
           );
         },
       },
-      // Group: Modem Device (Apple Indigo / Slate Group)
-      {
-        id: "modem_name",
-        header: "Model",
-        className: "bg-indigo-500/[0.025] dark:bg-indigo-500/[0.04]",
-        cell: (gw) => (
-          <span className="text-slate-800 dark:text-slate-200 font-semibold whitespace-nowrap">
-            {gw.modem_name || gw.modem || "Quectel EG95 LTE Cat 4"}
-          </span>
-        ),
-      },
+      // Group: Modem Device (Apple Indigo / Slate Group) - Avg Temp
       {
         id: "modem_temp",
         header: "Avg Temp",
         align: "center",
         className:
-          "bg-indigo-500/[0.025] dark:bg-indigo-500/[0.04] border-r-2 border-r-indigo-300 dark:border-r-indigo-700/80",
+          "bg-indigo-500/[0.025] dark:bg-indigo-500/[0.04] border-r-2 border-r-indigo-300 dark:border-r-indigo-700/80 w-[75px] max-w-[75px] px-1",
         cell: (gw) => {
           const temp = gw.modem_temp ?? gw.network_avg_temp ?? 42;
           return (
@@ -194,9 +209,12 @@ export default function ReportCellularPage() {
       {
         id: "provider",
         header: "Provider",
-        className: "bg-amber-500/[0.025] dark:bg-amber-500/[0.04]",
+        className: "bg-amber-500/[0.025] dark:bg-amber-500/[0.04] w-[110px] max-w-[110px]",
         cell: (gw) => (
-          <span className="text-slate-800 dark:text-slate-200 whitespace-nowrap font-medium">
+          <span
+            className="text-slate-800 dark:text-slate-200 font-medium truncate block max-w-[100px]"
+            title={gw.provider}
+          >
             {gw.provider}
           </span>
         ),
@@ -413,20 +431,26 @@ export default function ReportCellularPage() {
         </th>
         <th
           rowSpan={2}
-          className="py-2.5 px-4 whitespace-nowrap border-r border-slate-200/80 dark:border-slate-800/60 bg-slate-100 dark:bg-[#0e1628]"
+          className="py-2.5 px-3.5 text-left border-r border-slate-200/80 dark:border-slate-800/60 bg-slate-100 dark:bg-[#0e1628] w-[200px] max-w-[200px]"
         >
           Location
         </th>
         <th
           rowSpan={2}
-          className="py-2.5 px-3 whitespace-nowrap border-r-2 border-r-slate-300 dark:border-r-slate-700/80 bg-slate-100 dark:bg-[#0e1628]"
+          className="py-2.5 px-3 text-center border-r border-slate-200/80 dark:border-slate-800/60 whitespace-nowrap bg-slate-100 dark:bg-[#0e1628] w-[110px] max-w-[110px]"
+        >
+          Client
+        </th>
+        <th
+          rowSpan={2}
+          className="py-2.5 px-3 text-center whitespace-nowrap border-r-2 border-r-slate-300 dark:border-r-slate-700/80 bg-slate-100 dark:bg-[#0e1628]"
         >
           Type
         </th>
 
         {/* Group: Modem Device (Apple Indigo / Slate) */}
         <th
-          colSpan={2}
+          colSpan={1}
           className="py-2 px-3 text-center border-r-2 border-r-indigo-300 dark:border-r-indigo-700/80 font-bold text-indigo-950 dark:text-indigo-200 bg-[#edf0ff] dark:bg-[#12132e] border-b border-b-indigo-200 dark:border-b-indigo-800/60"
         >
           Modem Device
@@ -477,15 +501,12 @@ export default function ReportCellularPage() {
       {/* Level 2 Sub-headers */}
       <tr className="border-b border-slate-200/80 dark:border-slate-800/80 text-[11px] font-semibold">
         {/* Under Modem Device */}
-        <th className="py-2 px-3 text-center whitespace-nowrap text-indigo-900/90 dark:text-indigo-200 bg-[#f5f6ff] dark:bg-[#181a3a] border-r border-indigo-200/60 dark:border-indigo-900/50">
-          Name
-        </th>
-        <th className="py-2 px-3 text-center whitespace-nowrap text-indigo-900/90 dark:text-indigo-200 bg-[#f5f6ff] dark:bg-[#181a3a] border-r-2 border-r-indigo-300 dark:border-r-indigo-700/80">
+        <th className="py-2 px-1 text-center whitespace-nowrap text-indigo-900/90 dark:text-indigo-200 bg-[#f5f6ff] dark:bg-[#181a3a] border-r-2 border-r-indigo-300 dark:border-r-indigo-700/80 w-[75px] max-w-[75px]">
           Avg Temp
         </th>
 
         {/* Under SIM Card & Data */}
-        <th className="py-2 px-3 text-center whitespace-nowrap text-amber-900/90 dark:text-amber-200 bg-[#fffcf4] dark:bg-[#30220c] border-r border-amber-200/60 dark:border-amber-900/50">
+        <th className="py-2 px-2 text-center text-amber-900/90 dark:text-amber-200 bg-[#fffcf4] dark:bg-[#30220c] border-r border-amber-200/60 dark:border-amber-900/50 w-[110px] max-w-[110px]">
           Provider
         </th>
         <th className="py-2 px-3.5 text-center whitespace-nowrap text-amber-900/90 dark:text-amber-200 bg-[#fffcf4] dark:bg-[#30220c] border-r border-amber-200/60 dark:border-amber-900/50">
@@ -539,7 +560,12 @@ export default function ReportCellularPage() {
           search={filters.search || ""}
           onSearchChange={(val) => handleFilterChange("search", val)}
           searchPlaceholder="Search Gateway ID / Location..."
-          filters={filterConfigs}
+          actions={
+            <TypeFilterDropdown
+              value={filters.type || "All Types"}
+              onChange={(val) => handleFilterChange("type", val)}
+            />
+          }
           timeframe={filters.date_range || getCurrentMonthPeriodStr()}
           onDateRangeChange={(range) => handleFilterChange("date_range", range)}
           onExportClick={handleExport}

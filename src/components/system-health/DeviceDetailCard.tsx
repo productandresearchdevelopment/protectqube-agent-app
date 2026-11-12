@@ -836,6 +836,17 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                     <div className="space-y-1 text-xs pt-0.5">
                       <div className="flex items-center">
                         <span className="text-slate-500 dark:text-slate-400 w-24 shrink-0 font-medium">
+                          Client
+                        </span>
+                        <span
+                          className="text-slate-800 dark:text-slate-200 font-medium truncate"
+                          title={d.customer || d.client_name || "-"}
+                        >
+                          : {d.customer || d.client_name || "-"}
+                        </span>
+                      </div>
+                      <div className="flex items-center">
+                        <span className="text-slate-500 dark:text-slate-400 w-24 shrink-0 font-medium">
                           Type
                         </span>
                         <span
@@ -865,34 +876,12 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
                         </span>
                       </div>
                       <div className="flex items-center">
-                        <span className="text-slate-500 dark:text-slate-400 w-24 shrink-0 font-medium">
-                          Uptime
-                        </span>
-                        <span className="text-slate-800 dark:text-slate-200 font-mono text-[11px]">
-                          : {isOffline ? "-" : d.uptime}
-                        </span>
-                      </div>
-                      <div className="flex items-center">
                         <span className="text-slate-500 dark:text-slate-400 w-24 shrink-0 font-medium whitespace-nowrap">
                           Last Update
                         </span>
                         <span className="text-slate-800 dark:text-slate-200 font-mono text-[11px] whitespace-nowrap">
                           : {formatToWIB(d.last_update)}
                         </span>
-                      </div>
-                      <div className="flex items-center">
-                        <span className="text-slate-500 dark:text-slate-400 w-24 shrink-0 font-medium">
-                          Service
-                        </span>
-                        {isOffline ? (
-                          <span className="text-rose-500 dark:text-[#e2445c] font-semibold flex items-center gap-1.5">
-                            : Offline (Stopped)
-                          </span>
-                        ) : (
-                          <span className="text-emerald-500 dark:text-emerald-400 font-semibold flex items-center gap-1.5">
-                            : Normal Operation
-                          </span>
-                        )}
                       </div>
                       <div className="flex items-center">
                         <span className="text-slate-500 dark:text-slate-400 w-24 shrink-0 font-medium">

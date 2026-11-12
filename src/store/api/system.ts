@@ -510,3 +510,253 @@ export const useDeleteModuleType = () => {
   });
 };
 
+// =========================================================================
+// CLIENTS API
+// =========================================================================
+export interface IClient {
+  id: string;
+  name: string;
+  code?: string | null;
+  is_active: boolean;
+  devices_count?: number;
+  created_at?: string | null;
+  updated_at?: string | null;
+  deleted_at?: string | null;
+}
+
+export interface IClientListResponse {
+  status: boolean;
+  data: IClient[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export const fetchClients = async (params?: {
+  search?: string;
+  is_active?: boolean;
+  all?: boolean;
+  page?: number;
+  page_size?: number;
+}): Promise<IClientListResponse> => {
+  const query = new URLSearchParams();
+  if (params?.search) query.append("search", params.search);
+  if (params?.is_active !== undefined) query.append("is_active", String(params.is_active));
+  if (params?.all) query.append("all", "true");
+  if (params?.page) query.append("page", String(params.page));
+  if (params?.page_size) query.append("page_size", String(params.page_size));
+
+  const res = await fetch(`${API_BASE_URL}/clients?${query.toString()}`, {
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) await handleFetchError(res);
+  return res.json();
+};
+
+export const useClients = (params?: {
+  search?: string;
+  is_active?: boolean;
+  all?: boolean;
+  page?: number;
+  page_size?: number;
+}) => {
+  return useQuery({
+    queryKey: ["clients", params],
+    queryFn: () => fetchClients(params),
+  });
+};
+
+export const useCreateClient = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: { name: string; code?: string; is_active?: boolean }) => {
+      const res = await fetch(`${API_BASE_URL}/clients`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) await handleFetchError(res);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["clients"] });
+    },
+  });
+};
+
+export const useUpdateClient = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      payload,
+    }: {
+      id: string;
+      payload: { name?: string; code?: string; is_active?: boolean };
+    }) => {
+      const res = await fetch(`${API_BASE_URL}/clients/${id}`, {
+        method: "PUT",
+        headers: getAuthHeaders(),
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) await handleFetchError(res);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["clients"] });
+      queryClient.invalidateQueries({ queryKey: ["devices"] });
+    },
+  });
+};
+
+export const useDeleteClient = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`${API_BASE_URL}/clients/${id}`, {
+        method: "DELETE",
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) await handleFetchError(res);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["clients"] });
+      queryClient.invalidateQueries({ queryKey: ["devices"] });
+    },
+  });
+};
+
+// =========================================================================
+// DEVICES API (Configuration & Master Fleet Management)
+// =========================================================================
+export interface IDetectedCamera {
+  id: string;
+  channel: number;
+  name: string;
+  is_online: boolean;
+  resolution?: string;
+  recording_status?: string;
+}
+
+export interface IConfigDevice {
+  id: string;
+  name: string;
+  location?: string | null;
+  lat?: number | null;
+  long?: number | null;
+  hardware_model?: string | null;
+  operational_start?: string | null;
+  operational_end?: string | null;
+  is_active: boolean;
+  client_id?: string | null;
+  client_name?: string | null;
+  property: Record<string, any>;
+  total_cameras?: number | null;
+  selected_cameras?: string[] | null;
+  detected_cameras?: IDetectedCamera[];
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface IDeviceListResponse {
+  status: boolean;
+  data: IConfigDevice[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export const fetchConfigDevices = async (params?: {
+  search?: string;
+  client_id?: string;
+  is_active?: boolean | string;
+  page?: number;
+  page_size?: number;
+}): Promise<IDeviceListResponse> => {
+  const query = new URLSearchParams();
+  if (params?.search) query.append("search", params.search);
+  if (params?.client_id) query.append("client_id", params.client_id);
+  if (params?.is_active !== undefined && params?.is_active !== "all") {
+    query.append("is_active", String(params.is_active));
+  }
+  if (params?.page) query.append("page", String(params.page));
+  if (params?.page_size) query.append("page_size", String(params.page_size));
+
+  const res = await fetch(`${API_BASE_URL}/devices?${query.toString()}`, {
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) await handleFetchError(res);
+  return res.json();
+};
+
+export const fetchConfigDevice = async (id: string): Promise<{ status: boolean; data: IConfigDevice }> => {
+  const res = await fetch(`${API_BASE_URL}/devices/${id}`, {
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) await handleFetchError(res);
+  return res.json();
+};
+
+export const useConfigDevices = (params?: {
+  search?: string;
+  client_id?: string;
+  is_active?: boolean | string;
+  page?: number;
+  page_size?: number;
+}) => {
+  return useQuery({
+    queryKey: ["devices", params],
+    queryFn: () => fetchConfigDevices(params),
+  });
+};
+
+export const useConfigDevice = (id?: string | null) => {
+  return useQuery({
+    queryKey: ["devices", id],
+    queryFn: () => fetchConfigDevice(id!),
+    enabled: Boolean(id),
+  });
+};
+
+export const useUpdateConfigDevice = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      payload,
+    }: {
+      id: string;
+      payload: {
+        client_id?: string | null;
+        location?: string;
+        lat?: number | null;
+        long?: number | null;
+        hardware_model?: string;
+        operational_start?: string | null;
+        operational_end?: string | null;
+        is_active?: boolean;
+        property?: Record<string, any>;
+        total_cameras?: number;
+        selected_cameras?: string[];
+      };
+    }) => {
+      const res = await fetch(`${API_BASE_URL}/devices/${id}`, {
+        method: "PUT",
+        headers: getAuthHeaders(),
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) await handleFetchError(res);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["devices"] });
+      queryClient.invalidateQueries({ queryKey: ["clients"] });
+      queryClient.invalidateQueries({ queryKey: ["slaReport"] });
+      queryClient.invalidateQueries({ queryKey: ["systemHealthDashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["dvrFleet"] });
+      queryClient.invalidateQueries({ queryKey: ["dvrReports"] });
+    },
+  });
+};
+

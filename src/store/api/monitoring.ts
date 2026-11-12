@@ -105,6 +105,10 @@ export interface IChartData {
 export interface IGatewayItem {
   no: number;
   id: string;
+  device_uuid?: string;
+  device_name?: string;
+  customer?: string;
+  client_name?: string;
   location: string;
   type: string;
   model: string;
@@ -152,6 +156,8 @@ export interface ISystemHealthFilters {
   status?: string;
   page?: number;
   pageSize?: number;
+  sortBy?: string | null;
+  sortOrder?: "asc" | "desc" | null;
 }
 
 export const fetchSystemHealthDashboard = async (
@@ -177,6 +183,8 @@ export const fetchSystemHealthDashboard = async (
     params.append("status", filters.status);
   if (filters?.page) params.append("page", String(filters.page));
   if (filters?.pageSize) params.append("page_size", String(filters.pageSize));
+  if (filters?.sortBy) params.append("sort_by", filters.sortBy);
+  if (filters?.sortOrder) params.append("sort_order", filters.sortOrder);
 
   const url = `${API_BASE_URL}/monitoring/system-health-dashboard?${params.toString()}`;
   const response = await fetch(url, { headers, cache: "no-store" });
@@ -247,6 +255,10 @@ export interface ICellularCharts {
 export interface ICellularGatewayItem {
   no: number;
   id: string;
+  device_uuid?: string;
+  device_name?: string;
+  customer?: string;
+  client_name?: string;
   location: string;
   type: string;
   model: string;
@@ -283,6 +295,8 @@ export interface ICellularFilters {
   provider?: string;
   page?: number;
   pageSize?: number;
+  sortBy?: string | null;
+  sortOrder?: "asc" | "desc" | null;
 }
 
 export const fetchCellularDashboard = async (
@@ -314,6 +328,8 @@ export const fetchCellularDashboard = async (
     params.append("provider", filters.provider);
   if (filters?.page) params.append("page", String(filters.page));
   if (filters?.pageSize) params.append("page_size", String(filters.pageSize));
+  if (filters?.sortBy) params.append("sort_by", filters.sortBy);
+  if (filters?.sortOrder) params.append("sort_order", filters.sortOrder);
 
   const url = `${API_BASE_URL}/monitoring/cellular-dashboard?${params.toString()}`;
   const response = await fetch(url, { headers, cache: "no-store" });
@@ -369,6 +385,10 @@ export interface IDVRCharts {
 export interface IDVRGatewayItem {
   no: number;
   id: string;
+  device_uuid?: string;
+  device_name?: string;
+  customer?: string;
+  client_name?: string;
   location: string;
   type: string;
   dvr_model: string;
@@ -404,6 +424,8 @@ export interface IDVRFilters {
   status?: string;
   page?: number;
   pageSize?: number;
+  sortBy?: string | null;
+  sortOrder?: "asc" | "desc" | null;
 }
 
 export const fetchDVRDashboard = async (
@@ -429,6 +451,8 @@ export const fetchDVRDashboard = async (
     params.append("status", filters.status);
   if (filters?.page) params.append("page", String(filters.page));
   if (filters?.pageSize) params.append("page_size", String(filters.pageSize));
+  if (filters?.sortBy) params.append("sort_by", filters.sortBy);
+  if (filters?.sortOrder) params.append("sort_order", filters.sortOrder);
 
   const url = `${API_BASE_URL}/monitoring/dvr-dashboard?${params.toString()}`;
   const response = await fetch(url, { headers, cache: "no-store" });
@@ -453,6 +477,7 @@ export interface ICellularReportItem {
   no: number;
   id: string;
   location: string;
+  customer?: string;
   type: string;
   modem: string;
   modem_name?: string;
@@ -742,6 +767,7 @@ export interface IDVRReportItem {
   no: number;
   id: string;
   location: string;
+  customer?: string;
   type: string;
   dvr_model: string;
   cpu_dvr_uptime: string;
@@ -969,6 +995,7 @@ export interface IHealthReportItem {
   no: number;
   id: string;
   location: string;
+  customer?: string;
   type: string;
   cpu_avg: number;
   cpu_max: number;
@@ -1291,6 +1318,10 @@ export interface IPowerInfo {
 
 export interface IGatewayDetailData {
   id: string;
+  device_uuid?: string;
+  device_name?: string;
+  customer?: string;
+  client_name?: string;
   location: string;
   type: string;
   model: string;
@@ -1371,6 +1402,16 @@ export interface ICPUModemDetail {
   last_check: string;
 }
 
+export interface ISignalHistoryPoint {
+  date: string;
+  date_iso: string;
+  date_key: string;
+  day: number;
+  time: string;
+  hour: number;
+  value: number;
+}
+
 export interface ISignalStrengthDetail {
   rsrp: number;
   unit: string;
@@ -1381,6 +1422,9 @@ export interface ISignalStrengthDetail {
   max_time?: string;
   min_time?: string;
   csq?: number;
+  history?: ISignalHistoryPoint[];
+  period_start?: string;
+  period_end?: string;
 }
 
 export interface INetworkSIMDetail {
@@ -1421,6 +1465,10 @@ export interface ICellularEventItem {
 
 export interface ICellularGatewayDetailData {
   id: string;
+  device_uuid?: string;
+  device_name?: string;
+  customer?: string;
+  client_name?: string;
   location: string;
   type: string;
   model: string;
@@ -1536,6 +1584,10 @@ export interface IDVREventItem {
 
 export interface IDVRGatewayDetailData {
   id: string;
+  device_uuid?: string;
+  device_name?: string;
+  customer?: string;
+  client_name?: string;
   location: string;
   type: string;
   model: string;
@@ -1674,6 +1726,8 @@ export interface ISLAReportFilters {
 export interface ISLAReportItem {
   no: number;
   id: string;
+  device_uuid?: string;
+  device_name?: string;
   location: string;
   type: string;
   customer: string;
@@ -1818,6 +1872,10 @@ export const exportSLAReportExcelUrl = (filters?: ISLAReportFilters) => {
 
 export interface ISLAReportGatewayDetail {
   id: string;
+  device_uuid?: string;
+  device_name?: string;
+  client_id?: string;
+  client_name?: string;
   location: string;
   type: string;
   customer: string;
@@ -1878,6 +1936,185 @@ export const useSLAReportGatewayDetail = (
     queryFn: () =>
       gatewayId ? fetchSLAReportGatewayDetail(gatewayId, dateRange) : null,
     enabled: Boolean(gatewayId),
+    refetchInterval: 30000,
+    staleTime: 15000,
+  });
+};
+
+// =========================================================================
+// UNIFIED OVERVIEW SUMMARY (100% REAL FLEET + INCIDENT ALERTS)
+// =========================================================================
+
+export interface IOverviewActiveIncident {
+  id: string;
+  device_id: string;
+  location: string;
+  client: string;
+  model: "SmartBox Black" | "SmartBox White" | string;
+  category: "offline" | "cellular" | "dvr" | "system";
+  severity: "offline" | "disconnected" | "critical" | "warning" | string;
+  alert_title: string;
+  alert_detail: string;
+  metric: string;
+  duration: string;
+  last_update: string;
+  detail_href: string;
+}
+
+export interface IOverviewHistoryAlert {
+  id: string;
+  device_id: string;
+  device_name: string;
+  metric: string;
+  category: string;
+  title: string;
+  description: string;
+  duration: string;
+  duration_minutes: number;
+  start_time_wib?: string;
+  end_time_wib?: string;
+  status: string;
+}
+
+export interface IOverviewSummaryData {
+  fleet: {
+    total_locations: number;
+    total_clients: number;
+    total_gateways: number;
+    online: number;
+    healthy: number;
+    warning: number;
+    offline: number;
+    online_percent: number;
+    warning_percent: number;
+    offline_percent: number;
+    smartbox_hitam: { total: number; online: number; offline: number };
+    smartbox_putih: { total: number; online: number; offline: number };
+  };
+  system_health: {
+    cpu_avg: number;
+    cpu_max: number;
+    ram_avg: number;
+    ram_max: number;
+    sd_avg: number;
+    avg_sd_life: number;
+    sd_good: number;
+    sd_warning: number;
+    sd_critical: number;
+    temp_avg: number;
+    temp_max: number;
+    sla_pct: number;
+    health_distribution: {
+      normal: number;
+      warning: number;
+      critical: number;
+      offline: number;
+    };
+  };
+  cellular: {
+    avg_rsrp: number | null;
+    signal_quality: string;
+    modem_connected: number;
+    modem_disconnected: number;
+    modem_connected_pct: number;
+    sim_ready: number;
+    sim_not_detected: number;
+    top_provider: string;
+    top_provider_pct: number;
+    providers: Array<{ name: string; count: number; percent: number }>;
+    signal_distribution: {
+      excellent: number;
+      good: number;
+      fair: number;
+      poor: number;
+      no_signal: number;
+    };
+    sla_pct: number;
+  };
+  dvr: {
+    total_cameras: number;
+    cameras_online: number;
+    cameras_no_video: number;
+    cameras_offline: number;
+    camera_online_pct: number;
+    dvr_connected: number;
+    dvr_disconnected: number;
+    dvr_connected_pct: number;
+    recording_active: number;
+    recording_not_recording: number;
+    recording_issue: number;
+    recording_active_pct: number;
+    recording_distribution: {
+      recording: number;
+      not_recording: number;
+      disconnected: number;
+      offline: number;
+    };
+    total_storage_tb: number;
+    used_storage_tb: number;
+    storage_used_pct: number;
+    top_brand: string;
+    sla_pct: number;
+  };
+  clients_summary: Array<{
+    name: string;
+    total: number;
+    online: number;
+    offline: number;
+    sim_ready: number;
+    recording_active: number;
+    uptime_pct: number;
+  }>;
+  subsystem_comparison: Array<{
+    name: string;
+    healthy: number;
+    issue: number;
+    healthy_pct: number;
+  }>;
+  incidents_summary: {
+    total_active_alerts: number;
+    offline_count: number;
+    critical_count: number;
+    warning_count: number;
+    cellular_count: number;
+    dvr_count: number;
+    system_count: number;
+    db_stats: {
+      total_offline_incidents: number;
+      active_outages: number;
+      cpu_modem_issues: number;
+      cellular_issues: number;
+      cpu_dvr_issues: number;
+    };
+  };
+  active_incidents: IOverviewActiveIncident[];
+  recent_history_alerts: IOverviewHistoryAlert[];
+  charts: {
+    system: ISystemHealthDashboardData["charts"];
+    cellular: ICellularCharts;
+    dvr: IDVRCharts;
+  };
+  updated_at: string;
+}
+
+export const fetchOverviewSummary = async (): Promise<IOverviewSummaryData> => {
+  const token = getToken();
+  const headers: HeadersInit = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const url = `${API_BASE_URL}/monitoring/overview`;
+  const response = await fetch(url, { headers, cache: "no-store" });
+  if (!response.ok) {
+    await handleFetchError(response);
+  }
+  const json = await response.json();
+  return json.data;
+};
+
+export const useOverviewSummary = () => {
+  return useQuery({
+    queryKey: ["overviewSummary"],
+    queryFn: fetchOverviewSummary,
     refetchInterval: 30000,
     staleTime: 15000,
   });

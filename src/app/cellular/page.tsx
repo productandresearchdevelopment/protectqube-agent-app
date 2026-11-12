@@ -13,6 +13,7 @@ import {
   StatusBadge,
   DeviceTypeBadge,
   IFilterConfig,
+  TypeFilterDropdown,
 } from "@/components/ui";
 import { CellularDeviceDetailCard } from "@/components/cellular/CellularDeviceDetailCard";
 import {
@@ -143,6 +144,8 @@ export default function CellularConnectivityPage() {
   const [statusFilter, setStatusFilter] = useState("All Statuses");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [sortBy, setSortBy] = useState<string | null>(null);
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc" | null>(null);
   const [selectedGateways, setSelectedGateways] = useState<string[]>([]);
   const [selectedGatewayId, setSelectedGatewayId] = useState<string | null>(null);
 
@@ -159,6 +162,8 @@ export default function CellularConnectivityPage() {
     status: statusFilter,
     page: currentPage,
     pageSize,
+    sortBy,
+    sortOrder,
   });
 
   const summary = dashboard?.summary;
@@ -252,15 +257,19 @@ export default function CellularConnectivityPage() {
       id: "location",
       header: "Location",
       accessorKey: "location",
+      className: "w-[200px] max-w-[200px]",
       cell: (item) => {
         const isSelected = selectedGatewayId === item.id;
         return (
-          <div className="flex items-center gap-2">
-            <span className="text-slate-700 dark:text-slate-300 font-medium">
+          <div className="flex items-center gap-1.5">
+            <span
+              className="font-semibold text-slate-900 dark:text-white truncate block max-w-[180px]"
+              title={item.location}
+            >
               {item.location}
             </span>
             {isSelected && (
-              <span className="relative flex h-2 w-2">
+              <span className="relative flex h-2 w-2 shrink-0">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#0073ea] opacity-75" />
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-[#0073ea]" />
               </span>
@@ -268,6 +277,20 @@ export default function CellularConnectivityPage() {
           </div>
         );
       },
+    },
+    {
+      id: "customer",
+      header: "Client",
+      align: "center",
+      className: "w-[120px] max-w-[120px]",
+      cell: (item) => (
+        <span
+          className="text-xs text-slate-600 dark:text-slate-400 font-medium truncate block max-w-[110px]"
+          title={item.customer || item.client_name || "-"}
+        >
+          {item.customer || item.client_name || "-"}
+        </span>
+      ),
     },
     {
       id: "type",
@@ -298,6 +321,8 @@ export default function CellularConnectivityPage() {
       id: "sim_status",
       header: "SIM Status",
       accessorKey: "sim_status",
+      sortable: true,
+      defaultSortOrder: "asc",
       cell: (item) => {
         const raw = (item.sim_status || "").toLowerCase();
         const isReady = raw.includes("ready") || raw.includes("aktif") || raw.includes("active") || raw.includes("inserted");
@@ -318,6 +343,8 @@ export default function CellularConnectivityPage() {
       id: "cpu_modem",
       header: "CPU – Modem",
       align: "center",
+      sortable: true,
+      defaultSortOrder: "asc",
       cell: (item) => {
         const isConnected = item.cpu_modem === "Connected";
         return (
@@ -342,6 +369,8 @@ export default function CellularConnectivityPage() {
       id: "status",
       header: "Status",
       align: "center",
+      sortable: true,
+      defaultSortOrder: "asc",
       cell: (item) => {
         const isWarn = item.status === "Warning" || item.status === "Degraded";
         const displayStatus = isWarn ? "Warning" : item.status;
@@ -357,6 +386,8 @@ export default function CellularConnectivityPage() {
       id: "signal_rsrp",
       header: "Signal (RSRP)",
       align: "center",
+      sortable: true,
+      defaultSortOrder: "asc",
       cell: (item) => {
         if (item.status === "Offline" || !item.signal_rsrp || item.signal_rsrp === "-") {
           return <span className="font-mono text-slate-400 font-bold text-[11px]">-</span>;
@@ -382,6 +413,8 @@ export default function CellularConnectivityPage() {
       id: "signal_status",
       header: "Signal Status",
       align: "center",
+      sortable: true,
+      defaultSortOrder: "asc",
       cell: (item) => {
         const isOffline = item.status === "Offline";
         const quality = isOffline
@@ -410,7 +443,15 @@ export default function CellularConnectivityPage() {
             setCurrentPage(1);
           }}
           searchPlaceholder="Search Gateway ID or Location..."
-          filters={filters}
+          actions={
+            <TypeFilterDropdown
+              value={typeFilter}
+              onChange={(val) => {
+                setTypeFilter(val);
+                setCurrentPage(1);
+              }}
+            />
+          }
         />
       }
     >
@@ -506,6 +547,13 @@ export default function CellularConnectivityPage() {
           onPageChange={setCurrentPage}
           onPageSizeChange={(newSize) => {
             setPageSize(newSize);
+            setCurrentPage(1);
+          }}
+          sortBy={sortBy}
+          sortOrder={sortOrder}
+          onSortChange={(col, order) => {
+            setSortBy(col);
+            setSortOrder(order);
             setCurrentPage(1);
           }}
           className={selectedGatewayId ? "min-h-100" : "h-[calc(100vh-215px)] flex-1"}

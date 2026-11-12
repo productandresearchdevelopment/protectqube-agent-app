@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   Server,
   Radio,
@@ -19,12 +19,83 @@ import {
   HardDrive,
   RefreshCw,
   Zap,
+  TrendingUp,
 } from "lucide-react";
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+  ReferenceLine,
+} from "recharts";
 import {
   useCellularGatewayDetail,
   ICellularGatewayDetailData,
 } from "@/store/api/monitoring";
 import { formatToWIB } from "@/utils/common";
+import { MONTH_NAMES } from "@/lib/reportPeriodUtils";
+
+const getSignalQuality = (rsrp: number) => {
+  if (rsrp >= -85) {
+    return {
+      label: "Excellent",
+      colorClass: "text-emerald-500",
+      stroke: "#00c875",
+      Icon: CheckCircle2,
+    };
+  }
+  if (rsrp >= -95) {
+    return {
+      label: "Good",
+      colorClass: "text-emerald-500",
+      stroke: "#00c875",
+      Icon: CheckCircle2,
+    };
+  }
+  if (rsrp >= -105) {
+    return {
+      label: "Fair",
+      colorClass: "text-amber-500",
+      stroke: "#fdab3d",
+      Icon: AlertTriangle,
+    };
+  }
+  return {
+    label: "Poor",
+    colorClass: "text-rose-500",
+    stroke: "#e2445c",
+    Icon: AlertCircle,
+  };
+};
+
+const CustomSignalTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length && payload[0].value !== null && payload[0].value !== undefined) {
+    const val = Number(payload[0].value);
+    const q = getSignalQuality(val);
+    const dateLabel = payload[0]?.payload?.dateLabel || "";
+    return (
+      <div className="bg-slate-900/95 text-white text-[10px] px-2.5 py-1.5 rounded-lg shadow-lg border border-slate-700 font-sans z-50">
+        <div className="text-slate-400 font-mono text-[9px] mb-0.5">
+          {dateLabel ? `${dateLabel} • ${label}` : label}
+        </div>
+        <div className="flex items-center gap-1.5 font-bold">
+          <span
+            className="size-2 rounded-full"
+            style={{ backgroundColor: q.stroke }}
+          />
+          <span className="font-mono text-xs">{val} dBm</span>
+          <span className={`text-[10px] font-semibold ${q.colorClass}`}>
+            ({q.label})
+          </span>
+        </div>
+      </div>
+    );
+  }
+  return null;
+};
 
 const formatDurationEn = (dur?: string) => {
   if (!dur) return "-";
@@ -329,6 +400,118 @@ export const CellularDeviceDetailCard: React.FC<
 
   // Fetch telemetry detail for selected gateway from FastAPI
   const { data, isLoading } = useCellularGatewayDetail(gatewayId);
+  const [selectedSignalDate, setSelectedSignalDate] = useState<string>("");
+
+  useEffect(() => {
+    setSelectedSignalDate("");
+  }, [gatewayId]);
+
+  const {
+    availableSignalDays,
+    activeSignalDate,
+    activeDateLabel,
+    hourlySignalData,
+    signalDayStats,
+  } = useMemo(() => {
+    const ss = data?.signal_strength;
+    const rawHistory = ss?.history || [];
+    const datesWithData = new Set(rawHistory.map((pt) => pt.date_iso));
+
+    const now = new Date();
+    const pad2 = (n: number) => String(n).padStart(2, "0");
+    const fallbackToday = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
+    const fallbackMonthStart = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-01`;
+
+    const periodEnd = ss?.period_end || fallbackToday;
+    const periodStart = ss?.period_start || fallbackMonthStart;
+
+    const days: Array<{
+      dateIso: string;
+      dateKey: string;
+      label: string;
+      hasData: boolean;
+    }> = [];
+
+    const parseIso = (iso: string) => {
+      const [y, m, d] = iso.split("-").map((x) => parseInt(x, 10));
+      return new Date(y, (m || 1) - 1, d || 1);
+    };
+
+    const startDt = parseIso(periodStart);
+    const endDt = parseIso(periodEnd);
+
+    // Build date options from newest (today/periodEnd) down to periodStart
+    const cursor = new Date(endDt.getTime());
+    let guard = 0;
+    while (cursor >= startDt && guard < 90) {
+      const iso = `${cursor.getFullYear()}-${pad2(cursor.getMonth() + 1)}-${pad2(cursor.getDate())}`;
+      const dStr = pad2(cursor.getDate());
+      const mStr = MONTH_NAMES[cursor.getMonth()] || "Nov";
+      const dKey = `${dStr} ${mStr}`;
+      const isToday = iso === periodEnd;
+      days.push({
+        dateIso: iso,
+        dateKey: dKey,
+        label: `${dKey} ${cursor.getFullYear()}${isToday ? " (Today)" : ""}`,
+        hasData: datesWithData.has(iso),
+      });
+      cursor.setDate(cursor.getDate() - 1);
+      guard++;
+    }
+
+    const activeIso =
+      selectedSignalDate && days.some((x) => x.dateIso === selectedSignalDate)
+        ? selectedSignalDate
+        : days[0]?.dateIso || periodEnd;
+
+    const activeDayObj = days.find((x) => x.dateIso === activeIso);
+    const activeLabel = activeDayObj?.label || activeIso;
+
+    const dayMap = new Map<number, number>();
+    rawHistory.forEach((pt) => {
+      if (pt.date_iso === activeIso) {
+        dayMap.set(pt.hour, pt.value);
+      }
+    });
+
+    const hourly: Array<{
+      displayTime: string;
+      hour: number;
+      dateLabel: string;
+      value: number | null;
+    }> = [];
+    const validVals: number[] = [];
+
+    for (let h = 0; h <= 23; h++) {
+      const hourLabel = `${pad2(h)}:00`;
+      const val = dayMap.has(h) ? dayMap.get(h)! : null;
+      if (val !== null && Number.isFinite(val)) {
+        validVals.push(val);
+      }
+      hourly.push({
+        displayTime: hourLabel,
+        hour: h,
+        dateLabel: activeDayObj?.dateKey || activeIso,
+        value: val,
+      });
+    }
+
+    const hasData = validVals.length > 0;
+    return {
+      availableSignalDays: days,
+      activeSignalDate: activeIso,
+      activeDateLabel: activeLabel,
+      hourlySignalData: hourly,
+      signalDayStats: {
+        hasData,
+        avgRsrp: hasData
+          ? Math.round(validVals.reduce((a, b) => a + b, 0) / validVals.length)
+          : null,
+        bestRsrp: hasData ? Math.round(Math.max(...validVals)) : null,
+        worstRsrp: hasData ? Math.round(Math.min(...validVals)) : null,
+      },
+    };
+  }, [data?.signal_strength, selectedSignalDate]);
 
   if (!gatewayId) return null;
 
@@ -587,6 +770,14 @@ export const CellularDeviceDetailCard: React.FC<
                       <div className="space-y-2">
                         <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1">
                           <span className="text-slate-500 dark:text-slate-400 font-sans">
+                            Client
+                          </span>
+                          <span className="text-slate-800 dark:text-slate-200 font-sans font-medium text-right truncate">
+                            {d.customer || d.client_name || "-"}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1">
+                          <span className="text-slate-500 dark:text-slate-400 font-sans">
                             Type
                           </span>
                           <span className="text-slate-800 dark:text-slate-200 font-sans font-medium text-right truncate">
@@ -775,65 +966,81 @@ export const CellularDeviceDetailCard: React.FC<
             {/* ========================================================= */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 items-stretch">
               {/* Kolom 1 dari 3: Signal Strength (RSRP) */}
-              <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 flex flex-col justify-between shadow-xs">
-                <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300 font-medium text-xs">
-                  <Radio className="size-3.5 text-emerald-500 dark:text-emerald-400" />
-                  <span className="font-semibold text-slate-800 dark:text-slate-200">
-                    Signal Strength (RSRP)
-                  </span>
-                </div>
+              {(() => {
+                const isSigEmpty = isDeviceOffline || !isSimReady;
+                const sigQual = getSignalQuality(d.signal_strength.rsrp);
+                return (
+                  <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 flex flex-col justify-between shadow-xs">
+                    <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300 font-medium text-xs">
+                      <Radio
+                        className={`size-3.5 ${isSigEmpty ? "text-slate-400" : sigQual.colorClass}`}
+                      />
+                      <span className="font-semibold text-slate-800 dark:text-slate-200">
+                        Signal Strength (RSRP)
+                      </span>
+                    </div>
 
-                <div className="flex items-center justify-around gap-3 my-3">
-                  <CircularGauge
-                    percent={rsrpPercent}
-                    strokeColor="#00c875"
-                    centerContent={
-                      <div className="text-center">
-                        <span className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
-                          {isDeviceOffline ? "-" : d.signal_strength.rsrp}
-                        </span>
-                        <div className="text-[9px] text-slate-500 dark:text-slate-400 font-mono -mt-0.5">
-                          {isDeviceOffline ? "No Signal" : d.signal_strength.unit}
+                    <div className="flex items-center justify-around gap-3 my-3">
+                      <CircularGauge
+                        percent={isSigEmpty ? 0 : rsrpPercent}
+                        strokeColor={isSigEmpty ? "#64748b" : sigQual.stroke}
+                        centerContent={
+                          <div className="text-center">
+                            <span className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
+                              {isSigEmpty ? "-" : d.signal_strength.rsrp}
+                            </span>
+                            <div className="text-[9px] text-slate-500 dark:text-slate-400 font-mono -mt-0.5">
+                              {isSigEmpty
+                                ? isDeviceOffline
+                                  ? "Offline"
+                                  : "No Signal"
+                                : d.signal_strength.unit}
+                            </div>
+                          </div>
+                        }
+                      />
+
+                      <div className="text-xs space-y-1.5 font-medium text-slate-700 dark:text-slate-300">
+                        <div className="flex items-center gap-2">
+                          <span className="size-2 rounded-full bg-emerald-500" />
+                          <span className="text-slate-800 dark:text-slate-200">
+                            {isSigEmpty ? "-" : d.signal_strength.max_rsrp}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="size-2 rounded-full bg-rose-500" />
+                          <span className="text-slate-700 dark:text-slate-300">
+                            {isSigEmpty ? "-" : d.signal_strength.min_rsrp}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="size-2 rounded-full bg-cyan-500 dark:bg-cyan-400" />
+                          <span className="text-slate-700 dark:text-slate-300">
+                            {isSigEmpty ? "-" : d.signal_strength.avg_rsrp}
+                          </span>
                         </div>
                       </div>
-                    }
-                  />
+                    </div>
 
-                  <div className="text-xs space-y-1.5 font-medium text-slate-700 dark:text-slate-300">
-                    <div className="flex items-center gap-2">
-                      <span className="size-2 rounded-full bg-emerald-500" />
-                      <span className="text-slate-800 dark:text-slate-200">
-                        {d.signal_strength.max_rsrp}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="size-2 rounded-full bg-rose-500" />
-                      <span className="text-slate-700 dark:text-slate-300">
-                        {d.signal_strength.min_rsrp}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="size-2 rounded-full bg-cyan-500 dark:bg-cyan-400" />
-                      <span className="text-slate-700 dark:text-slate-300">
-                        {d.signal_strength.avg_rsrp}
-                      </span>
+                    <div>
+                      <SparklineWave
+                        data={
+                          isSigEmpty ? [0, 0] : d.signal_strength.sparkline
+                        }
+                        color={isSigEmpty ? "#64748b" : sigQual.stroke}
+                        id="rsrp"
+                      />
                     </div>
                   </div>
-                </div>
-
-                <div>
-                  <SparklineWave
-                    data={d.signal_strength.sparkline}
-                    color="#00c875"
-                    id="rsrp"
-                  />
-                </div>
-              </div>
+                );
+              })()}
 
               {/* Kolom 2 dari 3: Network & SIM */}
               <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 flex flex-col justify-between shadow-xs">
                 <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300 font-medium text-xs">
-                  <Wifi className="size-3.5 text-[#0073ea]" />
+                  <Wifi
+                    className={`size-3.5 ${isDeviceOffline || !isSimReady ? "text-slate-400" : "text-[#0073ea]"}`}
+                  />
                   <span className="font-semibold text-slate-800 dark:text-slate-200">
                     Network & SIM
                   </span>
@@ -841,15 +1048,23 @@ export const CellularDeviceDetailCard: React.FC<
 
                 <div className="flex items-center justify-around gap-3 my-2">
                   <CircularGauge
-                    percent={85}
-                    strokeColor="#0073ea"
+                    percent={isDeviceOffline || !isSimReady ? 0 : 85}
+                    strokeColor={
+                      isDeviceOffline || !isSimReady ? "#64748b" : "#0073ea"
+                    }
                     centerContent={
                       <div className="text-center">
                         <span className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
-                          {d.network_sim.network_type}
+                          {isDeviceOffline || !isSimReady
+                            ? "-"
+                            : d.network_sim.network_type}
                         </span>
                         <div className="text-[9px] text-slate-500 dark:text-slate-400 font-mono -mt-0.5">
-                          {d.network_sim.network_sub}
+                          {isDeviceOffline
+                            ? "Offline"
+                            : !isSimReady
+                              ? "No SIM"
+                              : d.network_sim.network_sub}
                         </div>
                       </div>
                     }
@@ -861,7 +1076,7 @@ export const CellularDeviceDetailCard: React.FC<
                         Operator:
                       </span>
                       <span className="text-slate-800 dark:text-slate-200 font-sans font-medium">
-                        {d.network_sim.operator}
+                        {isDeviceOffline ? "-" : d.network_sim.operator}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
@@ -877,7 +1092,7 @@ export const CellularDeviceDetailCard: React.FC<
                         IMSI:
                       </span>
                       <span className="text-slate-800 dark:text-slate-200 truncate">
-                        {d.network_sim.imsi}
+                        {isDeviceOffline ? "-" : d.network_sim.imsi}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
@@ -885,7 +1100,7 @@ export const CellularDeviceDetailCard: React.FC<
                         ICCID:
                       </span>
                       <span className="text-slate-800 dark:text-slate-200 truncate">
-                        {d.network_sim.iccid}
+                        {isDeviceOffline ? "-" : d.network_sim.iccid}
                       </span>
                     </div>
                   </div>
@@ -896,21 +1111,25 @@ export const CellularDeviceDetailCard: React.FC<
                     <span className="text-slate-500 dark:text-slate-400">
                       Data Usage (Today):
                     </span>
-                    <span className="font-mono flex items-center gap-1.5">
-                      <span className="text-[#00a862] dark:text-emerald-400 font-semibold">
-                        {d.network_sim.data_upload} (↑)
+                    {isDeviceOffline || !isSimReady ? (
+                      <span className="font-mono text-slate-400">-</span>
+                    ) : (
+                      <span className="font-mono flex items-center gap-1.5">
+                        <span className="text-[#00a862] dark:text-emerald-400 font-semibold">
+                          {d.network_sim.data_upload} (↑)
+                        </span>
+                        <span className="text-[#e2445c] font-semibold">
+                          {d.network_sim.data_download} (↓)
+                        </span>
                       </span>
-                      <span className="text-[#e2445c] font-semibold">
-                        {d.network_sim.data_download} (↓)
-                      </span>
-                    </span>
+                    )}
                   </div>
                   <div className="flex items-center justify-between text-slate-700 dark:text-slate-300">
                     <span className="text-slate-500 dark:text-slate-400">
                       Roaming:
                     </span>
                     <span className="text-slate-800 dark:text-slate-200 font-semibold">
-                      {d.network_sim.roaming}
+                      {isDeviceOffline ? "-" : d.network_sim.roaming}
                     </span>
                   </div>
                 </div>
@@ -1227,73 +1446,200 @@ export const CellularDeviceDetailCard: React.FC<
         {/* ========================================================= */}
         {/* TAB 4: SIGNAL & NETWORK */}
         {/* ========================================================= */}
-        {activeTab === "Signal & Network" && (
-          <div className="space-y-4 animate-in fade-in duration-200">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
-              <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-2">
-                <span className="text-xs text-slate-500 font-medium">
-                  RSRP Signal Strength
-                </span>
-                <div className="text-2xl font-bold text-slate-900 dark:text-white font-mono">
-                  {isDeviceOffline ? "-" : `${d.signal_strength.rsrp} dBm`}
-                </div>
-                <div className="text-xs text-emerald-500 font-semibold flex items-center gap-1">
-                  {isDeviceOffline ? (
-                    <span className="text-slate-400 font-medium">No Signal</span>
+        {activeTab === "Signal & Network" && (() => {
+          const isSigEmpty = isDeviceOffline || !isSimReady;
+          const sigQual = getSignalQuality(d.signal_strength.rsrp);
+          const SigIcon = sigQual.Icon;
+
+          return (
+            <div className="space-y-4 animate-in fade-in duration-200">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+                <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-2">
+                  <span className="text-xs text-slate-500 font-medium">
+                    RSRP Signal Strength
+                  </span>
+                  <div className="text-2xl font-bold text-slate-900 dark:text-white font-mono">
+                    {isSigEmpty ? "-" : `${d.signal_strength.rsrp} dBm`}
+                  </div>
+                  {isSigEmpty ? (
+                    <div className="text-xs text-rose-500 dark:text-rose-400 font-semibold flex items-center gap-1">
+                      <AlertCircle className="size-3.5" />
+                      <span>{isDeviceOffline ? "Device Offline (No Signal)" : "No Signal"}</span>
+                    </div>
                   ) : (
-                    <>
-                      <CheckCircle2 className="size-3.5" />{" "}
-                      {d.signal_strength.rsrp >= -85
-                        ? "Excellent"
-                        : d.signal_strength.rsrp >= -95
-                          ? "Good"
-                          : d.signal_strength.rsrp >= -105
-                            ? "Fair"
-                            : "Poor"}{" "}
-                      {d.signal_strength.csq
-                        ? `(CSQ ${d.signal_strength.csq})`
-                        : ""}
-                    </>
+                    <div className={`text-xs font-semibold flex items-center gap-1 ${sigQual.colorClass}`}>
+                      <SigIcon className="size-3.5" />
+                      <span>
+                        {sigQual.label}{" "}
+                        {d.signal_strength.csq
+                          ? `(CSQ ${d.signal_strength.csq})`
+                          : ""}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-2">
+                  <span className="text-xs text-slate-500 font-medium">
+                    Operator & Network
+                  </span>
+                  <div className="text-2xl font-bold text-slate-900 dark:text-white">
+                    {isSigEmpty ? "-" : d.network_sim.network_type}
+                  </div>
+                  <div className="text-xs text-slate-500">
+                    {isSigEmpty
+                      ? isDeviceOffline
+                        ? "Device Offline"
+                        : "No Service"
+                      : `${d.network_sim.operator} • ${d.network_sim.network_sub}`}
+                  </div>
+                </div>
+
+                <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-2">
+                  <span className="text-xs text-slate-500 font-medium">
+                    Data Traffic (Usage)
+                  </span>
+                  <div className="text-base font-bold text-slate-900 dark:text-white font-mono mt-1">
+                    {isSigEmpty
+                      ? "-"
+                      : `↑ ${d.network_sim.data_upload} • ↓ ${d.network_sim.data_download}`}
+                  </div>
+                  {isSigEmpty ? (
+                    <div className="text-xs text-rose-500 dark:text-rose-400 font-medium">
+                      Disconnected
+                    </div>
+                  ) : (
+                    <div className="text-xs text-emerald-500">
+                      Active Connection (Roaming: {d.network_sim.roaming})
+                    </div>
                   )}
                 </div>
               </div>
-              <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-2">
-                <span className="text-xs text-slate-500 font-medium">
-                  Operator & Network
-                </span>
-                <div className="text-2xl font-bold text-slate-900 dark:text-white">
-                  {d.network_sim.network_type}
-                </div>
-                <div className="text-xs text-slate-500">
-                  {d.network_sim.operator} • {d.network_sim.network_sub}
-                </div>
-              </div>
-              <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-2">
-                <span className="text-xs text-slate-500 font-medium">
-                  Data Traffic (Usage)
-                </span>
-                <div className="text-base font-bold text-slate-900 dark:text-white font-mono mt-1">
-                  ↑ {d.network_sim.data_upload} • ↓{" "}
-                  {d.network_sim.data_download}
-                </div>
-                <div className="text-xs text-emerald-500">
-                  Active Connection (Roaming: {d.network_sim.roaming})
-                </div>
-              </div>
-            </div>
 
-            <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-3">
-              <div className="text-xs font-bold text-slate-900 dark:text-white">
-                Signal Fluctuation Chart (Last 24 Hours)
+              {/* Signal History Chart (Full Width Hourly Trend 00:00 - 23:59) */}
+              <div className="w-full bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 shadow-xs space-y-3.5">
+                {/* Header: Title + Day Filter Selector */}
+                <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200 dark:border-slate-800/60">
+                  <div className="flex items-center gap-2">
+                    <div className="size-6 rounded-md bg-blue-500/15 flex items-center justify-center text-blue-600 dark:text-blue-400">
+                      <TrendingUp className="size-3.5" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                        Signal History
+                        <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400">
+                          (Hourly Trend • Range: 00:00 - 23:59)
+                        </span>
+                      </h4>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                      Filter Day:
+                    </span>
+                    <select
+                      value={activeSignalDate}
+                      onChange={(e) => setSelectedSignalDate(e.target.value)}
+                      className="text-xs font-medium bg-white dark:bg-[#070e1d] border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer shadow-xs"
+                    >
+                      {availableSignalDays.map((dayOpt) => (
+                        <option key={dayOpt.dateIso} value={dayOpt.dateIso}>
+                          {dayOpt.label}{dayOpt.hasData ? "" : " (No Data)"}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Line Trend Chart (1 Full-Width Card matching Telemetry Usage Trend) */}
+                <div className="bg-white dark:bg-[#070e1d] border border-slate-200/90 dark:border-slate-800/80 rounded-xl p-3.5 shadow-2xs">
+                  <div className="flex flex-wrap items-center justify-between gap-2 pb-1.5 text-xs">
+                    <span className="font-bold text-slate-900 dark:text-white">
+                      RSRP Signal Strength (dBm)
+                    </span>
+                    {signalDayStats.hasData ? (
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+                        Avg:{" "}
+                        <strong className="text-slate-900 dark:text-white">
+                          {signalDayStats.avgRsrp} dBm
+                        </strong>{" "}
+                        | Best:{" "}
+                        <strong className="text-emerald-500">
+                          {signalDayStats.bestRsrp} dBm
+                        </strong>{" "}
+                        | Worst:{" "}
+                        <strong className="text-rose-500">
+                          {signalDayStats.worstRsrp} dBm
+                        </strong>
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-slate-400 font-mono">
+                        No Signal Data
+                      </span>
+                    )}
+                  </div>
+
+                  {signalDayStats.hasData ? (
+                    <div className="h-52 w-full mt-2">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart
+                          data={hourlySignalData}
+                          margin={{ top: 10, right: 16, left: -12, bottom: 0 }}
+                        >
+                          <CartesianGrid
+                            strokeDasharray="3 3"
+                            stroke="#475569"
+                            strokeOpacity={0.25}
+                            vertical={false}
+                          />
+                          <XAxis
+                            dataKey="displayTime"
+                            tick={{ fontSize: 9, fill: "#94a3b8" }}
+                            axisLine={{ stroke: "#475569" }}
+                            tickLine={false}
+                            interval={1}
+                          />
+                          <YAxis
+                            domain={[-125, -50]}
+                            ticks={[-120, -105, -95, -85, -70, -55]}
+                            tick={{ fontSize: 9, fill: "#94a3b8" }}
+                            axisLine={false}
+                            tickLine={false}
+                          />
+                          <ReferenceLine
+                            y={-105}
+                            stroke="#e2445c"
+                            strokeDasharray="3 3"
+                            strokeOpacity={0.45}
+                          />
+                          <Tooltip content={<CustomSignalTooltip />} />
+                          <Line
+                            type="monotone"
+                            dataKey="value"
+                            stroke="#0073ea"
+                            strokeWidth={2.2}
+                            connectNulls={false}
+                            dot={{ r: 3, fill: "#0073ea", strokeWidth: 1.5, stroke: "#ffffff" }}
+                            activeDot={{ r: 5 }}
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  ) : (
+                    <div className="h-52 w-full flex flex-col items-center justify-center text-slate-400 text-xs gap-2">
+                      <Signal className="size-6 opacity-40" />
+                      <span>
+                        No signal history recorded for{" "}
+                        <strong className="text-slate-300">{activeDateLabel}</strong>
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
-              <SparklineWave
-                data={d.signal_strength.sparkline}
-                color="#0073ea"
-                id="rsrp-full"
-              />
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* ========================================================= */}
         {/* TAB 5: EVENT LOG */}

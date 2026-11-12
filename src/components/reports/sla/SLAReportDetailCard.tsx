@@ -91,9 +91,13 @@ export const SLAReportDetailCard: React.FC<SLAReportDetailCardProps> = ({
   const dailyStatusList = useMemo(() => {
     const { daysInMonth, monthStr, yearStr, todayDay, isCurrentMonth } =
       periodInfo;
-    const minDay = periodInfo.startDay;
-    const maxDay = periodInfo.endDay;
     const breakdown = (d?.daily_breakdown as any[]) || [];
+    const minActiveDay =
+      breakdown.length > 0
+        ? Math.max(periodInfo.startDay, breakdown[0].day)
+        : periodInfo.startDay;
+    const minDay = minActiveDay;
+    const maxDay = periodInfo.endDay;
 
     const totalDays = Math.max(daysInMonth, maxDay);
     const list = [];
@@ -102,22 +106,26 @@ export const SLAReportDetailCard: React.FC<SLAReportDetailCardProps> = ({
       const dateKey = `${dayNumStr} ${monthStr}`;
       const fullDate = `${dayNumStr} ${monthStr} ${yearStr}`;
 
+      const daySla = breakdown.find(
+        (r) => r.day === day || r.date?.startsWith(dayNumStr),
+      );
       const isInRange = day >= minDay && day <= maxDay;
       const isFutureDate = Boolean(
         isCurrentMonth && todayDay && day > todayDay,
       );
-      const hasBar = isInRange && !isFutureDate;
-
-      const daySla = breakdown.find(
-        (r) => r.day === day || r.date?.startsWith(dayNumStr),
+      const hasBar = isInRange && !isFutureDate && (breakdown.length === 0 || Boolean(daySla));
+      const isToday = Boolean(isCurrentMonth && todayDay && day === todayDay);
+      const isYesterday = Boolean(
+        isCurrentMonth && todayDay && day === todayDay - 1,
       );
 
-      let status: "online" | "offline" | "warning" | "future" = !hasBar
+      let status: "online" | "offline" | "future" = !hasBar
         ? "future"
         : "online";
       let uptimePct = 100;
       let downtimePct = 0;
       let totalDurationStr = "0m";
+      let uptimeDurationStr = "24h 00m";
 
       if (hasBar) {
         if (daySla) {
@@ -127,28 +135,27 @@ export const SLAReportDetailCard: React.FC<SLAReportDetailCardProps> = ({
 
           const totalObs = upMin + downMin;
           if (totalObs > 0) {
-            uptimePct = Number(((upMin / totalObs) * 100).toFixed(1));
-            downtimePct = Number(((downMin / totalObs) * 100).toFixed(1));
+            uptimePct = Number(((upMin / totalObs) * 100).toFixed(2));
+            downtimePct = Number(((downMin / totalObs) * 100).toFixed(2));
           } else {
-            uptimePct = Number(sr.toFixed(1));
-            downtimePct = Number((100 - uptimePct).toFixed(1));
+            uptimePct = Number(sr.toFixed(2));
+            downtimePct = Number((100 - uptimePct).toFixed(2));
           }
 
-          if (uptimePct < 95.0) {
+          uptimeDurationStr = `${Math.floor(upMin / 60)}h ${Math.round(upMin % 60).toString().padStart(2, "0")}m`;
+          totalDurationStr = downMin > 0 ? `${Math.floor(downMin / 60)}h ${Math.round(downMin % 60).toString().padStart(2, "0")}m` : "0m";
+
+          if (uptimePct < 98.0) {
             status = "offline";
-            totalDurationStr = `${Math.round(downMin)}m`;
-          } else if (uptimePct < 99.5) {
-            status = "warning";
-            totalDurationStr = `${Math.round(downMin)}m`;
           } else {
             status = "online";
-            totalDurationStr = "0m";
           }
         } else {
           status = "online";
           uptimePct = 100;
           downtimePct = 0;
           totalDurationStr = "0m";
+          uptimeDurationStr = "24h 00m";
         }
       }
 
@@ -161,11 +168,22 @@ export const SLAReportDetailCard: React.FC<SLAReportDetailCardProps> = ({
         uptimePct,
         downtimePct,
         totalDurationStr,
+        uptimeDurationStr,
+        isToday,
+        isYesterday,
       });
     }
 
     return list;
   }, [d?.daily_breakdown, periodInfo]);
+
+  const displayedDailyRecords = useMemo(() => {
+    const valid = dailyStatusList.filter((item) => item.hasBar);
+    if (selectedBarDay) {
+      return valid.filter((item) => item.day === selectedBarDay);
+    }
+    return [...valid].reverse();
+  }, [dailyStatusList, selectedBarDay]);
 
   // SLA 99.5% calculation
   const slaCalc = useMemo(() => {
@@ -214,7 +232,7 @@ export const SLAReportDetailCard: React.FC<SLAReportDetailCardProps> = ({
       const uptimePct = Number(((upMin / totalObsMin) * 100).toFixed(1));
       const downtimePct = Number((100 - uptimePct).toFixed(1));
 
-      const slaTargetPct = 99.5;
+      const slaTargetPct = 98.0;
       const minUptimeMin = totalObsMin * (slaTargetPct / 100);
       const maxDownMin = totalObsMin * ((100 - slaTargetPct) / 100);
 
@@ -311,8 +329,8 @@ export const SLAReportDetailCard: React.FC<SLAReportDetailCardProps> = ({
   }
 
   return (
-    <div className="bg-white dark:bg-[#070e1d] text-slate-800 dark:text-slate-100 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl p-4 sm:p-5 space-y-4 font-sans transition-all duration-300">
-      {/* 1. Header Bar: Title, Status Badge, Close Button */}
+    <div className="bg-white dark:bg-[#070e1d] text-slate-800 dark:text-slate-100 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl p-4 space-y-3.5 font-sans transition-all duration-300">
+      {/* 1. Header Bar: Title, Close Button */}
       <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800/80">
         <div className="flex items-center gap-2.5">
           <div className="size-8 rounded-lg bg-purple-500/15 border border-purple-500/25 flex items-center justify-center text-purple-600 dark:text-purple-400">
@@ -320,21 +338,9 @@ export const SLAReportDetailCard: React.FC<SLAReportDetailCardProps> = ({
           </div>
           <div>
             <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
-              Detail Performa SLA Gateway &ndash; {d.location || d.id}
+              Detail Device &ndash; {d.location || d.id}
             </h2>
-            <span className="text-[11px] text-slate-500 font-mono">
-              Device ID: {d.id} • Type: {d.type} • Customer: {d.customer}
-            </span>
           </div>
-          <span
-            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
-              d.meets_sla
-                ? "bg-[#00c875]/20 text-[#00a862] dark:text-[#00c875] border-[#00c875]/30"
-                : "bg-rose-500/20 text-rose-600 dark:text-rose-400 border-rose-500/30"
-            }`}
-          >
-            {d.meets_sla ? "Meet SLA (≥99.5%)" : "Breach SLA (<99.5%)"}
-          </span>
         </div>
 
         <div className="flex items-center gap-2">
@@ -386,8 +392,8 @@ export const SLAReportDetailCard: React.FC<SLAReportDetailCardProps> = ({
               </div>
               <div className="grid grid-cols-[75px_1fr] items-center">
                 <span className="text-slate-500 dark:text-slate-400 text-[11px]">Customer</span>
-                <span className="text-slate-800 dark:text-slate-200 text-[11px] font-medium truncate">
-                  : {d.customer}
+                <span className="text-slate-800 dark:text-slate-200 text-[11px] font-medium truncate" title={d.customer || "-"}>
+                  : {d.customer || "-"}
                 </span>
               </div>
               <div className="grid grid-cols-[75px_1fr] items-center">
@@ -420,7 +426,7 @@ export const SLAReportDetailCard: React.FC<SLAReportDetailCardProps> = ({
                     Fail: {d.sla_failure_rate_pct.toFixed(2)}%
                   </span>
                   <span className={d.meets_sla ? "text-emerald-500" : "text-rose-500"}>
-                    {d.meets_sla ? "Target Met" : "Target Breached"}
+                    {d.meets_sla ? "Achieved (≥98%)" : "Not Achieved (<98%)"}
                   </span>
                 </div>
               </div>
@@ -483,29 +489,11 @@ export const SLAReportDetailCard: React.FC<SLAReportDetailCardProps> = ({
               </div>
             </div>
           </div>
-
-          {/* SLA Tolerance Summary Strip */}
-          <div className="p-3 bg-slate-50 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
-            <div className="flex items-center gap-2">
-              <div className={`size-3 rounded-full ${slaCalc.isSLAMet ? "bg-[#00c875]" : "bg-[#e2445c]"}`} />
-              <span className="font-semibold text-slate-800 dark:text-slate-200">
-                Compliance Target: {slaCalc.slaTargetPct}% SLA
-              </span>
-              <span className="text-slate-400">•</span>
-              <span className="text-slate-500 font-mono">
-                Actual: {slaCalc.uptimePct.toFixed(2)}% ({slaCalc.slaDiffPct}%)
-              </span>
-            </div>
-
-            <div className="text-slate-500 dark:text-slate-400 text-[11px] font-medium">
-              {slaCalc.toleranceText}
-            </div>
-          </div>
         </div>
       </div>
 
       {/* 3. Daily SLA Breakdown / 31-Day Timeline Bar */}
-      <div className="bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-3.5 space-y-2.5">
+      <div className="bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-3.5 space-y-3">
         <div className="flex items-center justify-between text-xs">
           <div className="flex items-center gap-2">
             <Calendar className="size-4 text-purple-500" />
@@ -517,15 +505,11 @@ export const SLAReportDetailCard: React.FC<SLAReportDetailCardProps> = ({
           <div className="flex items-center gap-3 text-[11px] font-semibold">
             <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
               <span className="size-2 rounded-full bg-[#00c875]" />
-              <span>Meet SLA (≥99.5%)</span>
-            </div>
-            <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
-              <span className="size-2 rounded-full bg-[#fdab3d]" />
-              <span>Warning (95-99.4%)</span>
+              <span>Achieved (≥98%)</span>
             </div>
             <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
               <span className="size-2 rounded-full bg-[#e2445c]" />
-              <span>Breach (&lt;95%)</span>
+              <span>Not Achieved (&lt;98%)</span>
             </div>
           </div>
         </div>
@@ -539,17 +523,20 @@ export const SLAReportDetailCard: React.FC<SLAReportDetailCardProps> = ({
         >
           {dailyStatusList.map((item) => {
             const isSelected = selectedBarDay === item.day;
-            let barColor = "bg-slate-200 dark:bg-slate-800 cursor-not-allowed opacity-40";
+            let barColor =
+              "bg-slate-200 dark:bg-slate-800 cursor-not-allowed opacity-40";
             if (item.hasBar) {
-              if (item.status === "online") barColor = "bg-[#00c875] hover:brightness-110";
-              else if (item.status === "warning") barColor = "bg-[#fdab3d] hover:brightness-110";
+              if (item.uptimePct >= 98.0)
+                barColor = "bg-[#00c875] hover:brightness-110";
               else barColor = "bg-[#e2445c] hover:brightness-110";
             }
 
             return (
               <div
                 key={item.day}
-                onClick={() => item.hasBar && handleSelectDay(item.day, item.dateKey)}
+                onClick={() =>
+                  item.hasBar && handleSelectDay(item.day, item.dateKey)
+                }
                 onMouseEnter={() => item.hasBar && setHoveredDay(item)}
                 onMouseLeave={() => setHoveredDay(null)}
                 className={`group relative flex flex-col items-center justify-end h-10 rounded transition-all cursor-pointer ${
@@ -569,16 +556,135 @@ export const SLAReportDetailCard: React.FC<SLAReportDetailCardProps> = ({
         {(hoveredDay || selectedBarDay) && (
           <div className="text-[11px] text-slate-500 dark:text-slate-400 font-mono bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-2 rounded-lg flex items-center justify-between">
             <span>
-              Date: <strong>{(hoveredDay || dailyStatusList.find((x) => x.day === selectedBarDay))?.fullDate}</strong>
+              Date:{" "}
+              <strong>
+                {(
+                  hoveredDay ||
+                  dailyStatusList.find((x) => x.day === selectedBarDay)
+                )?.fullDate}
+              </strong>
             </span>
             <span>
-              Uptime: <strong>{(hoveredDay || dailyStatusList.find((x) => x.day === selectedBarDay))?.uptimePct}%</strong>
+              Uptime:{" "}
+              <strong>
+                {(
+                  hoveredDay ||
+                  dailyStatusList.find((x) => x.day === selectedBarDay)
+                )?.uptimePct}
+                %
+              </strong>
             </span>
             <span>
-              Downtime: <strong>{(hoveredDay || dailyStatusList.find((x) => x.day === selectedBarDay))?.totalDurationStr}</strong>
+              Downtime:{" "}
+              <strong>
+                {(
+                  hoveredDay ||
+                  dailyStatusList.find((x) => x.day === selectedBarDay)
+                )?.totalDurationStr}
+              </strong>
             </span>
           </div>
         )}
+
+        {/* Daily SLA Table List directly underneath timeline */}
+        <div className="pt-2 border-t border-slate-200 dark:border-slate-800/80">
+          <div className="flex items-center justify-between pb-2">
+            <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+              Daily SLA Records{" "}
+              {selectedEventDate !== "ALL"
+                ? `(Filtered: ${selectedEventDate})`
+                : `(${periodInfo.monthStr} ${periodInfo.yearStr})`}
+            </span>
+            {selectedEventDate !== "ALL" && (
+              <button
+                type="button"
+                onClick={() => handleSelectDay(null)}
+                className="text-[11px] font-semibold text-[#0073ea] hover:underline cursor-pointer"
+              >
+                Reset to All Days
+              </button>
+            )}
+          </div>
+
+          <div className="overflow-x-auto max-h-48 overflow-y-auto border border-slate-200 dark:border-slate-800 rounded-lg">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-100 dark:bg-slate-900/80 text-slate-500 font-semibold sticky top-0 border-b border-slate-200 dark:border-slate-800">
+                <tr>
+                  <th className="py-2 px-3">Date</th>
+                  <th className="py-2 px-3 text-center">SLA Uptime %</th>
+                  <th className="py-2 px-3 text-right">Uptime Duration</th>
+                  <th className="py-2 px-3 text-right">Downtime</th>
+                  <th className="py-2 px-3 text-center">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                {displayedDailyRecords.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-4 text-center text-slate-400">
+                      No records available for this period.
+                    </td>
+                  </tr>
+                ) : (
+                  displayedDailyRecords.map((r) => {
+                    const isMet = r.uptimePct >= 98.0;
+                    return (
+                      <tr
+                        key={r.day}
+                        className={`hover:bg-slate-100/60 dark:hover:bg-slate-800/40 transition-colors cursor-pointer ${
+                          selectedBarDay === r.day
+                            ? "bg-blue-50/70 dark:bg-blue-950/30"
+                            : ""
+                        }`}
+                        onClick={() => handleSelectDay(r.day, r.dateKey)}
+                      >
+                        <td className="py-1.5 px-3 font-medium text-slate-800 dark:text-slate-200">
+                          {r.fullDate}{" "}
+                          {r.isYesterday ? (
+                            <span className="text-[10px] text-purple-600 dark:text-purple-400 font-bold ml-1.5 px-1.5 py-0.5 rounded bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800/60">
+                              Yesterday
+                            </span>
+                          ) : r.isToday ? (
+                            <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold ml-1.5 px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60">
+                              Today
+                            </span>
+                          ) : null}
+                        </td>
+                        <td className="py-1.5 px-3 text-center">
+                          <span
+                            className={`inline-block px-2.5 py-0.5 rounded font-mono text-[11px] font-bold ${
+                              isMet
+                                ? "bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300"
+                                : "bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300"
+                            }`}
+                          >
+                            {r.uptimePct.toFixed(2)}%
+                          </span>
+                        </td>
+                        <td className="py-1.5 px-3 text-right font-mono text-slate-600 dark:text-slate-400">
+                          {r.uptimeDurationStr}
+                        </td>
+                        <td className="py-1.5 px-3 text-right font-mono text-rose-500 font-semibold">
+                          {r.totalDurationStr}
+                        </td>
+                        <td className="py-1.5 px-3 text-center">
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                              isMet
+                                ? "bg-[#00c875]/15 text-[#00a862] dark:text-[#00c875] border-[#00c875]/25"
+                                : "bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/25"
+                            }`}
+                          >
+                            {isMet ? "Achieved" : "Not Achieved"}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
       {/* 4. Trouble Incident Log Table */}

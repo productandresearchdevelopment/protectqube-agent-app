@@ -315,7 +315,7 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
       totalUptime: Math.round(totalUp),
       totalDowntime: Math.round(totalDown),
       avgSuccessRate: Number(avgSr.toFixed(1)),
-      isSuccess: avgSr >= 99.5,
+      isSuccess: avgSr >= 98.0,
     };
   }, [displayedBreakdown]);
 
@@ -601,7 +601,7 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
       periodInfo,
     ]);
 
-  // Real SLA 99.5%, Uptime, and Downtime calculation (supports active period & daily filtering)
+  // Real SLA 98.0%, Uptime, and Downtime calculation (supports active period & daily filtering)
   const slaCalc = useMemo(() => {
     const isDayFiltered = selectedEventDate !== "ALL";
     const breakdown = (data?.daily_breakdown as any[]) || [];
@@ -650,7 +650,7 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
       const uptimePct = Number(((upMin / totalObsMin) * 100).toFixed(1));
       const downtimePct = Number((100 - uptimePct).toFixed(1));
 
-      const slaTargetPct = 99.5;
+      const slaTargetPct = 98.0;
       const minUptimeMin = totalObsMin * (slaTargetPct / 100);
       const maxDownMin = totalObsMin * ((100 - slaTargetPct) / 100);
 
@@ -721,7 +721,7 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
     const uptimePct = Number(((totalUpMin / totalObsMin) * 100).toFixed(1));
     const downtimePct = Number((100 - uptimePct).toFixed(1));
 
-    const slaTargetPct = 99.5;
+    const slaTargetPct = 98.0;
     const minUptimeMin = totalObsMin * (slaTargetPct / 100);
     const maxDownMin = totalObsMin * ((100 - slaTargetPct) / 100);
 
@@ -809,7 +809,7 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
             <FileSpreadsheet className="size-4" />
           </div>
           <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white tracking-tight">
-            Detail Performa Gateway &ndash; {d.location || d.id}
+            Detail Device &ndash; {d.location || d.id}
           </h2>
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#00c875]/20 text-[#00a862] dark:text-[#00c875] border border-[#00c875]/30">
             {d.status}
@@ -919,14 +919,6 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
                 </span>
                 <span className="text-slate-800 dark:text-slate-200 text-[11px] font-medium truncate">
                   : {d.provider_spec}
-                </span>
-              </div>
-              <div className="grid grid-cols-[70px_1fr] items-start">
-                <span className="text-slate-500 dark:text-slate-400 text-[11px]">
-                  Location
-                </span>
-                <span className="text-slate-800 dark:text-slate-200 text-[11px] font-medium truncate">
-                  : {d.location}
                 </span>
               </div>
             </div>
@@ -1290,7 +1282,7 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
                   const sr =
                     row.success_rate ?? row.cpu_modem_success_rate ?? 100;
                   const isSuccess =
-                    sr >= 99.5 ||
+                    sr >= 98.0 ||
                     row.sla_status === "Achieved" ||
                     row.is_sla_met;
                   const isSelected = selectedBarDay === row.day;

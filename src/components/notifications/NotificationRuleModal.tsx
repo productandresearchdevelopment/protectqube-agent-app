@@ -664,7 +664,7 @@ export const NotificationRuleModal: React.FC<NotificationRuleModalProps> = ({
 		setIsAddChannelOpen(false);
 		setIsRecipientsDropdownOpen(false);
 		setRecipientSearch('');
-	}, [rule, availableEvents, isOpen]);
+	}, [rule, isOpen]);
 
 	const updatePosition = () => {
 		if (!triggerRef.current) return;

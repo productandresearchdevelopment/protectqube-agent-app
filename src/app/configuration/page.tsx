@@ -8,7 +8,8 @@ import {
 	Layers,
 	Bell,
 	Boxes,
-	ChevronRight,
+	Building2,
+	Cpu,
 } from 'lucide-react';
 import { useCookies } from '@/hooks/useCookies';
 import { UsersTab } from '@/components/configuration/users/UsersTab';
@@ -16,13 +17,14 @@ import { RolesTab } from '@/components/configuration/roles/RolesTab';
 import { ModulesTab } from '@/components/configuration/modules/ModulesTab';
 import { NotificationsTab } from '@/components/configuration/notifications/NotificationsTab';
 import { IntegrationsTab } from '@/components/configuration/integrations/IntegrationsTab';
+import { ClientsTab } from '@/components/configuration/clients/ClientsTab';
+import { DevicesTab } from '@/components/configuration/devices/DevicesTab';
 
 const COOKIE_KEY = 'system_config_tab';
 
 interface ConfigMenuItem {
 	id: string;
 	label: string;
-	description: string;
 	icon: React.ElementType;
 }
 
@@ -33,46 +35,51 @@ interface ConfigMenuGroup {
 
 const MENU_GROUPS: ConfigMenuGroup[] = [
 	{
-		label: 'Access Control',
+		label: 'Master Data',
 		items: [
 			{
 				id: 'users',
 				label: 'Users',
-				description: 'Operator credentials & roles',
 				icon: UsersIcon,
 			},
 			{
-				id: 'roles',
-				label: 'Roles & Permissions',
-				description: 'RBAC rules & module matrix',
-				icon: ShieldCheck,
+				id: 'clients',
+				label: 'Clients',
+				icon: Building2,
+			},
+			{
+				id: 'devices',
+				label: 'Device',
+				icon: Cpu,
 			},
 		],
 	},
 	{
-		label: 'System Setup',
+		label: 'Access Control',
 		items: [
+			{
+				id: 'roles',
+				label: 'Roles & Permissions',
+				icon: ShieldCheck,
+			},
 			{
 				id: 'modules',
 				label: 'Modules',
-				description: 'Routes, types & features',
 				icon: Layers,
 			},
 		],
 	},
 	{
-		label: 'Channels & Alerts',
+		label: 'Alerts & Notifications',
 		items: [
 			{
 				id: 'notifications',
 				label: 'Notifications',
-				description: 'Alert rules & delivery logs',
 				icon: Bell,
 			},
 			{
 				id: 'integrations',
 				label: 'Integrations',
-				description: 'WhatsApp, Telegram, Webhook',
 				icon: Boxes,
 			},
 		],
@@ -80,6 +87,8 @@ const MENU_GROUPS: ConfigMenuGroup[] = [
 ];
 
 const CONTENT_MAP: Record<string, ReactNode> = {
+	clients: <ClientsTab />,
+	devices: <DevicesTab />,
 	users: <UsersTab />,
 	roles: <RolesTab />,
 	modules: <ModulesTab />,
@@ -109,11 +118,11 @@ export default function ConfigurationPage() {
 		<AppLayout title='Configuration'>
 			<div className='flex flex-col lg:flex-row gap-6 min-h-[calc(100vh-120px)]'>
 				{/* Left Sidebar Navigation */}
-				<aside className='w-full lg:w-72 shrink-0 space-y-5 bg-white dark:bg-[#121c2f] p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs h-fit'>
-					<nav className='space-y-5'>
+				<aside className='w-full lg:w-64 shrink-0 space-y-4 bg-white dark:bg-[#121c2f] p-3 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs h-fit'>
+					<nav className='space-y-4'>
 						{MENU_GROUPS.map((group, gIdx) => (
-							<div key={gIdx} className='space-y-1.5'>
-								<h2 className='px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500'>
+							<div key={gIdx} className='space-y-1'>
+								<h2 className='px-3.5 py-1 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500'>
 									{group.label}
 								</h2>
 
@@ -127,35 +136,14 @@ export default function ConfigurationPage() {
 												key={item.id}
 												type='button'
 												onClick={() => handleTabChange(item.id)}
-												className={`w-full flex items-center justify-between p-2.5 rounded-xl text-left transition-all group cursor-pointer ${
+												className={`w-full flex items-center gap-3 px-3.5 py-2.5 text-sm font-medium rounded-xl transition-all cursor-pointer ${
 													isActive
-														? 'bg-[#0073ea]/10 dark:bg-[#0073ea]/20 text-[#0073ea] dark:text-[#3894ff] border border-[#0073ea]/30 shadow-xs ring-1 ring-[#0073ea]/20'
-														: 'text-slate-600 dark:text-slate-300 hover:bg-slate-100/80 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-white border border-transparent'
+														? 'bg-[#0073ea] text-white shadow-md shadow-blue-500/25 font-semibold'
+														: 'text-slate-600 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10'
 												}`}
 											>
-												<div className='flex items-center gap-3 min-w-0'>
-													<div
-														className={`p-2 rounded-lg transition-colors ${
-															isActive
-																? 'bg-[#0073ea] text-white shadow-xs shadow-blue-500/20'
-																: 'bg-slate-100 dark:bg-slate-800 text-slate-500 group-hover:text-slate-700 dark:group-hover:text-slate-200'
-														}`}
-													>
-														<Icon className='w-4 h-4 shrink-0' />
-													</div>
-													<div className='min-w-0'>
-														<div className='text-xs font-bold truncate leading-tight'>
-															{item.label}
-														</div>
-														<div className='text-[10px] text-slate-400 truncate mt-0.5'>
-															{item.description}
-														</div>
-													</div>
-												</div>
-
-												{isActive && (
-													<ChevronRight className='w-3.5 h-3.5 text-[#0073ea] dark:text-[#3894ff] shrink-0' />
-												)}
+												<Icon className='size-5 shrink-0' />
+												<span className='truncate'>{item.label}</span>
 											</button>
 										);
 									})}

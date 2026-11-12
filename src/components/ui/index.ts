@@ -6,3 +6,4 @@ export * from "./StatusBadge";
 export * from "./SmartBoxIllustration";
 export * from "./DateRangePicker";
 export * from "./ConfirmDialog";
+export * from "./TypeFilterDropdown";

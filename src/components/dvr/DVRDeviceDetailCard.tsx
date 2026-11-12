@@ -729,6 +729,14 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                       <div className="space-y-2">
                         <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1">
                           <span className="text-slate-500 dark:text-slate-400 font-sans">
+                            Client
+                          </span>
+                          <span className="text-slate-800 dark:text-slate-200 font-sans font-medium text-right truncate">
+                            {d.customer || d.client_name || "-"}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1">
+                          <span className="text-slate-500 dark:text-slate-400 font-sans">
                             Type
                           </span>
                           <span className="text-slate-800 dark:text-slate-200 font-sans font-medium text-right truncate">

@@ -121,3 +121,30 @@ export interface IGatewayHealthTelemetry {
   issues: string[];
   collection_duration_ms: number;
 }
+
+export interface IClient {
+  id: string;
+  name: string;
+  is_active: boolean;
+  created_at?: string | null;
+  updated_at?: string | null;
+  deleted_at?: string | null;
+}
+
+export interface IDevice {
+  id: string;
+  client_id?: string | null;
+  client?: IClient | null;
+  name: string;
+  location?: string | null;
+  lat?: number | null;
+  long?: number | null;
+  hardware_model?: string | null;
+  operational_start?: string | null;
+  operational_end?: string | null;
+  is_active: boolean;
+  property?: Record<string, any> | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  deleted_at?: string | null;
+}

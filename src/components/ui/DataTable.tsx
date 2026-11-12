@@ -7,6 +7,9 @@ import {
   ChevronsLeft,
   ChevronsRight,
   ChevronDown,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
   Inbox,
   LucideIcon,
 } from "lucide-react";
@@ -20,6 +23,8 @@ export interface ColumnDef<T> {
   headerClassName?: string;
   align?: "left" | "center" | "right";
   width?: string;
+  sortable?: boolean;
+  defaultSortOrder?: "asc" | "desc";
 }
 
 export interface IPaginationData {
@@ -60,6 +65,10 @@ export interface DataTableProps<T> {
   isLoading?: boolean;
   emptyMessage?: string;
   className?: string;
+  // Sorting
+  sortBy?: string | null;
+  sortOrder?: "asc" | "desc" | null;
+  onSortChange?: (sortBy: string | null, sortOrder: "asc" | "desc" | null) => void;
   // Layout
   maxHeight?: string;
 }
@@ -88,6 +97,9 @@ export function DataTable<T extends Record<string, any>>({
   isLoading = false,
   emptyMessage = "No data found",
   className = "",
+  sortBy = null,
+  sortOrder = null,
+  onSortChange,
   maxHeight,
 }: DataTableProps<T>) {
   const isAllSelected =
@@ -202,18 +214,70 @@ export function DataTable<T extends Record<string, any>>({
                       : col.align === "right"
                         ? "text-right"
                         : "text-left";
+                  const justifyClass =
+                    col.align === "center"
+                      ? "justify-center"
+                      : col.align === "right"
+                        ? "justify-end"
+                        : "justify-start";
                   const isLast = idx === columns.length - 1;
+                  const colKey = col.id || (col.accessorKey ? String(col.accessorKey) : undefined);
+                  const isSortable = Boolean(col.sortable && colKey && onSortChange);
+                  const isActiveSort = Boolean(isSortable && sortBy === colKey);
+                  const defaultOrder = col.defaultSortOrder || "asc";
+                  const flippedOrder: "asc" | "desc" = defaultOrder === "asc" ? "desc" : "asc";
+
+                  const handleHeaderClick = () => {
+                    if (!isSortable || !colKey || !onSortChange) return;
+                    if (!isActiveSort) {
+                      onSortChange(colKey, defaultOrder);
+                    } else if (sortOrder === defaultOrder) {
+                      onSortChange(colKey, flippedOrder);
+                    } else {
+                      onSortChange(null, null);
+                    }
+                  };
+
                   return (
                     <th
-                      key={col.id || String(col.accessorKey) || idx}
+                      key={colKey || idx}
                       style={{ width: col.width }}
+                      onClick={isSortable ? handleHeaderClick : undefined}
                       className={`py-2.5 px-3 ${alignClass} ${
                         !isLast
                           ? "border-r border-slate-200/60 dark:border-slate-800/60"
                           : ""
-                      } ${col.headerClassName || ""}`}
+                      } ${
+                        isSortable
+                          ? "group cursor-pointer select-none hover:bg-slate-100/80 dark:hover:bg-slate-800/60 hover:text-slate-800 dark:hover:text-slate-100 transition-colors"
+                          : ""
+                      } ${isActiveSort ? "text-[#0073ea] dark:text-[#4ea1ff]" : ""} ${col.headerClassName || ""}`}
+                      title={
+                        isSortable
+                          ? isActiveSort
+                            ? sortOrder === defaultOrder
+                              ? `Sorted (${sortOrder.toUpperCase()}) - click to reverse`
+                              : `Sorted (${sortOrder?.toUpperCase()}) - click to reset`
+                            : "Click to sort"
+                          : undefined
+                      }
                     >
-                      {col.header}
+                      {isSortable ? (
+                        <div className={`inline-flex items-center gap-1 ${justifyClass}`}>
+                          <span>{col.header}</span>
+                          {isActiveSort ? (
+                            sortOrder === "asc" ? (
+                              <ArrowUp className="size-3 shrink-0 text-[#0073ea] dark:text-[#4ea1ff]" />
+                            ) : (
+                              <ArrowDown className="size-3 shrink-0 text-[#0073ea] dark:text-[#4ea1ff]" />
+                            )
+                          ) : (
+                            <ArrowUpDown className="size-3 shrink-0 opacity-35 group-hover:opacity-80 transition-opacity" />
+                          )}
+                        </div>
+                      ) : (
+                        col.header
+                      )}
                     </th>
                   );
                 })}

@@ -14,6 +14,7 @@ import {
   ColumnDef,
   FilterHeader,
   IFilterConfig,
+  TypeFilterDropdown,
 } from "@/components/ui";
 import { HealthReportDetailCard } from "@/components/reports/health/HealthReportDetailCard";
 import { Cpu } from "lucide-react";
@@ -87,7 +88,12 @@ export default function ReportHealthPage() {
     try {
       setIsExporting(true);
       const url = exportHealthReportExcelUrl(filters);
-      await downloadReportFile(url, "health_report.xlsx");
+      const now = new Date();
+      const dd = String(now.getDate()).padStart(2, "0");
+      const mm = String(now.getMonth() + 1).padStart(2, "0");
+      const yyyy = now.getFullYear();
+      const filename = `HEALTH_REPORT_${dd}${mm}${yyyy}.xlsx`;
+      await downloadReportFile(url, filename);
     } catch (err) {
       console.error("Export health report error:", err);
     } finally {
@@ -148,9 +154,27 @@ export default function ReportHealthPage() {
       {
         id: "location",
         header: "Location",
+        className: "w-[200px] max-w-[200px] border-r border-slate-200/80 dark:border-slate-800/60",
         cell: (gw) => (
-          <span className="font-semibold text-slate-900 dark:text-white whitespace-nowrap">
+          <span
+            className="font-semibold text-slate-900 dark:text-white truncate block max-w-[190px]"
+            title={gw.location}
+          >
             {gw.location}
+          </span>
+        ),
+      },
+      {
+        id: "customer",
+        header: "Client",
+        align: "center",
+        className: "border-r border-slate-200/80 dark:border-slate-800/60 w-[110px] max-w-[110px]",
+        cell: (gw) => (
+          <span
+            className="text-xs text-slate-600 dark:text-slate-400 font-medium truncate block max-w-[100px]"
+            title={gw.customer || "-"}
+          >
+            {gw.customer || "-"}
           </span>
         ),
       },
@@ -414,8 +438,8 @@ export default function ReportHealthPage() {
         cell: (gw) => {
           const rawSla = gw.sla !== undefined ? gw.sla : gw.uptime_pct;
           const finalSla = Number(Number(rawSla ?? 100).toFixed(1));
-          const isAchieved = finalSla >= 99.5;
-          const isWarning = finalSla >= 95.0 && finalSla < 99.5;
+          const isAchieved = finalSla >= 98.0;
+          const isWarning = finalSla >= 95.0 && finalSla < 98.0;
 
           return (
             <div className="flex items-center justify-center">
@@ -455,9 +479,15 @@ export default function ReportHealthPage() {
         </th>
         <th
           rowSpan={2}
-          className="py-2.5 px-4 whitespace-nowrap border-r border-slate-200/60 dark:border-slate-800/60"
+          className="py-2.5 px-3.5 text-left border-r border-slate-200/60 dark:border-slate-800/60 w-[200px] max-w-[200px]"
         >
           Location
+        </th>
+        <th
+          rowSpan={2}
+          className="py-2.5 px-3 text-center border-r border-slate-200/60 dark:border-slate-800/60 whitespace-nowrap bg-slate-100 dark:bg-[#0e1628] w-[110px] max-w-[110px]"
+        >
+          Client
         </th>
         <th
           rowSpan={2}
@@ -588,7 +618,12 @@ export default function ReportHealthPage() {
           search={filters.search || ""}
           onSearchChange={(val) => handleFilterChange("search", val)}
           searchPlaceholder="Search Gateway ID / Location..."
-          filters={filterConfigs}
+          actions={
+            <TypeFilterDropdown
+              value={filters.type || "All Types"}
+              onChange={(val) => handleFilterChange("type", val)}
+            />
+          }
           timeframe={filters.date_range || getCurrentMonthPeriodStr()}
           onDateRangeChange={(range) => handleFilterChange("date_range", range)}
           onExportClick={handleExport}
