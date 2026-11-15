@@ -170,6 +170,9 @@ const getIncidentScope = (event: any): "cpu_modem" | "cellular" | "both" => {
     return "both";
   }
 
+  // Modem hardware connection loss cascades to cellular network disconnection:
+  // When modem USB communication is lost, the cellular network is also disconnected.
+  // Both subsystems experience downtime, so modem outages appear in both views.
   if (
     m === "cpu_modem" ||
     m.includes("modem-cpu") ||
@@ -177,7 +180,7 @@ const getIncidentScope = (event: any): "cpu_modem" | "cellular" | "both" => {
     m.includes("serial") ||
     m.includes("terputus")
   ) {
-    return "cpu_modem";
+    return "both";
   }
   return "cellular";
 };
@@ -2205,12 +2208,30 @@ export const CellularReportDetailCard: React.FC<
                       event.start_time,
                       event.end_time,
                     );
-                    const incidentText = cleanIncidentTitle(
+                    const isModemOutage =
+                      (event.metric === "cpu_modem" ||
+                        (event.description &&
+                          event.description.toLowerCase().includes("modem")) ||
+                        (event.title &&
+                          event.title.toLowerCase().includes("modem"))) &&
+                      !event.description
+                        ?.toLowerCase()
+                        .includes("gateway offline") &&
+                      !event.title
+                        ?.toLowerCase()
+                        .includes("gateway offline");
+
+                    let incidentText = cleanIncidentTitle(
                       event.title ||
                         event.description ||
                         event.cause ||
                         "Incident",
                     );
+
+                    if (dailyViewMetric === "cellular" && isModemOutage) {
+                      incidentText =
+                        "Cellular Network Disconnected (Modem USB Communication Lost - [MODEM-CPU: TERPUTUS])";
+                    }
 
                     return (
                       <tr

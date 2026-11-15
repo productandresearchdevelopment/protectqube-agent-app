@@ -915,51 +915,6 @@ export const CellularDeviceDetailCard: React.FC<
         {/* ========================================================= */}
         {activeTab === "Overview" && (
           <div className="space-y-4 animate-in fade-in duration-200">
-            {/* Incident Alert Banner (Tegangan drop, mati listrik, sim lepas, dll.) */}
-            {d.last_incident && (
-              <div
-                className={`p-3.5 rounded-xl border flex items-start gap-3 shadow-xs ${
-                  d.last_incident.status === "ACTIVE"
-                    ? "bg-rose-500/10 border-rose-500/30 text-rose-300"
-                    : "bg-amber-500/10 border-amber-500/30 text-amber-300"
-                }`}
-              >
-                <div
-                  className={`size-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
-                    d.last_incident.status === "ACTIVE"
-                      ? "bg-rose-500/20 text-rose-400"
-                      : "bg-amber-500/20 text-amber-400"
-                  }`}
-                >
-                  <AlertTriangle className="size-4" />
-                </div>
-                <div className="flex-1 min-w-0 text-xs">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-bold text-slate-900 dark:text-white">
-                      {d.last_incident.title}
-                    </span>
-                    {d.last_incident.duration &&
-                      d.last_incident.duration !== "N/A" && (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
-                          Downtime: {d.last_incident.duration}
-                        </span>
-                      )}
-                    <span className="text-[10px] text-slate-400 font-mono">
-                      {d.last_incident.time_wib}
-                    </span>
-                  </div>
-                  <p className="mt-1 text-slate-600 dark:text-slate-300 leading-relaxed">
-                    {d.last_incident.message}
-                  </p>
-                  {d.last_incident.recommendation && (
-                    <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400 italic">
-                      Solution: {d.last_incident.recommendation}
-                    </p>
-                  )}
-                </div>
-              </div>
-            )}
-
             {/* Perangkat Offline Warning Banner */}
             {isDeviceOffline && (
               <div className="bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 px-3.5 py-2 rounded-xl text-xs font-medium flex items-center gap-2.5 shadow-2xs">
