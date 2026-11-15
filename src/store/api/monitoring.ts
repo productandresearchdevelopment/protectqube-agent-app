@@ -1439,6 +1439,9 @@ export interface INetworkSIMDetail {
   quota_main_gb?: number;
   data_upload: string;
   data_download: string;
+  ping_ms?: number | null;
+  packet_loss_pct?: number | null;
+  throughput?: string;
   roaming: string;
 }
 
@@ -1484,6 +1487,25 @@ export interface ICellularGatewayDetailData {
   network_sim: INetworkSIMDetail;
   modem_temperature: IModemTempDetail;
   events?: ICellularEventItem[];
+  evidence?: Array<{
+    num?: number;
+    label: string;
+    badge?: string;
+    value?: string;
+    status: "good" | "warn" | "bad";
+    detail?: string;
+  }>;
+  evidence_verdict?: string;
+  evidence_badge?: string;
+  data_traffic?: {
+    interface?: string;
+    cellular_ip?: string;
+    ping_ms?: number | null;
+    packet_loss_pct?: number | null;
+    throughput?: string;
+    rx_human?: string;
+    tx_human?: string;
+  };
   last_incident?: {
     title: string;
     code: string;

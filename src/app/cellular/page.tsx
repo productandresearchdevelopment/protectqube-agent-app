@@ -324,15 +324,40 @@ export default function CellularConnectivityPage() {
       sortable: true,
       defaultSortOrder: "asc",
       cell: (item) => {
+        const isOffline = (item.status || "").toLowerCase() === "offline";
         const raw = (item.sim_status || "").toLowerCase();
-        const isReady = raw.includes("ready") || raw.includes("aktif") || raw.includes("active") || raw.includes("inserted");
-        const isNotDetected = raw.includes("tidak") || raw.includes("not detected") || raw.includes("no sim");
-        const displayLabel = isReady ? "Ready" : isNotDetected ? "Not Detected" : item.sim_status || "Not Detected";
+        const isReady =
+          raw.includes("ready") ||
+          raw.includes("aktif") ||
+          raw.includes("active") ||
+          raw.includes("inserted");
+        const isNotDetected =
+          raw.includes("tidak") ||
+          raw.includes("not detected") ||
+          raw.includes("no sim");
+        const displayLabel = isReady
+          ? isOffline
+            ? "Ready (Last)"
+            : "Ready"
+          : isNotDetected
+          ? isOffline
+            ? "Not Detected (Last)"
+            : "Not Detected"
+          : item.sim_status || "Not Detected";
         return (
           <span
             className={`font-mono text-[11px] font-semibold ${
-              isReady ? "text-[#00c875]" : "text-rose-500"
+              isOffline
+                ? "text-slate-400 dark:text-slate-400 font-medium"
+                : isReady
+                ? "text-[#00c875]"
+                : "text-rose-500"
             }`}
+            title={
+              isOffline
+                ? "Last recorded SIM status prior to gateway going offline"
+                : undefined
+            }
           >
             {displayLabel}
           </span>
@@ -346,7 +371,9 @@ export default function CellularConnectivityPage() {
       sortable: true,
       defaultSortOrder: "asc",
       cell: (item) => {
-        const isConnected = item.cpu_modem === "Connected";
+        const isOffline = item.status === "Offline";
+        const isConnected = item.cpu_modem === "Connected" && !isOffline;
+        const displayLabel = isOffline ? "No Response" : item.cpu_modem;
         return (
           <span
             className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${
@@ -360,7 +387,7 @@ export default function CellularConnectivityPage() {
             ) : (
               <AlertCircle className="size-3 text-[#e2445c]" />
             )}
-            <span>{item.cpu_modem}</span>
+            <span>{displayLabel}</span>
           </span>
         );
       },
@@ -377,7 +404,7 @@ export default function CellularConnectivityPage() {
         return (
           <StatusBadge
             status={displayStatus}
-            variant={item.status === "Online" ? "online" : isWarn ? "degraded" : "offline"}
+            variant={item.status === "Online" ? "online" : isWarn ? "warning" : "offline"}
           />
         );
       },
@@ -389,8 +416,15 @@ export default function CellularConnectivityPage() {
       sortable: true,
       defaultSortOrder: "asc",
       cell: (item) => {
-        if (item.status === "Offline" || !item.signal_rsrp || item.signal_rsrp === "-") {
+        if (!item.signal_rsrp || item.signal_rsrp === "-") {
           return <span className="font-mono text-slate-400 font-bold text-[11px]">-</span>;
+        }
+        if (item.status === "Offline") {
+          return (
+            <span className="font-mono text-slate-400 font-medium text-[11px]" title="Last Recorded Signal before Offline">
+              {item.signal_rsrp}
+            </span>
+          );
         }
         const match = item.signal_rsrp.match(/-?\d+/);
         const rsrpVal = match ? parseInt(match[0], 10) : -90;
@@ -418,7 +452,10 @@ export default function CellularConnectivityPage() {
       cell: (item) => {
         const isOffline = item.status === "Offline";
         const quality = isOffline
-          ? { label: "No Signal", badgeClass: "bg-slate-500/10 text-slate-400 border-slate-500/20" }
+          ? {
+              label: "No Signal",
+              badgeClass: "bg-slate-500/10 text-slate-400 border-slate-500/20",
+            }
           : getSignalQuality(item.signal_rsrp);
         return (
           <span
@@ -510,25 +547,6 @@ export default function CellularConnectivityPage() {
             }}
           />
         </div>
-
-        {/* Status Filter Indicator */}
-        {statusFilter !== "All Statuses" && (
-          <div className="flex items-center justify-between bg-blue-50/70 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/40 px-3.5 py-2 rounded-xl text-xs shrink-0">
-            <div className="flex items-center gap-2">
-              <span className="text-slate-500 dark:text-slate-400">Filtering table by status:</span>
-              <span className="font-bold text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/50 px-2.5 py-0.5 rounded-full">
-                {statusFilter}
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={() => handleCardFilter("All Statuses")}
-              className="text-blue-500 hover:underline font-semibold cursor-pointer"
-            >
-              Reset Filter (Show All)
-            </button>
-          </div>
-        )}
 
         {/* 3. Filterable & Paginated Daftar Gateway Table (Full Viewport Height) */}
         <DataTable
