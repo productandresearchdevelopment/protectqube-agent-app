@@ -50,6 +50,11 @@ const formatIncidentEn = (text?: string) => {
     .replace(/Komunikasi\s+Gateway\s+CPU\s+ke\s+NVR\s+Surveillance\s+Terputus/gi, "Gateway CPU to NVR Communication Lost")
     .replace(/Kamera\s+Hilang\s+Sinyal\s*\/\s*No\s+Video/gi, "Camera Signal Loss / No Video")
     .replace(/Kamera\s+Terputus\s*\/\s*Offline/gi, "Camera Disconnected / Offline")
+    .replace(/Kamera\s+Tidak\s+Merekam/gi, "Camera Not Recording")
+    .replace(/Perekaman\s+CCTV\s+Terhenti/gi, "CCTV Video Recording Stopped")
+    .replace(/Perekaman\s+kamera\s+terhenti/gi, "Camera Recording Stopped")
+    .replace(/Perekaman\s+video\s+kamera\s+berhenti/gi, "Camera Video Recording Stopped")
+    .replace(/tidak\s+merekam/gi, "Not Recording")
     .replace(/Gangguan\s+Jaringan/gi, "Network Disruption")
     .replace(/Gangguan/gi, "Incident")
     .replace(/selama\s+(\d+)\s*Menit/gi, "for $1m")
@@ -69,6 +74,42 @@ const formatMins = (val: number) => {
     : val.toLocaleString("id-ID", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 };
 
+const getIncidentScope = (event: any): "cpu_dvr" | "recording" | "both" => {
+  const m = (
+    event.metric ||
+    event.category ||
+    event.cause ||
+    event.description ||
+    event.title ||
+    ""
+  ).toLowerCase();
+
+  // Gateway total outage affects both subsystems
+  if (
+    m.includes("gateway offline") ||
+    m.includes("telemetry disconnected") ||
+    m.includes("telemetry stopped") ||
+    m.includes("power") ||
+    m.includes("mati total") ||
+    m.includes("blackout")
+  ) {
+    return "both";
+  }
+
+  if (
+    m === "cpu_dvr" ||
+    m.includes("cpu - dvr") ||
+    m.includes("cpu–dvr") ||
+    m.includes("cpu-dvr") ||
+    m.includes("dvr communication") ||
+    m.includes("port dvr") ||
+    m.includes("isapi")
+  ) {
+    return "cpu_dvr";
+  }
+  return "recording";
+};
+
 interface DVRReportDetailCardProps {
   gatewayId: string | null;
   dateRange?: string;
@@ -81,6 +122,7 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
   onClose,
 }) => {
   const { data, isLoading } = useDVRReportGatewayDetail(gatewayId, dateRange);
+  const [dailyViewMetric, setDailyViewMetric] = useState<"cpu_dvr" | "recording">("cpu_dvr");
   const [selectedEventDate, setSelectedEventDate] = useState<string>("ALL");
   const [selectedBarDay, setSelectedBarDay] = useState<number | null>(null);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
@@ -112,12 +154,15 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
     dayNumStr: string;
     dateKey: string;
     fullDate: string;
-    gwStatus: "online" | "offline" | "degraded" | "future";
-    cellStatus: "online" | "offline" | "degraded" | "future";
-    dvrStatus: "online" | "offline" | "degraded" | "future";
-    eventsCount: number;
+    status: "online" | "offline" | "future";
+    uptimePct: number;
+    downtimePct: number;
+    visualUpPct: number;
+    visualDownPct: number;
+    totalDurationStr: string;
     isToday: boolean;
     isFuture?: boolean;
+    isInRange?: boolean;
   } | null>(null);
 
   const periodInfo = useMemo(() => {
@@ -133,12 +178,11 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
     return periodInfo.startDay;
   }, [data?.daily_breakdown, periodInfo.startDay]);
 
-  // Generate dynamic daily status points: full 30-day month timeline, indicators only appear for active filtered dates
-  const dailyMultiTrack = useMemo(() => {
+  // Generate dynamic daily status bar chart items: full month timeline, percentage bars filled according to selected metric filter
+  const dailyStatusList = useMemo(() => {
     const { daysInMonth, monthStr, yearStr, todayDay, isCurrentMonth } = periodInfo;
     const minDay = minActiveDay;
     const maxDay = periodInfo.endDay;
-    const events = data?.trouble_events || [];
     const breakdown = data?.daily_breakdown || [];
 
     const totalDays = Math.max(daysInMonth, maxDay);
@@ -147,57 +191,48 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
       const dayNumStr = day < 10 ? `0${day}` : `${day}`;
       const dateKey = `${dayNumStr} ${monthStr}`;
       const fullDate = `${dayNumStr} ${monthStr} ${yearStr}`;
-      const mIdx = MONTH_NAMES.findIndex((m) => m.toLowerCase() === monthStr.toLowerCase());
-      const mNum = mIdx !== -1 ? String(mIdx + 1).padStart(2, "0") : "11";
-      const isoDateKey = `${yearStr}-${mNum}-${dayNumStr}`;
 
       const isInRange = day >= minDay && day <= maxDay;
       const isFutureDate = Boolean(isCurrentMonth && todayDay && day > todayDay);
       const hasBar = isInRange && !isFutureDate;
 
-      const dayEvents = hasBar
-        ? events.filter((ev) => {
-            const trimmed = (ev.start_time || "").trim();
-            return (
-              trimmed.startsWith(isoDateKey) ||
-              trimmed.startsWith(dateKey) ||
-              trimmed.startsWith(`${day} ${monthStr}`) ||
-              (ev.date_str && (ev.date_str === isoDateKey || ev.date_str.startsWith(dateKey)))
-            );
-          })
-        : [];
-
       const daySla = breakdown.find((r) => r.day === day);
 
-      // Status per track
-      let gwStatus: "online" | "offline" | "future" = !hasBar ? "future" : "online";
-      let cellStatus: "online" | "offline" | "future" = !hasBar ? "future" : "online";
-      let dvrStatus: "online" | "offline" | "future" = !hasBar ? "future" : "online";
+      let status: "online" | "offline" | "future" = !hasBar ? "future" : "online";
+      let uptimePct = 100;
+      let downtimePct = 0;
+      let visualUpPct = 100;
+      let visualDownPct = 0;
+      let totalDurationStr = "0m";
 
-      if (hasBar) {
-        if (daySla) {
-          if ((daySla.cpu_modem_downtime_min ?? 0) > 0) gwStatus = "offline";
-          if ((daySla.cellular_downtime_min ?? 0) > 0) cellStatus = "offline";
-          if ((daySla.cpu_dvr_downtime_min ?? daySla.downtime_min ?? 0) > 0 || (daySla.rec_downtime_min ?? 0) > 0) dvrStatus = "offline";
+      if (hasBar && daySla) {
+        const obs = daySla.observation_min ?? ((daySla.uptime_min ?? 0) + (daySla.downtime_min ?? 0));
+        let up = 0;
+        let down = 0;
+
+        if (dailyViewMetric === "cpu_dvr") {
+          up = daySla.cpu_dvr_uptime_min ?? daySla.uptime_min ?? obs;
+          down = daySla.cpu_dvr_downtime_min ?? daySla.downtime_min ?? 0;
+        } else {
+          up = (daySla as any).dvr_uptime_min ?? (daySla as any).recording_uptime_min ?? daySla.uptime_min ?? obs;
+          down = (daySla as any).dvr_downtime_min ?? (daySla as any).recording_downtime_min ?? daySla.downtime_min ?? 0;
         }
 
-        for (const ev of dayEvents) {
-          const cat = (ev.category || "").toLowerCase();
-          const desc = (ev.description || "").toLowerCase();
-          if (cat.includes("gateway") || desc.includes("gateway") || desc.includes("power")) {
-            gwStatus = "offline";
-          }
-          if (cat.includes("cellular") || desc.includes("sim") || desc.includes("modem")) {
-            cellStatus = "offline";
-          }
-          if (cat.includes("dvr") || cat.includes("camera") || desc.includes("recording") || desc.includes("nvr")) {
-            dvrStatus = "offline";
-          }
+        if (obs > 0) {
+          uptimePct = Math.min(100.0, Math.max(0.0, (up / obs) * 100.0));
+          downtimePct = Math.min(100.0, Math.max(0.0, 100.0 - uptimePct));
         }
 
-        if (gwStatus === "offline") {
-          cellStatus = "offline";
-          dvrStatus = "offline";
+        if (downtimePct > 0) {
+          status = "offline";
+          visualDownPct = Math.max(8, Math.round(downtimePct));
+          visualUpPct = 100 - visualDownPct;
+          const downMin = Math.round(down);
+          totalDurationStr = downMin >= 60 ? `${Math.floor(downMin / 60)}h ${downMin % 60}m` : `${downMin}m`;
+        } else {
+          status = "online";
+          visualUpPct = 100;
+          visualDownPct = 0;
         }
       }
 
@@ -206,18 +241,20 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
         dayNumStr,
         dateKey,
         fullDate,
-        gwStatus,
-        cellStatus,
-        dvrStatus,
-        eventsCount: dayEvents.length,
-        isToday: day === todayDay,
-        isFuture: !hasBar,
+        status,
+        uptimePct: Math.round(uptimePct),
+        downtimePct: Math.round(downtimePct),
+        visualUpPct,
+        visualDownPct,
+        totalDurationStr,
+        isToday: Boolean(isCurrentMonth && todayDay && day === todayDay),
+        isFuture: isFutureDate,
         isInRange,
       });
     }
 
     return list;
-  }, [data?.trouble_events, data?.daily_breakdown, periodInfo, minActiveDay]);
+  }, [data?.daily_breakdown, periodInfo, minActiveDay, dailyViewMetric]);
 
   // 1. Filter trouble events strictly within the active date range
   const rangeFilteredEvents = useMemo(() => {
@@ -298,7 +335,21 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
           (ev.date_str && (ev.date_str === isoPrefix || ev.date_str.startsWith(prefix)))
         );
         if (startMatches) return true;
-        if (ev.end_time && ev.end_time !== "-" && !ev.end_time.toLowerCase().includes("present")) {
+
+        const isStillActive =
+          ev.status === "Active" ||
+          ev.status === "active" ||
+          ev.end_time === "-" ||
+          ev.end_time?.toLowerCase().includes("ongoing") ||
+          ev.end_time?.toLowerCase().includes("present");
+
+        if (isStillActive) {
+          const st = new Date(trimmed.replace(" ", "T"));
+          const now = new Date();
+          if (!isNaN(st.getTime())) {
+            return st.getTime() <= dEnd.getTime() && now.getTime() >= dStart.getTime();
+          }
+        } else if (ev.end_time && ev.end_time !== "-") {
           const st = new Date(trimmed.replace(" ", "T"));
           const et = new Date(ev.end_time.trim().replace(" ", "T"));
           if (!isNaN(st.getTime()) && !isNaN(et.getTime())) {
@@ -319,6 +370,36 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
       );
     });
   }, [rangeFilteredEvents, selectedEventDate, selectedBarDay, periodInfo.monthStr, periodInfo.yearStr]);
+
+  // 4. Filter events according to active subsystem (CPU-DVR vs Recording)
+  const subsystemFilteredEvents = useMemo(() => {
+    return filteredEvents.filter((ev) => {
+      const scope = getIncidentScope(ev);
+      return scope === "both" || scope === dailyViewMetric;
+    });
+  }, [filteredEvents, dailyViewMetric]);
+
+  // 5. Strictly sort descending: Active first on top, followed by newest resolved events
+  const sortedEvents = useMemo(() => {
+    return [...subsystemFilteredEvents].sort((a, b) => {
+      const aIsActive =
+        a.status === "Active" ||
+        a.status === "active" ||
+        a.end_time?.toLowerCase().includes("ongoing") ||
+        a.end_time?.toLowerCase().includes("present");
+      const bIsActive =
+        b.status === "Active" ||
+        b.status === "active" ||
+        b.end_time?.toLowerCase().includes("ongoing") ||
+        b.end_time?.toLowerCase().includes("present");
+      if (aIsActive && !bIsActive) return -1;
+      if (!aIsActive && bIsActive) return 1;
+
+      const aTime = a.epoch || (a.start_time ? new Date(a.start_time.replace(" ", "T")).getTime() : 0);
+      const bTime = b.epoch || (b.start_time ? new Date(b.start_time.replace(" ", "T")).getTime() : 0);
+      return bTime - aTime;
+    });
+  }, [subsystemFilteredEvents]);
 
   // Filter Rincian SLA to only show active days between minActiveDay and effectiveDays
   const activeDailyBreakdown = useMemo(() => {
@@ -415,16 +496,22 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
     return activeDailyBreakdown;
   }, [activeDailyBreakdown, selectedBarDay]);
 
-  // Compute footer summary dynamically for displayed CPU - DVR SLA rows
+  // Compute footer summary dynamically for displayed SLA rows (CPU - DVR vs Recording)
   const displayedSummary = useMemo(() => {
+    const isCpu = dailyViewMetric === "cpu_dvr";
     const count = displayedBreakdown.length;
     if (count === 0) return null;
 
     let totalUptime = 0;
     let totalDowntime = 0;
     displayedBreakdown.forEach((r) => {
-      totalUptime += (r.cpu_dvr_uptime_min ?? r.uptime_min);
-      totalDowntime += (r.cpu_dvr_downtime_min ?? r.downtime_min);
+      if (isCpu) {
+        totalUptime += (r.cpu_dvr_uptime_min ?? r.uptime_min ?? 0);
+        totalDowntime += (r.cpu_dvr_downtime_min ?? r.downtime_min ?? 0);
+      } else {
+        totalUptime += ((r as any).dvr_uptime_min ?? (r as any).recording_uptime_min ?? r.uptime_min ?? 0);
+        totalDowntime += ((r as any).dvr_downtime_min ?? (r as any).recording_downtime_min ?? r.downtime_min ?? 0);
+      }
     });
 
     const totalObs = totalUptime + totalDowntime;
@@ -439,7 +526,7 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
       avgSuccessRate,
       isSuccess,
     };
-  }, [displayedBreakdown]);
+  }, [displayedBreakdown, dailyViewMetric]);
 
   // Grouped daily recording data for all active days in the period
   const dailyRecordingGroups = useMemo(() => {
@@ -830,20 +917,26 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
             </div>
           </div>
 
-          {/* Card 8: Recording Error */}
+          {/* Card 8: Recording Success Rate */}
           <div className="bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-3 flex flex-col justify-between shadow-xs">
             <div className="flex items-center gap-2">
-              <div className="size-6 rounded-md bg-rose-500/15 flex items-center justify-center text-[#e2445c]">
-                <AlertCircle className="size-3.5" />
+              <div className="size-6 rounded-md bg-emerald-500/15 flex items-center justify-center text-[#00c875]">
+                <Disc className="size-3.5" />
               </div>
-              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate">Recording Error</span>
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate">Recording Success Rate</span>
             </div>
             <div className="mt-2.5">
-              <div className="text-sm font-bold text-[#e2445c] leading-tight">
-                {d.rec_error}
+              <div
+                className={`text-sm font-bold leading-tight ${
+                  parseFloat(dvrMetrics.recUptimePct || "0") >= 98.0
+                    ? "text-[#00c875]"
+                    : "text-[#e2445c]"
+                }`}
+              >
+                {dvrMetrics.recUptimePct}
               </div>
-              <div className="text-[11px] font-semibold text-[#e2445c] mt-0.5">
-                {d.rec_error_pct}
+              <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">
+                Target SLA: 98.0%
               </div>
             </div>
           </div>
@@ -874,7 +967,7 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
             </div>
           </div>
 
-          {/* Card 10: Kamera */}
+          {/* Card 10: Camera */}
           <div className="bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-3 flex flex-col justify-between shadow-xs">
             <div className="flex items-center gap-2">
               <div className="size-6 rounded-md bg-cyan-500/15 flex items-center justify-center text-[#00d2ff]">
@@ -883,323 +976,478 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
               <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate">Camera</span>
             </div>
             <div className="mt-2">
-              <div className="flex items-center justify-between gap-1">
-                <span className="text-xs font-bold text-slate-900 dark:text-white whitespace-nowrap">
-                  {d.kamera_total} Total
-                </span>
-                <div className="w-16 h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden flex">
-                  <div
-                    style={{
-                      width: `${(d.kamera_online / d.kamera_total) * 100}%`,
-                    }}
-                    className="h-full bg-[#00c875]"
-                  />
-                </div>
+              <div className="text-sm font-bold text-slate-900 dark:text-white leading-tight">
+                {d.kamera_total} Channels
               </div>
-              <div className="flex items-center justify-between gap-1 text-[9px] text-slate-500 dark:text-slate-400 mt-1">
-                <span className="flex items-center gap-1">
+              <div className="flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-slate-400 mt-1 flex-wrap">
+                <span className="flex items-center gap-1 font-medium">
                   <span className="size-1.5 rounded-full bg-[#00c875]" />
-                  Online {d.kamera_online}
+                  {d.kamera_online} Online
                 </span>
-                <span className="flex items-center gap-1">
+                <span>•</span>
+                <span className="flex items-center gap-1 font-medium">
                   <span className="size-1.5 rounded-full bg-[#f59e0b]" />
-                  No Video {d.kamera_no_video}
+                  {d.kamera_no_video} No Video
                 </span>
-                <span className="flex items-center gap-1">
-                  <span className="size-1.5 rounded-full bg-[#e2445c]" />
-                  Offline {d.kamera_offline}
-                </span>
+                {d.kamera_offline > 0 && (
+                  <>
+                    <span>•</span>
+                    <span className="flex items-center gap-1 font-medium">
+                      <span className="size-1.5 rounded-full bg-[#e2445c]" />
+                      {d.kamera_offline} Offline
+                    </span>
+                  </>
+                )}
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* 3. Bottom Section: Multi-Track Timeline Status, SLA Summary & Riwayat Gangguan */}
+      {/* 2.5 DUAL METRIC SELECTOR: CPU-DVR vs CCTV / RECORDING */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 mb-3.5">
+        {/* Tab 1: CPU - DVR */}
+        <button
+          type="button"
+          onClick={() => setDailyViewMetric("cpu_dvr")}
+          className={`p-4 rounded-xl border text-left transition-all duration-200 cursor-pointer relative overflow-hidden ${
+            dailyViewMetric === "cpu_dvr"
+              ? "bg-blue-600 dark:bg-blue-600 text-white border-blue-500 shadow-lg shadow-blue-600/30 ring-2 ring-blue-300 dark:ring-blue-400"
+              : "bg-slate-100/90 dark:bg-[#0d1829] border-slate-300 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-blue-400/70 opacity-80 hover:opacity-100 shadow-xs"
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div
+                className={`size-10 rounded-lg flex items-center justify-center shrink-0 ${
+                  dailyViewMetric === "cpu_dvr"
+                    ? "bg-white/20 text-white shadow-xs"
+                    : "bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
+                }`}
+              >
+                <Cpu className="size-5" />
+              </div>
+              <div>
+                <h4
+                  className={`font-extrabold text-sm flex items-center gap-2 ${
+                    dailyViewMetric === "cpu_dvr"
+                      ? "text-white"
+                      : "text-slate-900 dark:text-white"
+                  }`}
+                >
+                  <span>1. CPU – DVR Communication</span>
+                  {dailyViewMetric === "cpu_dvr" ? (
+                    <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-white text-blue-700 uppercase tracking-wide shadow-xs">
+                      Active
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
+                      Click to View
+                    </span>
+                  )}
+                </h4>
+                <p
+                  className={`text-[11px] mt-0.5 font-medium ${
+                    dailyViewMetric === "cpu_dvr"
+                      ? "text-blue-100"
+                      : "text-slate-500 dark:text-slate-400"
+                  }`}
+                >
+                  Internal Hardware Bus & IP Protocol Communication
+                </p>
+              </div>
+            </div>
+            <div className="text-right">
+              <div
+                className={`text-base font-black font-mono leading-none ${
+                  dailyViewMetric === "cpu_dvr"
+                    ? "text-white"
+                    : "text-emerald-600 dark:text-[#00c875]"
+                }`}
+              >
+                {dvrMetrics.cpuDvrUptimePct}
+              </div>
+              <span
+                className={`text-[9px] uppercase tracking-wider font-bold block mt-1 ${
+                  dailyViewMetric === "cpu_dvr"
+                    ? "text-blue-100"
+                    : "text-slate-400"
+                }`}
+              >
+                Success Rate
+              </span>
+            </div>
+          </div>
+          <div
+            className={`flex items-center justify-between text-[11px] pt-3 mt-3 border-t font-mono ${
+              dailyViewMetric === "cpu_dvr"
+                ? "border-blue-400/40 text-blue-50"
+                : "border-slate-200 dark:border-slate-800 text-slate-500"
+            }`}
+          >
+            <span>Uptime: <strong className="font-bold">{dvrMetrics.cpuDvrUptime}</strong></span>
+            <span>Downtime: <strong className="font-bold">{dvrMetrics.cpuDvrOffline}</strong></span>
+          </div>
+        </button>
+
+        {/* Tab 2: CCTV / Recording Status */}
+        <button
+          type="button"
+          onClick={() => setDailyViewMetric("recording")}
+          className={`p-4 rounded-xl border text-left transition-all duration-200 cursor-pointer relative overflow-hidden ${
+            dailyViewMetric === "recording"
+              ? "bg-teal-600 dark:bg-teal-600 text-white border-teal-500 shadow-lg shadow-teal-600/30 ring-2 ring-teal-300 dark:ring-teal-400"
+              : "bg-slate-100/90 dark:bg-[#0d1829] border-slate-300 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-teal-400/70 opacity-80 hover:opacity-100 shadow-xs"
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div
+                className={`size-10 rounded-lg flex items-center justify-center shrink-0 ${
+                  dailyViewMetric === "recording"
+                    ? "bg-white/20 text-white shadow-xs"
+                    : "bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
+                }`}
+              >
+                <Disc className="size-5" />
+              </div>
+              <div>
+                <h4
+                  className={`font-extrabold text-sm flex items-center gap-2 ${
+                    dailyViewMetric === "recording"
+                      ? "text-white"
+                      : "text-slate-900 dark:text-white"
+                  }`}
+                >
+                  <span>2. CCTV / NVR Recording Status</span>
+                  {dailyViewMetric === "recording" ? (
+                    <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-white text-teal-800 uppercase tracking-wide shadow-xs">
+                      Active
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
+                      Click to View
+                    </span>
+                  )}
+                </h4>
+                <p
+                  className={`text-[11px] mt-0.5 font-medium ${
+                    dailyViewMetric === "recording"
+                      ? "text-teal-100"
+                      : "text-slate-500 dark:text-slate-400"
+                  }`}
+                >
+                  Video Stream, Camera Channels & Storage Recording
+                </p>
+              </div>
+            </div>
+            <div className="text-right">
+              <div
+                className={`text-base font-black font-mono leading-none ${
+                  dailyViewMetric === "recording"
+                    ? "text-white"
+                    : "text-teal-600 dark:text-[#00d2ff]"
+                }`}
+              >
+                {dvrMetrics.recUptimePct}
+              </div>
+              <span
+                className={`text-[9px] uppercase tracking-wider font-bold block mt-1 ${
+                  dailyViewMetric === "recording"
+                    ? "text-teal-100"
+                    : "text-slate-400"
+                }`}
+              >
+                Success Rate
+              </span>
+            </div>
+          </div>
+          <div
+            className={`flex items-center justify-between text-[11px] pt-3 mt-3 border-t font-mono ${
+              dailyViewMetric === "recording"
+                ? "border-teal-400/40 text-teal-50"
+                : "border-slate-200 dark:border-slate-800 text-slate-500"
+            }`}
+          >
+            <span>Uptime: <strong className="font-bold">{dvrMetrics.recUptime}</strong></span>
+            <span>Downtime: <strong className="font-bold">{dvrMetrics.recOffline}</strong></span>
+          </div>
+        </button>
+      </div>
+
+      {/* 3. Bottom Section: Left Column (Timeline + Daily Table) & Right Column (Incident History) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-start">
-        {/* Left Column (lg:col-span-6): Multi-Track Timeline + Daily SLA Breakdown Table */}
+        {/* Left Column (lg:col-span-6): Daily Status Timeline + Daily Breakdown Table */}
         <div className="lg:col-span-6 flex flex-col gap-3.5">
-          {/* Top Card: Multi-Track Timeline (Gateway, Cellular, DVR) with All 31 Days */}
-          <div className="bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 flex flex-col justify-between shadow-xs">
-            <div>
-              {/* Header with Title & Legend */}
-              <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200 dark:border-slate-800/60">
-                <div className="flex items-center gap-2">
-                  <h4 className="text-xs font-bold text-slate-900 dark:text-white">
-                    Daily Status Timeline ({periodInfo.effectivePeriodStr})
-                  </h4>
-                  <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 bg-slate-200/60 dark:bg-slate-800 px-2 py-0.5 rounded-full">
-                    {periodInfo.endDay - periodInfo.startDay + 1} Days
-                  </span>
-                </div>
-                <div className="flex items-center gap-3 text-[11px] text-slate-600 dark:text-slate-300">
-                  <span className="flex items-center gap-1.5">
-                    <span className="size-2 rounded-full bg-[#00c875]" />
-                    Online
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="size-2 rounded-full bg-[#e2445c]" />
-                    Offline
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="size-2 rounded-full bg-blue-500" />
-                    Today
-                  </span>
-                </div>
+          {/* Top Card: Daily Status Timeline with Vertical Percentage Bars */}
+          <div className="bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 shadow-xs">
+            {/* Header with Title & Legend */}
+            <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200 dark:border-slate-800/60">
+              <div className="flex items-center gap-2">
+                <h4 className="text-xs font-bold text-slate-900 dark:text-white">
+                  Daily Status Timeline: {dailyViewMetric === "cpu_dvr" ? "CPU – DVR" : "CCTV / Recording"} ({periodInfo.effectivePeriodStr})
+                </h4>
+                <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 bg-slate-200/60 dark:bg-slate-800 px-2 py-0.5 rounded-full">
+                  {periodInfo.endDay - periodInfo.startDay + 1} Days
+                </span>
+              </div>
+              <div className="flex items-center gap-3 text-[11px] text-slate-600 dark:text-slate-300">
+                <span className="flex items-center gap-1.5">
+                  <span className="size-2 rounded-full bg-[#00c875]" />
+                  Online
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="size-2 rounded-full bg-[#e2445c]" />
+                  Incident / Offline
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="size-2 rounded-full bg-blue-500" />
+                  Today
+                </span>
+              </div>
+            </div>
+
+            {/* Daily Bar Chart Card with Date Labels on TOP and Bars on BOTTOM */}
+            <div className="mt-3.5 p-3.5 rounded-xl bg-white dark:bg-[#070e1d] border border-slate-200/90 dark:border-slate-800/80 shadow-xs">
+              <div
+                className="grid gap-1 sm:gap-1.5 items-end pt-1"
+                style={{
+                  gridTemplateColumns: `repeat(${dailyStatusList.length}, minmax(0, 1fr))`,
+                }}
+              >
+                {dailyStatusList.map((item) => {
+                  const isSelected = selectedBarDay === item.day;
+                  return (
+                    <div
+                      key={item.day}
+                      onClick={() => {
+                        if (item.isFuture) return;
+                        handleSelectDay(item.day, item.dateKey);
+                      }}
+                      onMouseEnter={() => !item.isFuture && setHoveredDay(item)}
+                      onMouseLeave={() => setHoveredDay(null)}
+                      className={`flex flex-col items-center gap-2 ${
+                        item.isFuture ? "cursor-default" : "cursor-pointer group"
+                      }`}
+                      title={
+                        item.isFuture
+                          ? `${item.fullDate}`
+                          : `${item.fullDate}: ${
+                              item.status === "offline" ? "Incident / Offline" : "Online Normal"
+                            }`
+                      }
+                    >
+                      {/* Date Labels on Top */}
+                      <span
+                        className={`text-[9px] sm:text-[10px] font-mono block leading-none transition-all select-none ${
+                          item.isToday
+                            ? "font-extrabold text-blue-600 dark:text-blue-400 bg-blue-500/20 px-1 py-0.5 rounded ring-1 ring-blue-500/50 scale-110 shadow-xs"
+                            : isSelected
+                              ? "font-bold text-amber-500 dark:text-amber-400 bg-amber-500/20 px-1 py-0.5 rounded ring-1 ring-amber-500/50 scale-110"
+                              : item.isFuture
+                                ? "text-slate-400 dark:text-slate-600 opacity-60"
+                                : "text-slate-500 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-slate-200"
+                        }`}
+                      >
+                        {item.dayNumStr}
+                      </span>
+
+                      {/* Bars Underneath */}
+                      <div className="w-full h-20 sm:h-24 bg-slate-100 dark:bg-slate-900/60 rounded-md p-0.5 flex flex-col justify-end border border-slate-200/60 dark:border-slate-800/60">
+                        {!item.isFuture && item.isInRange ? (
+                          <div
+                            className={`w-full h-full rounded-xs overflow-hidden flex flex-col justify-end transition-all duration-200 ${
+                              item.isToday ? "ring-2 ring-blue-500 shadow-md shadow-blue-500/35" : ""
+                            } ${
+                              isSelected
+                                ? "ring-2 ring-amber-400 shadow-md shadow-amber-400/35 scale-105"
+                                : "group-hover:scale-105"
+                            }`}
+                          >
+                            {/* Downtime (Red segment on top) */}
+                            {item.visualDownPct > 0 && (
+                              <div
+                                style={{ height: `${item.visualDownPct}%` }}
+                                className="w-full bg-[#e2445c] hover:bg-[#ff4d6d] transition-all duration-200 shrink-0 rounded-t-xs"
+                                title={`Downtime: ${item.downtimePct}% (${item.totalDurationStr})`}
+                              />
+                            )}
+                            {/* Uptime (Green segment at bottom) */}
+                            {item.visualUpPct > 0 && (
+                              <div
+                                style={{ height: `${item.visualUpPct}%` }}
+                                className="w-full flex-1 bg-[#00c875] hover:bg-[#05e287] transition-all duration-200 shrink-0"
+                                title={`Uptime: ${item.uptimePct}%`}
+                              />
+                            )}
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
 
-              {/* Dynamic Multi-Track Timeline Matrix Card */}
-              <div className="mt-3.5 p-3.5 rounded-xl bg-white dark:bg-[#070e1d] border border-slate-200/90 dark:border-slate-800/80 shadow-xs space-y-2">
-                {/* RULER / HEADER TANGGAL DI ATAS */}
-                <div className="flex items-center gap-2">
-                  <div className="w-16 shrink-0 text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-                    Track
-                  </div>
-                  <div
-                    className="flex-1 grid gap-0.5 sm:gap-1"
-                    style={{ gridTemplateColumns: `repeat(${dailyMultiTrack.length}, minmax(0, 1fr))` }}
-                  >
-                    {dailyMultiTrack.map((item) => (
-                      <div
-                        key={item.day}
-                        onClick={() => {
-                          if (item.isFuture) return;
-                          const nextDay = selectedBarDay === item.day ? null : item.day;
-                          handleSelectDay(nextDay, `${item.dayNumStr} ${periodInfo.monthStr}`);
-                        }}
-                        onMouseEnter={() => !item.isFuture && setHoveredDay(item)}
-                        onMouseLeave={() => setHoveredDay(null)}
-                        className={`text-center select-none ${item.isFuture ? "cursor-default" : "cursor-pointer"}`}
-                        title={item.isFuture ? `${item.fullDate}` : item.fullDate}
-                      >
-                        <span
-                          className={`text-[9px] font-mono block leading-none transition-all ${
-                            item.isToday
-                              ? "font-extrabold text-blue-600 dark:text-blue-400 bg-blue-500/20 px-0.5 py-0.5 rounded ring-1 ring-blue-500/50 scale-110 shadow-xs"
-                              : (selectedBarDay === item.day || selectedEventDate === item.dateKey)
-                              ? "font-bold text-amber-500 dark:text-amber-400"
-                              : item.isFuture
-                              ? "text-slate-400 dark:text-slate-600 opacity-60"
-                              : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
-                          }`}
-                        >
-                          {item.dayNumStr}
+              {/* Hover / Selected Date Info Banner */}
+              <div className="mt-3 pt-2.5 border-t border-slate-200/70 dark:border-slate-800/70 flex items-center justify-between text-xs min-h-7">
+                {hoveredDay ? (
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-slate-800 dark:text-slate-200">
+                      {hoveredDay.fullDate}
+                      {hoveredDay.isToday && (
+                        <span className="ml-1.5 px-1.5 py-0.2 rounded text-[10px] font-bold bg-blue-500/20 text-blue-500">
+                          Today
                         </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* TRACK 1: GATEWAY */}
-                <div className="flex items-center gap-2 pt-1.5 border-t border-slate-200/60 dark:border-slate-800/60">
-                  <div className="w-16 shrink-0 text-[11px] font-semibold text-slate-700 dark:text-slate-300 truncate">
-                    Gateway
-                  </div>
-                  <div
-                    className="flex-1 grid gap-0.5 sm:gap-1"
-                    style={{ gridTemplateColumns: `repeat(${dailyMultiTrack.length}, minmax(0, 1fr))` }}
-                  >
-                    {dailyMultiTrack.map((item) => (
-                      <div
-                        key={item.day}
-                        onClick={() => {
-                          if (item.isFuture) return;
-                          const nextDay = selectedBarDay === item.day ? null : item.day;
-                          handleSelectDay(nextDay, `${item.dayNumStr} ${periodInfo.monthStr}`);
-                        }}
-                        onMouseEnter={() => !item.isFuture && setHoveredDay(item)}
-                        onMouseLeave={() => setHoveredDay(null)}
-                        className={`h-5.5 rounded-xs transition-all ${
-                          item.isFuture
-                            ? "bg-slate-200/30 dark:bg-slate-800/30 cursor-default"
-                            : item.gwStatus === "offline"
-                            ? "bg-[#e2445c] hover:bg-[#ff4d6d] cursor-pointer"
-                            : "bg-[#00c875] hover:bg-[#05e287] cursor-pointer"
-                        } ${
-                          item.isToday && !item.isFuture
-                            ? "ring-1.5 ring-blue-500 shadow-xs"
-                            : ""
-                        } ${
-                          (selectedBarDay === item.day || selectedEventDate === item.dateKey)
-                            ? "ring-2 ring-amber-400 scale-105"
-                            : !item.isFuture ? "hover:scale-105" : ""
-                        }`}
-                        title={item.isFuture ? `${item.fullDate}` : `Gateway ${item.dayNumStr} ${periodInfo.monthStr}: ${item.gwStatus === "offline" ? "Offline" : "Online"}`}
-                      />
-                    ))}
-                  </div>
-                </div>
-
-
-
-                {/* TRACK 3: DVR */}
-                <div className="flex items-center gap-2">
-                  <div className="w-16 shrink-0 text-[11px] font-semibold text-slate-700 dark:text-slate-300 truncate">
-                    DVR
-                  </div>
-                  <div
-                    className="flex-1 grid gap-0.5 sm:gap-1"
-                    style={{ gridTemplateColumns: `repeat(${dailyMultiTrack.length}, minmax(0, 1fr))` }}
-                  >
-                    {dailyMultiTrack.map((item) => (
-                      <div
-                        key={item.day}
-                        onClick={() => {
-                          if (item.isFuture) return;
-                          const nextDay = selectedBarDay === item.day ? null : item.day;
-                          handleSelectDay(nextDay, `${item.dayNumStr} ${periodInfo.monthStr}`);
-                        }}
-                        onMouseEnter={() => !item.isFuture && setHoveredDay(item)}
-                        onMouseLeave={() => setHoveredDay(null)}
-                        className={`h-5.5 rounded-xs transition-all ${
-                          item.isFuture
-                            ? "bg-slate-200/30 dark:bg-slate-800/30 cursor-default"
-                            : item.dvrStatus === "offline"
-                            ? "bg-[#e2445c] hover:bg-[#ff4d6d] cursor-pointer"
-                            : "bg-[#00c875] hover:bg-[#05e287] cursor-pointer"
-                        } ${
-                          item.isToday && !item.isFuture
-                            ? "ring-1.5 ring-blue-500 shadow-xs"
-                            : ""
-                        } ${
-                          (selectedBarDay === item.day || selectedEventDate === item.dateKey)
-                            ? "ring-2 ring-amber-400 scale-105"
-                            : !item.isFuture ? "hover:scale-105" : ""
-                        }`}
-                        title={item.isFuture ? `${item.fullDate}` : `DVR ${item.dayNumStr} ${periodInfo.monthStr}: ${item.dvrStatus === "offline" ? "Offline" : "Online"}`}
-                      />
-                    ))}
-                  </div>
-                </div>
-
-                {/* Hover / Selected Day Real-Time Info Bar */}
-                <div className="mt-3 pt-2.5 border-t border-slate-200/70 dark:border-slate-800/70 flex items-center justify-between text-xs min-h-7">
-                  {hoveredDay ? (
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-slate-800 dark:text-slate-200">
-                        {hoveredDay.fullDate}
-                        {hoveredDay.isToday && (
-                          <span className="ml-1.5 px-1.5 py-0.2 rounded text-[10px] font-bold bg-blue-500/20 text-blue-500">
-                            Today
-                          </span>
-                        )}
-                        :
-                      </span>
-                      <span className="text-[11px] text-slate-600 dark:text-slate-300">
-                        Gateway:{" "}
-                        <strong className={hoveredDay.gwStatus === "offline" ? "text-[#e2445c]" : "text-[#00c875]"}>
-                          {hoveredDay.gwStatus === "offline" ? "Offline" : "Online"}
-                        </strong>
-                        {" | "}
-                        DVR:{" "}
-                        <strong className={hoveredDay.dvrStatus === "offline" ? "text-[#e2445c]" : "text-[#00c875]"}>
-                          {hoveredDay.dvrStatus === "offline" ? "Offline" : "Online"}
-                        </strong>
-                        {hoveredDay.eventsCount > 0 && ` (${hoveredDay.eventsCount} incident events)`}
-                      </span>
-                    </div>
-                  ) : (
-                    <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between w-full">
-                      <span>Hover or click a date ({dailyMultiTrack[0]?.dayNumStr || "01"} - {dailyMultiTrack[dailyMultiTrack.length - 1]?.dayNumStr || "30"}) to filter incident details.</span>
-
-                      {(selectedBarDay !== null || selectedEventDate !== "ALL") && (
-                        <button
-                          onClick={() => handleSelectDay(null)}
-                          className="text-blue-500 hover:underline text-[11px] font-medium cursor-pointer"
-                        >
-                          Reset Filter
-                        </button>
                       )}
-                    </div>
-                  )}
-                </div>
+                      :
+                    </span>
+                    <span className="text-[11px] text-slate-600 dark:text-slate-300">
+                      Status:{" "}
+                      <strong className={hoveredDay.status === "offline" ? "text-[#e2445c]" : "text-[#00c875]"}>
+                        {hoveredDay.status === "offline" ? "Incident / Offline" : "Online Normal"}
+                      </strong>
+                      {" | "}Uptime: <strong className="text-[#00c875]">{hoveredDay.uptimePct}%</strong>
+                      {hoveredDay.downtimePct > 0 && (
+                        <>
+                          {" | "}Downtime: <strong className="text-[#e2445c]">{hoveredDay.downtimePct}% ({hoveredDay.totalDurationStr})</strong>
+                        </>
+                      )}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between w-full">
+                    <span>Hover or click a date to inspect and filter incident history.</span>
+                    {(selectedBarDay !== null || selectedEventDate !== "ALL") && (
+                      <button
+                        onClick={() => handleSelectDay(null)}
+                        className="text-blue-500 hover:underline text-[11px] font-medium cursor-pointer"
+                      >
+                        Reset Filter
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>
 
-          {/* Bottom Card 1: Daily SLA Breakdown Table (CPU – DVR) */}
-          <div className="bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 shadow-xs">
-            {/* Header: Title & Active Selection Badge */}
-            <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200 dark:border-slate-800/60">
-              <div className="flex items-center gap-2">
-                <div className="size-6 rounded-md bg-blue-500/15 flex items-center justify-center text-blue-600 dark:text-blue-400">
-                  <FileSpreadsheet className="size-3.5" />
-                </div>
-                <h4 className="text-xs font-bold text-slate-900 dark:text-white">
-                  Daily SLA Breakdown (CPU – DVR)
-                </h4>
-                {selectedBarDay !== null ? (
-                  <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-blue-600 dark:text-blue-400 bg-blue-500/10 dark:bg-blue-500/20 px-2 py-0.5 rounded-full border border-blue-500/30">
-                    <span>Date {selectedBarDay < 10 ? `0${selectedBarDay}` : selectedBarDay} {periodInfo.monthStr}</span>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleSelectDay(null);
-                      }}
-                      className="text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer"
-                      title="Show all days"
-                    >
-                      <X className="size-3" />
-                    </button>
-                  </span>
-                ) : (
-                  <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 bg-slate-200/60 dark:bg-slate-800 px-2 py-0.5 rounded-full">
-                    {activeDailyBreakdown.length} Days
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* Table (Columns: Date, Uptime (Mins), Downtime (Mins), Success Rate, SLA Status) */}
-            <div className="overflow-x-auto mt-2 max-h-56 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead className="sticky top-0 z-10 bg-slate-100 dark:bg-[#0a1224] shadow-xs">
-                  <tr className="text-[11px] text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800/60 font-semibold">
-                    <th className="py-2 px-3">Date</th>
-                    <th className="py-2 px-3 text-right">Uptime (Mins)</th>
-                    <th className="py-2 px-3 text-right">Downtime (Mins)</th>
-                    <th className="py-2 px-3 text-right">Success Rate</th>
-                    <th className="py-2 px-3 text-center">SLA Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200 dark:divide-slate-800/40 text-[11px]">
-                  {displayedBreakdown.map((row) => {
-                    const upMin = row.cpu_dvr_uptime_min ?? row.uptime_min;
-                    const downMin = row.cpu_dvr_downtime_min ?? row.downtime_min;
-                    const sr = row.cpu_dvr_success_rate ?? row.success_rate;
-                    const status = row.cpu_dvr_status_sla ?? row.sla_status;
-                    const isSuccess = status === "Tercapai" || status === "Achieved";
-                    const isSelected = selectedBarDay === row.day;
-
-                    return (
-                      <tr
-                        key={row.day}
-                        onClick={() => handleSelectDay(row.day, `${row.day < 10 ? `0${row.day}` : row.day} ${periodInfo.monthStr}`)}
-                        className={`transition-colors cursor-pointer ${
-                          isSelected
-                            ? "bg-blue-500/10 dark:bg-blue-500/20 font-medium"
-                            : "hover:bg-slate-100/80 dark:hover:bg-slate-800/30"
-                        }`}
-                        title="Click to select this date"
+          {/* Bottom Card: Table based on active subsystem filter - Only for CPU - DVR */}
+          {dailyViewMetric === "cpu_dvr" && (
+            /* Table 1: Daily SLA Breakdown (CPU – DVR) */
+            <div className="bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 shadow-xs">
+              <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200 dark:border-slate-800/60">
+                <div className="flex items-center gap-2">
+                  <div className="size-6 rounded-md bg-blue-500/15 flex items-center justify-center text-blue-600 dark:text-blue-400">
+                    <FileSpreadsheet className="size-3.5" />
+                  </div>
+                  <h4 className="text-xs font-bold text-slate-900 dark:text-white">
+                    Daily SLA Breakdown (CPU – DVR)
+                  </h4>
+                  {selectedBarDay !== null ? (
+                    <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-blue-600 dark:text-blue-400 bg-blue-500/10 dark:bg-blue-500/20 px-2 py-0.5 rounded-full border border-blue-500/30">
+                      <span>Date {selectedBarDay < 10 ? `0${selectedBarDay}` : selectedBarDay} {periodInfo.monthStr}</span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSelectDay(null);
+                        }}
+                        className="text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer"
+                        title="Show all days"
                       >
-                        <td className="py-2 px-3 text-slate-700 dark:text-slate-300 font-mono whitespace-nowrap">
-                          {row.date} ({row.day_name})
+                        <X className="size-3" />
+                      </button>
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 bg-slate-200/60 dark:bg-slate-800 px-2 py-0.5 rounded-full">
+                      {activeDailyBreakdown.length} Days
+                    </span>
+                  )}
+                </div>
+                <div className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
+                  Target SLA: 98.0%
+                </div>
+              </div>
+
+              <div className="overflow-x-auto mt-2 max-h-56 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead className="sticky top-0 z-10 bg-slate-100 dark:bg-[#0a1224] shadow-xs">
+                    <tr className="text-[11px] text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800/60 font-semibold">
+                      <th className="py-2 px-3">Date</th>
+                      <th className="py-2 px-3 text-right">Uptime (Mins)</th>
+                      <th className="py-2 px-3 text-right">Downtime (Mins)</th>
+                      <th className="py-2 px-3 text-right">Success Rate</th>
+                      <th className="py-2 px-3 text-center">SLA Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 dark:divide-slate-800/40 text-[11px]">
+                    {displayedBreakdown.map((row) => {
+                      const upMin = row.cpu_dvr_uptime_min ?? row.uptime_min;
+                      const downMin = row.cpu_dvr_downtime_min ?? row.downtime_min;
+                      const sr = row.cpu_dvr_success_rate ?? row.success_rate;
+                      const status = row.cpu_dvr_status_sla ?? row.sla_status;
+                      const isSuccess = status === "Tercapai" || status === "Achieved";
+                      const isSelected = selectedBarDay === row.day;
+
+                      return (
+                        <tr
+                          key={row.day}
+                          onClick={() => handleSelectDay(row.day, `${row.day < 10 ? `0${row.day}` : row.day} ${periodInfo.monthStr}`)}
+                          className={`transition-colors cursor-pointer ${
+                            isSelected
+                              ? "bg-blue-500/10 dark:bg-blue-500/20 font-medium"
+                              : "hover:bg-slate-100/80 dark:hover:bg-slate-800/30"
+                          }`}
+                          title="Click to select this date"
+                        >
+                          <td className="py-2 px-3 text-slate-700 dark:text-slate-300 font-mono whitespace-nowrap">
+                            {row.date} ({row.day_name})
+                          </td>
+                          <td className="py-2 px-3 text-right font-mono text-emerald-600 dark:text-emerald-400 font-semibold">
+                            {upMin.toLocaleString("id-ID")}
+                          </td>
+                          <td className="py-2 px-3 text-right font-mono font-semibold">
+                            {downMin > 0 ? (
+                              <span className="text-rose-600 dark:text-rose-400">{downMin.toLocaleString("id-ID")}</span>
+                            ) : (
+                              <span className="text-slate-400">0</span>
+                            )}
+                          </td>
+                          <td className="py-2 px-3 text-right font-mono font-bold text-slate-900 dark:text-white">
+                            {sr.toFixed(1)}%
+                          </td>
+                          <td className="py-2 px-3 text-center whitespace-nowrap">
+                            {isSuccess ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-emerald-600 dark:text-[#00c875] border border-emerald-500/30">
+                                Achieved
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/15 text-rose-600 dark:text-[#e2445c] border border-rose-500/30">
+                                Not Achieved
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  {displayedSummary && (
+                    <tfoot className="sticky bottom-0 z-10 bg-slate-200/90 dark:bg-[#070e1d] font-bold text-[11px] border-t-2 border-slate-300 dark:border-slate-700 shadow-md">
+                      <tr>
+                        <td className="py-2 px-3 text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                          <span className="text-blue-600 dark:text-blue-400 mr-1.5">Total:</span>
+                          {displayedSummary.count} Days ({displayedSummary.totalObs.toLocaleString("en-US")}m)
                         </td>
-                        <td className="py-2 px-3 text-right font-mono text-emerald-600 dark:text-emerald-400 font-semibold">
-                          {upMin.toLocaleString("id-ID")}
+                        <td className="py-2 px-3 text-right font-mono text-emerald-600 dark:text-emerald-400">
+                          {displayedSummary.totalUptime.toLocaleString("id-ID")}
                         </td>
-                        <td className="py-2 px-3 text-right font-mono font-semibold">
-                          {downMin > 0 ? (
-                            <span className="text-rose-600 dark:text-rose-400">{downMin.toLocaleString("id-ID")}</span>
-                          ) : (
-                            <span className="text-slate-400">0</span>
-                          )}
+                        <td className="py-2 px-3 text-right font-mono text-rose-600 dark:text-rose-400">
+                          {displayedSummary.totalDowntime.toLocaleString("id-ID")}
                         </td>
-                        <td className="py-2 px-3 text-right font-mono font-bold text-slate-900 dark:text-white">
-                          {sr.toFixed(1)}%
+                        <td className="py-2 px-3 text-right font-mono text-slate-900 dark:text-white">
+                          {displayedSummary.avgSuccessRate.toFixed(1)}%
                         </td>
-                        <td className="py-2 px-3 text-center whitespace-nowrap">
-                          {isSuccess ? (
+                        <td className="py-2 px-3 text-center">
+                          {displayedSummary.isSuccess ? (
                             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-emerald-600 dark:text-[#00c875] border border-emerald-500/30">
                               Achieved
                             </span>
@@ -1210,49 +1458,12 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
                           )}
                         </td>
                       </tr>
-                    );
-                  })}
-                  {displayedBreakdown.length === 0 && (
-                    <tr>
-                      <td colSpan={5} className="py-6 text-center text-slate-500 dark:text-slate-400 text-xs">
-                        No daily SLA breakdown data for the selected date.
-                      </td>
-                    </tr>
+                    </tfoot>
                   )}
-                </tbody>
-                {displayedSummary && (
-                  <tfoot className="sticky bottom-0 z-10 bg-slate-200/90 dark:bg-[#070e1d] font-bold text-[11px] border-t-2 border-slate-300 dark:border-slate-700 shadow-md">
-                    <tr>
-                      <td className="py-2 px-3 text-slate-700 dark:text-slate-300 whitespace-nowrap">
-                        <span className="text-blue-600 dark:text-blue-400 mr-1.5">Total:</span>
-                        {displayedSummary.count} Days ({displayedSummary.totalObs.toLocaleString("en-US")}m)
-                      </td>
-                      <td className="py-2 px-3 text-right font-mono text-emerald-600 dark:text-emerald-400">
-                        {displayedSummary.totalUptime.toLocaleString("id-ID")}
-                      </td>
-                      <td className="py-2 px-3 text-right font-mono text-rose-600 dark:text-rose-400">
-                        {displayedSummary.totalDowntime.toLocaleString("id-ID")}
-                      </td>
-                      <td className="py-2 px-3 text-right font-mono text-slate-900 dark:text-white">
-                        {displayedSummary.avgSuccessRate.toFixed(1)}%
-                      </td>
-                      <td className="py-2 px-3 text-center">
-                        {displayedSummary.isSuccess ? (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-emerald-600 dark:text-[#00c875] border border-emerald-500/30">
-                            Achieved
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/15 text-rose-600 dark:text-[#e2445c] border border-rose-500/30">
-                            Not Achieved
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  </tfoot>
-                )}
-              </table>
+                </table>
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Right Column (lg:col-span-6): Incident History Table with Date Selector */}
@@ -1261,10 +1472,10 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
             <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200 dark:border-slate-800/60 shrink-0">
               <div className="flex items-center gap-2">
                 <h4 className="text-xs font-bold text-slate-900 dark:text-white">
-                  Incident History
+                  Incident History: {dailyViewMetric === "cpu_dvr" ? "CPU – DVR" : "CCTV / Recording"}
                 </h4>
                 <span className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-500/10 dark:bg-amber-500/20 px-2 py-0.5 rounded-full border border-amber-500/30">
-                  {filteredEvents.length} event
+                  {sortedEvents.length} {sortedEvents.length === 1 ? "incident" : "incidents"}
                 </span>
               </div>
 
@@ -1299,7 +1510,7 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
             </div>
 
             {/* Scrollable / Full-Stretched Table */}
-            <div className={`overflow-x-auto mt-2 pr-1 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700 flex-1 min-h-[360px] flex flex-col justify-start ${filteredEvents.length > 5 ? "max-h-[520px] overflow-y-auto" : "h-full"}`}>
+            <div className={`overflow-x-auto mt-2 pr-1 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700 flex-1 min-h-[360px] flex flex-col justify-start ${sortedEvents.length > 5 ? "max-h-[520px] overflow-y-auto" : "h-full"}`}>
               <table className="w-full text-left text-xs border-collapse h-full flex-1" style={{ height: "100%" }}>
                 <thead className="sticky top-0 z-10 bg-slate-100 dark:bg-[#0a1224] shadow-xs shrink-0">
                   <tr className="text-[11px] text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800/60 font-semibold h-8">
@@ -1310,61 +1521,38 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
                     <th className="py-2.5 px-3 text-center">Status</th>
                   </tr>
                 </thead>
-                <tbody className={`divide-y divide-slate-200 dark:divide-slate-800/40 text-[11px] ${filteredEvents.length <= 1 ? "h-full" : ""}`} style={{ height: "100%" }}>
-                  {filteredEvents.map((event, idx) => {
-                    const isStillActive = event.end_time === "-" || event.end_time?.toLowerCase().includes("sekarang");
+                <tbody className={`divide-y divide-slate-200 dark:divide-slate-800/40 text-[11px] ${sortedEvents.length <= 1 ? "h-full" : ""}`} style={{ height: "100%" }}>
+                  {sortedEvents.map((event, idx) => {
+                    const isStillActive =
+                      event.status === "Active" ||
+                      event.status === "active" ||
+                      event.end_time === "-" ||
+                      event.end_time?.toLowerCase().includes("ongoing") ||
+                      event.end_time?.toLowerCase().includes("present");
                     return (
                       <tr
                         key={event.no || idx}
-                        style={filteredEvents.length === 1 ? { height: "100%" } : undefined}
-                        className={`hover:bg-slate-100/80 dark:hover:bg-slate-800/30 transition-colors ${filteredEvents.length === 1 ? "h-full" : ""}`}
+                        style={sortedEvents.length === 1 ? { height: "100%" } : undefined}
+                        className={`hover:bg-slate-100/80 dark:hover:bg-slate-800/30 transition-colors ${sortedEvents.length === 1 ? "h-full" : ""}`}
                       >
-                        <td className={`py-2.5 px-2 text-center text-slate-500 dark:text-slate-400 font-mono align-middle ${filteredEvents.length === 1 ? "py-4" : ""}`}>
+                        <td className={`py-2.5 px-2 text-center text-slate-500 dark:text-slate-400 font-mono align-middle ${sortedEvents.length === 1 ? "py-4" : ""}`}>
                           {idx + 1}
                         </td>
-                        <td className={`py-2.5 px-3 text-slate-700 dark:text-slate-300 font-mono whitespace-nowrap align-middle ${filteredEvents.length === 1 ? "py-4" : ""}`}>
+                        <td className={`py-2.5 px-3 text-slate-700 dark:text-slate-300 font-mono whitespace-nowrap align-middle ${sortedEvents.length === 1 ? "py-4" : ""}`}>
                           <div>{event.start_time}</div>
-                          <div className="text-[10px] text-slate-500 dark:text-slate-400">to {event.end_time}</div>
+                          <div className="text-[10px] text-slate-500 dark:text-slate-400">
+                            to {isStillActive ? "Present" : event.end_time}
+                          </div>
                         </td>
-                        <td className={`py-2.5 px-3 font-semibold text-slate-900 dark:text-slate-100 align-middle ${filteredEvents.length === 1 ? "py-4" : ""}`}>
+                        <td className={`py-2.5 px-3 font-semibold text-slate-900 dark:text-slate-100 align-middle ${sortedEvents.length === 1 ? "py-4" : ""}`}>
                           {formatIncidentEn(event.title || event.description || event.cause)}
                         </td>
-                        <td className={`py-2.5 px-3 text-center whitespace-nowrap align-middle ${filteredEvents.length === 1 ? "py-4" : ""}`}>
+                        <td className={`py-2.5 px-3 text-center whitespace-nowrap align-middle ${sortedEvents.length === 1 ? "py-4" : ""}`}>
                           <span className="inline-flex items-center px-2 py-0.5 rounded-md font-bold text-xs bg-amber-500/10 dark:bg-amber-500/20 text-[#f59e0b] border border-amber-500/30">
                             {formatDurationEn(event.duration)}
                           </span>
-                          {selectedBarDay !== null && event.start_time && event.end_time && event.end_time !== "-" && (
-                            (() => {
-                              const mIdx = MONTH_NAMES.findIndex((m) => m.toLowerCase() === periodInfo.monthStr.toLowerCase());
-                              if (mIdx === -1) return null;
-                              const year = Number(periodInfo.yearStr) || new Date().getFullYear();
-                              const dStart = new Date(year, mIdx, selectedBarDay, 0, 0, 0);
-                              const dEnd = new Date(year, mIdx, selectedBarDay, 23, 59, 59, 999);
-                              const st = new Date(event.start_time.replace(" ", "T"));
-                              const et = new Date(event.end_time.replace(" ", "T"));
-                              if (isNaN(st.getTime()) || isNaN(et.getTime())) return null;
-                              const oStart = Math.max(st.getTime(), dStart.getTime());
-                              const oEnd = Math.min(et.getTime(), dEnd.getTime());
-                              if (oEnd > oStart) {
-                                const oMin = Math.round((oEnd - oStart) / 60000);
-                                const totMin = Math.round((et.getTime() - st.getTime()) / 60000);
-                                if (totMin > oMin) {
-                                  const dayStr = selectedBarDay < 10 ? `0${selectedBarDay}` : `${selectedBarDay}`;
-                                  return (
-                                    <div
-                                      className="text-[9px] text-amber-500/90 dark:text-amber-400/90 font-medium mt-0.5"
-                                      title={`Incident spans across midnight: ${oMin}m on Date ${dayStr}, ${totMin - oMin}m on adjacent day`}
-                                    >
-                                      ({oMin}m on Date {dayStr})
-                                    </div>
-                                  );
-                                }
-                              }
-                              return null;
-                            })()
-                          )}
                         </td>
-                        <td className={`py-2.5 px-3 text-center whitespace-nowrap align-middle ${filteredEvents.length === 1 ? "py-4" : ""}`}>
+                        <td className={`py-2.5 px-3 text-center whitespace-nowrap align-middle ${sortedEvents.length === 1 ? "py-4" : ""}`}>
                           {isStillActive ? (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/15 text-[#e2445c] border border-rose-500/30 animate-pulse">
                               Active
@@ -1378,10 +1566,10 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
                       </tr>
                     );
                   })}
-                  {filteredEvents.length === 0 && (
+                  {sortedEvents.length === 0 && (
                     <tr className="h-full" style={{ height: "100%" }}>
                       <td colSpan={5} className="py-8 text-center text-slate-500 dark:text-slate-400 text-xs align-middle h-full">
-                        No incident history found for the selected date.
+                        No incident history found for {dailyViewMetric === "cpu_dvr" ? "CPU – DVR" : "CCTV / Recording"} on the selected date.
                         {selectedEventDate !== "ALL" && (
                           <button
                             type="button"
@@ -1401,7 +1589,8 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
         </div>
       </div>
 
-      {/* 5. Full Width Section: Daily Recording Status Record (Expandable Date Tree Table) */}
+      {/* 5. Full Width Section: Daily Recording Status Record (Expandable Date Tree Table) - Only in Recording View */}
+      {dailyViewMetric === "recording" && (
       <div className="w-full bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 shadow-xs mt-3.5 space-y-3">
         {/* Header: Title, Timeline Selection Indicator, Expand/Collapse All Buttons */}
         <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200 dark:border-slate-800/60">
@@ -1671,6 +1860,7 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
           </table>
         </div>
       </div>
+      )}
     </div>
   );
 };

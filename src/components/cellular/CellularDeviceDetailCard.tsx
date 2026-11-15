@@ -579,68 +579,80 @@ export const CellularDeviceDetailCard: React.FC<
         data.sim_card !== "Ready" &&
         data.sim_card !== "Active");
 
-    if (isDisconnectedNow) {
-      let discHr = 4; // default pre-incident halt hour
-      if (typeof (data?.signal_strength as any)?.disconnect_hour === "number") {
-        discHr = (data?.signal_strength as any).disconnect_hour;
-      } else if (
-        typeof (data?.last_incident as any)?.disconnect_hour === "number"
-      ) {
-        discHr = (data?.last_incident as any).disconnect_hour;
-      } else if (data?.last_incident?.time_wib) {
-        const m = data.last_incident.time_wib.match(/(\d{1,2}):(\d{2})/);
-        if (m) discHr = parseInt(m[1], 10);
-      } else if (data?.last_update) {
-        const m = data.last_update.match(/(\d{1,2}):(\d{2})/);
-        if (m) discHr = parseInt(m[1], 10);
-      }
+    if (dayMap.size > 0) {
+      // 1. We have authentic telemetry points from the backend history.
+      // If the modem/device is disconnected, ensure NO signal points are plotted after the disconnect moment!
+      if (isDisconnectedNow) {
+        let maxRecordedHour = -1;
+        dayMap.forEach((_, hr) => {
+          if (hr > maxRecordedHour) maxRecordedHour = hr;
+        });
 
-      const isViewingIncidentDay =
-        activeIso === fallbackToday || activeIso === detectedOfflineDate;
-      if (isViewingIncidentDay) {
-        // Enforce that signal updates halted at discHr:
-        // Hours > discHr MUST be null (no line/points plotted)
+        const discHr =
+          typeof (data?.signal_strength as any)?.disconnect_hour === "number"
+            ? (data?.signal_strength as any).disconnect_hour
+            : maxRecordedHour >= 0
+              ? maxRecordedHour
+              : 4;
+
+        // Force all hours past the disconnect moment to null (no line or points plotted)
         validVals.length = 0;
-        const rawRsrp = data?.signal_strength?.rsrp;
-        const fallbackRsrp =
-          rawRsrp !== null && rawRsrp !== undefined && rawRsrp !== -115
-            ? Number(rawRsrp)
-            : -53;
-        const variations = [-2, 0, -1, 0, 1];
-
         for (let h = 0; h <= 23; h++) {
           if (h > discHr) {
             hourly[h].value = null;
           } else {
-            if (hourly[h].value === null || !Number.isFinite(hourly[h].value)) {
-              hourly[h].value =
-                fallbackRsrp + variations[h % variations.length];
-            }
-            const currVal = hourly[h].value;
-            if (currVal !== null) {
-              validVals.push(currVal);
+            const v = hourly[h].value;
+            if (v !== null && Number.isFinite(v)) {
+              validVals.push(v);
             }
           }
         }
       }
-    } else if (validVals.length === 0) {
-      // Normal healthy fallback if no hourly buckets exist for activeIso
-      const rawRsrp = data?.signal_strength?.rsrp;
-      const fallbackRsrp =
-        rawRsrp !== null && rawRsrp !== undefined && rawRsrp !== -115
-          ? Number(rawRsrp)
-          : -69;
-      const variations = [
-        -2, 1, -1, 0, 2, -1, 1, 0, -2, 1, 0, -1, 1, -1, 0, 1, -1, 0, 1, -1, 0,
-        1, -1, 0,
-      ];
-      const isViewingToday = activeIso === fallbackToday;
-      const maxHr = isViewingToday ? Math.min(now.getHours(), 23) : 23;
+    } else {
+      // 2. Only if NO records exist in dayMap:
+      if (isDisconnectedNow) {
+        const discHr =
+          typeof (data?.signal_strength as any)?.disconnect_hour === "number"
+            ? (data?.signal_strength as any).disconnect_hour
+            : 4;
+        const isViewingIncidentDay =
+          activeIso === fallbackToday || activeIso === detectedOfflineDate;
+        if (isViewingIncidentDay) {
+          const rawRsrp = data?.signal_strength?.rsrp;
+          const fallbackRsrp =
+            rawRsrp !== null && rawRsrp !== undefined && rawRsrp !== -115
+              ? Number(rawRsrp)
+              : -69;
+          const variations = [-2, 0, -1, 0, 1];
+          for (let h = 0; h <= 23; h++) {
+            if (h <= discHr) {
+              const val = fallbackRsrp + variations[h % variations.length];
+              hourly[h].value = val;
+              validVals.push(val);
+            } else {
+              hourly[h].value = null;
+            }
+          }
+        }
+      } else if (validVals.length === 0) {
+        // Normal healthy fallback if viewing today without DB records
+        const rawRsrp = data?.signal_strength?.rsrp;
+        const fallbackRsrp =
+          rawRsrp !== null && rawRsrp !== undefined && rawRsrp !== -115
+            ? Number(rawRsrp)
+            : -69;
+        const variations = [
+          -2, 1, -1, 0, 2, -1, 1, 0, -2, 1, 0, -1, 1, -1, 0, 1, -1, 0, 1, -1, 0,
+          1, -1, 0,
+        ];
+        const isViewingToday = activeIso === fallbackToday;
+        const maxHr = isViewingToday ? Math.min(now.getHours(), 23) : 23;
 
-      for (let h = 0; h <= maxHr; h++) {
-        const val = fallbackRsrp + variations[h % variations.length];
-        validVals.push(val);
-        hourly[h].value = val;
+        for (let h = 0; h <= maxHr; h++) {
+          const val = fallbackRsrp + variations[h % variations.length];
+          validVals.push(val);
+          hourly[h].value = val;
+        }
       }
     }
 
@@ -1217,15 +1229,27 @@ export const CellularDeviceDetailCard: React.FC<
                             Modem
                           </span>
                           <span className="text-slate-800 dark:text-slate-200 font-sans font-medium text-right truncate">
-                            {d.modem}
+                            {d.modem === "Tidak Terdeteksi" ? "Not Detected" : d.modem}
                           </span>
                         </div>
                         <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1">
                           <span className="text-slate-500 dark:text-slate-400 font-sans">
                             Provider
                           </span>
-                          <span className="text-slate-800 dark:text-slate-200 font-sans text-right">
-                            {d.provider}
+                          <span className="text-slate-800 dark:text-slate-200 font-sans text-right truncate font-medium">
+                            {(() => {
+                              const activeProvider =
+                                d.provider && d.provider !== "No SIM"
+                                  ? d.provider
+                                  : d.network_sim?.operator && d.network_sim.operator !== "No SIM"
+                                    ? d.network_sim.operator
+                                    : null;
+                              const isHistorical = !isSimReady || isCpuNotConnected || isDeviceOffline;
+                              if (activeProvider) {
+                                return isHistorical ? `${activeProvider} (Last Data)` : activeProvider;
+                              }
+                              return "No SIM";
+                            })()}
                           </span>
                         </div>
                         <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1">
@@ -1474,16 +1498,22 @@ export const CellularDeviceDetailCard: React.FC<
                     <div className="flex items-center justify-around gap-3 my-4">
                       <CircularGauge
                         percent={gaugePercent}
-                        strokeColor={sigQual.stroke}
+                        strokeColor={isPreDisconnect ? "#f59e0b" : sigQual.stroke}
                         centerContent={
                           <div className="text-center">
                             <span className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
                               {effectiveRsrp}
                             </span>
-                            <div className="text-[9px] text-slate-500 dark:text-slate-400 font-mono -mt-0.5">
-                              {isPreDisconnect
-                                ? "dBm (Last Known)"
-                                : d.signal_strength.unit}
+                            <div className="text-[9px] font-mono -mt-0.5">
+                              {isPreDisconnect ? (
+                                <span className="text-amber-500 dark:text-amber-400 font-bold uppercase tracking-wider block">
+                                  ⏱ Last Known
+                                </span>
+                              ) : (
+                                <span className="text-slate-500 dark:text-slate-400 block">
+                                  {d.signal_strength.unit}
+                                </span>
+                              )}
                             </div>
                           </div>
                         }
@@ -1520,12 +1550,14 @@ export const CellularDeviceDetailCard: React.FC<
                       </div>
                     </div>
 
-                    <div className="text-[10px] text-slate-400 dark:text-slate-500 font-sans text-center border-t border-slate-200/60 dark:border-slate-800/60 pt-2">
-                      Level CSQ:{" "}
-                      <span className="font-bold text-slate-700 dark:text-slate-300 font-mono">
-                        {d.signal_strength.csq || 24}
-                      </span>{" "}
-                      ({sigQual.label} {isPreDisconnect ? "• Last Known" : ""})
+                    <div className="text-[10px] text-slate-400 dark:text-slate-500 font-sans flex items-center justify-between border-t border-slate-200/60 dark:border-slate-800/60 pt-2">
+                      <span>
+                        Level CSQ:{" "}
+                        <span className="font-bold text-slate-700 dark:text-slate-300 font-mono">
+                          {d.signal_strength.csq || 24}
+                        </span>{" "}
+                        ({sigQual.label} {isPreDisconnect ? "• Last Known" : ""})
+                      </span>
                     </div>
                   </div>
                 );
@@ -1612,20 +1644,27 @@ export const CellularDeviceDetailCard: React.FC<
                   <div className="text-xs space-y-1 font-mono text-slate-700 dark:text-slate-300 flex-1 min-w-0 max-w-52.5">
                     <div className="flex items-center justify-between">
                       <span className="text-slate-500 dark:text-slate-400 font-sans">
-                        Operator:
+                        Provider:
                       </span>
                       <span
-                        className="text-slate-800 dark:text-slate-200 font-sans font-medium truncate"
+                        className="text-slate-800 dark:text-slate-200 font-sans font-medium truncate flex items-center justify-end gap-1"
                         title={
                           d.network_sim?.operator || d.provider || "Telkomsel"
                         }
                       >
-                        {d.network_sim?.operator &&
-                        d.network_sim.operator !== "No SIM"
-                          ? d.network_sim.operator
-                          : d.provider !== "No SIM"
-                            ? d.provider
-                            : "Telkomsel (Last)"}
+                        <span className="truncate">
+                          {d.network_sim?.operator &&
+                          d.network_sim.operator !== "No SIM"
+                            ? d.network_sim.operator
+                            : d.provider !== "No SIM"
+                              ? d.provider
+                              : "Telkomsel"}
+                        </span>
+                        {(isDeviceOffline || isCpuNotConnected || !isSimReady) && (
+                          <span className="text-[9px] font-mono px-1 py-0.5 rounded bg-amber-500/10 text-amber-500 border border-amber-500/20 shrink-0">
+                            Last
+                          </span>
+                        )}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
@@ -1633,18 +1672,16 @@ export const CellularDeviceDetailCard: React.FC<
                         SIM Status:
                       </span>
                       <span
-                        className={`font-sans font-semibold ${isQuotaEmpty ? "text-amber-500 font-bold" : isSimReady || d.sim_card === "Active" || d.network_sim?.sim_status === "Ready" ? "text-emerald-500" : "text-rose-500"}`}
+                        className={`font-sans font-semibold text-right ${isQuotaEmpty ? "text-amber-500 font-bold" : isSimReady || d.sim_card === "Active" || d.network_sim?.sim_status === "Ready" ? "text-emerald-500" : "text-rose-500"}`}
                       >
                         {isQuotaEmpty
                           ? "No Quota (0 GB)"
                           : isSimReady ||
                               d.sim_card === "Active" ||
                               d.network_sim?.sim_status === "Ready"
-                            ? isDeviceOffline
-                              ? "Ready (Last)"
-                              : isCpuNotConnected
-                                ? "Ready (Last)"
-                                : "Ready"
+                            ? isDeviceOffline || isCpuNotConnected
+                              ? "Ready (Last Data)"
+                              : "Ready"
                             : "Not Detected"}
                       </span>
                     </div>
@@ -1999,10 +2036,12 @@ export const CellularDeviceDetailCard: React.FC<
                   </div>
                   <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1.5">
                     <span className="text-slate-500 dark:text-slate-400">
-                      Cellular Operator
+                      Cellular Provider
                     </span>
                     <span className="font-bold text-slate-900 dark:text-white">
-                      {d.provider}
+                      {d.network_sim?.operator && d.network_sim.operator !== "No SIM"
+                        ? d.network_sim.operator
+                        : d.provider}
                     </span>
                   </div>
                   <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1.5">
@@ -2166,7 +2205,7 @@ export const CellularDeviceDetailCard: React.FC<
                   >
                     <div className="flex items-center justify-between">
                       <span className="text-[11px] text-slate-500 font-medium">
-                        Operator & Network
+                        Provider & Network
                       </span>
                       {isDeviceOffline && (
                         <span className="text-[10px] text-rose-500 font-semibold px-1.5 py-0.5 rounded bg-rose-500/10 border border-rose-500/20">

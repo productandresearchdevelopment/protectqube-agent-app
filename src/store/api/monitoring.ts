@@ -912,6 +912,8 @@ export interface IDVRTroubleEventItem {
   metric?: string;
   date_str?: string;
   day_downtime_minutes?: number;
+  status?: string;
+  epoch?: number;
 }
 
 export interface IDVRTimelineSegment {

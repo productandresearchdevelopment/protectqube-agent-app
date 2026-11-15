@@ -72,6 +72,9 @@ const formatIncidentEn = (text?: string) => {
     .replace(/(\d+)\s*Jam/gi, "$1h")
     .replace(/Normal\s+Operation\s*\(No incidents detected\)/gi, "Normal Operation (No incidents detected)")
     .replace(/Operasi\s+Normal/gi, "Normal Operation")
+    .replace(/Timeout\s+koneksi\s+ke\s+NVR/gi, "Connection timeout to NVR")
+    .replace(/koneksi\s+ke\s+NVR/gi, "connection to NVR")
+    .replace(/koneksi/gi, "connection")
     .replace(/terpakai/gi, "utilized")
     .replace(/terputus/gi, "disconnected")
     .replace(/selesai/gi, "completed")
@@ -571,18 +574,18 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
         return `Warning: Detected ${badSec} bad sectors on NVR Hard Drive & continuous recording halted (0 active channels writing to disk).`;
       }
       if (badSec > 0) {
-        return `Warning: Detected ${badSec} bad sectors on NVR Hard Drive. Storage S.M.A.R.T degraded with I/O read-only risk.`;
+        return `Warning: Detected ${badSec} bad sectors on NVR Hard Drive. Storage degraded with I/O read-only risk.`;
       }
       if (isNotRecording) {
         return "Warning: NVR is connected but video recording is inactive (0 channels writing continuous video stream).";
       }
       if (isHddError) {
-        return `Warning: Storage S.M.A.R.T alert (${d.dvr_health.hdd_status}).`;
+        return `Warning: Storage HDD alert (${d.dvr_health.hdd_status}).`;
       }
       return "Warning: Partial recording degradation or camera stream disruption detected.";
     }
 
-    return `Good: CPU - NVR link operational (${d.cpu_dvr?.response_time || "< 15 ms"}), ${onlineCams}/${totalCams} camera(s) actively recording, & HDD S.M.A.R.T healthy (0 bad blocks).`;
+    return `Good: CPU - NVR link operational (${d.cpu_dvr?.response_time || "< 15 ms"}), ${onlineCams}/${totalCams} camera(s) actively recording, & HDD healthy (0 bad blocks).`;
   };
 
   return (
@@ -597,24 +600,29 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
               Device Detail
             </h2>
             {(() => {
-              const currentStatus = (d.status || (d.service_status === "Running" ? "Online" : d.service_status === "Stopped" ? "Offline" : "Warning")).toLowerCase();
-              if (currentStatus.includes("online") || currentStatus.includes("good")) {
-                return (
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/20 text-[#00a862] dark:text-[#00c875] border border-emerald-500/30">
-                    Online
-                  </span>
-                );
-              }
-              if (currentStatus.includes("off") || currentStatus.includes("stop") || currentStatus.includes("crit")) {
+              const currentStatus = (
+                d.status ||
+                (d.service_status === "Stopped" ? "Offline" : "Online")
+              ).toLowerCase();
+              const isDeviceOffline =
+                currentStatus.includes("off") || currentStatus.includes("stop");
+              if (isDeviceOffline) {
                 return (
                   <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-500/20 text-[#e2445c] border border-rose-500/30">
                     Offline
                   </span>
                 );
               }
+              if (currentStatus.includes("warn")) {
+                return (
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                    Warning
+                  </span>
+                );
+              }
               return (
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30">
-                  Warning
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/20 text-[#00a862] dark:text-[#00c875] border border-emerald-500/30">
+                  Online
                 </span>
               );
             })()}
@@ -714,6 +722,164 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
       <div className="p-4 sm:p-5 space-y-4">
         {activeTab === "Overview" && (
           <div className="space-y-4 animate-in fade-in duration-200">
+            {/* DATA PENDUKUNG PENYEBAB GANGGUAN (ROOT CAUSE EVIDENCE) - Muncul di bagian atas Overview saat Offline, CPU-DVR Terputus, Not Recording, No Video, atau HDD Degraded */}
+            {(() => {
+              const recStatus = d.recording_storage?.status || "";
+              const isNotRecording = recStatus === "Not Recording" || recStatus.startsWith("0/") || recStatus.includes("Stopped") || recStatus.includes("Inactive") || (d as any).recording_info?.is_recording === false;
+              const badSec = Number(d.dvr_health?.bad_sector || 0);
+              const hasNoVideo = (d.camera_status?.no_video ?? 0) > 0;
+              const hasOfflineCam = (d.camera_status?.offline ?? 0) > 0;
+              const hddSmart = (d.dvr_health?.hdd_status || "").toLowerCase();
+              const isHddAlert = hddSmart.includes("error") || hddSmart.includes("fail") || hddSmart.includes("danger") || badSec > 0;
+              const hasTrouble = isOffline || isCpuNotConnected || isNotRecording || hasNoVideo || hasOfflineCam || isHddAlert;
+
+              if (!hasTrouble) return null;
+
+              const troubledCameras = d.cameras?.filter((c) => c.status === "No Video" || c.status === "Offline" || !c.is_recording) || [];
+              const troubledCamNames = troubledCameras.map((c) => c.name || `CH${c.channel}`).join(", ");
+
+              return (
+                <div className="p-4 rounded-xl border shadow-xs transition-all bg-rose-500/5 border-rose-500/30 dark:bg-rose-950/20">
+                  {/* Header Box */}
+                  <div className="flex flex-wrap items-center justify-between gap-2.5 pb-2.5 border-b border-slate-200/80 dark:border-slate-800/80">
+                    <div className="flex items-center gap-2">
+                      <div className="size-7 rounded-lg flex items-center justify-center shrink-0 bg-rose-500/20 text-rose-500">
+                        <AlertTriangle className="size-4" />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider font-mono">
+                          ROOT CAUSE &amp; TROUBLE EVIDENCE
+                        </h4>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold border tracking-wide uppercase font-mono bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30">
+                        {isOffline
+                          ? "[ STATUS: DEVICE OFFLINE ]"
+                          : isCpuNotConnected
+                            ? "[ STATUS: CPU – DVR DISCONNECTED ]"
+                            : isNotRecording
+                              ? "[ STATUS: NOT RECORDING ]"
+                              : hasNoVideo || hasOfflineCam
+                                ? "[ STATUS: CAMERA NO VIDEO ]"
+                                : "[ STATUS: STORAGE HDD DEGRADED ]"}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Root Cause Context Summary */}
+                  <div className="mt-2.5 p-2.5 rounded-lg bg-white/50 dark:bg-[#070e1d]/50 border border-slate-200/60 dark:border-slate-800/60 text-xs text-slate-700 dark:text-slate-300">
+                    <span className="font-bold text-slate-900 dark:text-white mr-1.5 font-sans">Root Cause Analysis:</span>
+                    <span className="font-sans leading-relaxed">
+                      {isOffline
+                        ? "Gateway CPU is not transmitting telemetry (> 1 hour). Total power outage or backhaul network link disconnected. Displayed DVR telemetry reflects last valid recorded state prior to outage."
+                        : isCpuNotConnected
+                          ? "Gateway CPU online & operating normally, but physical / IP link to NVR is disconnected (Host unreachable / Port 80 ISAPI timeout). Verify RJ45 LAN cable between Gateway CPU and NVR, or ensure NVR power adapter is active."
+                          : isNotRecording
+                            ? "Communication between CPU and NVR is established, but CCTV video recording is inactive (0 channels writing to disk). Caused by storage drive failure, continuous recording schedule disabled, or disk storage full."
+                            : hasNoVideo || hasOfflineCam
+                              ? `Communication between CPU and NVR and recording engine are operational, but ${d.camera_status.no_video} camera(s) have lost video signal (${troubledCamNames}). Check coaxial/PoE cabling or camera power adapters.`
+                              : `Storage drive degradation detected (${badSec} bad sectors, status: ${d.dvr_health.hdd_status}). Potential risk of video write failure.`}
+                    </span>
+                  </div>
+
+                  {/* Numbered Evidence Rows */}
+                  <div className="mt-3 space-y-2 text-xs font-mono">
+                    {/* 1. CPU-DVR */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 p-2 rounded-lg bg-white/70 dark:bg-[#070e1d]/70 border border-slate-200/70 dark:border-slate-800/70">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-slate-700 dark:text-slate-300">
+                          1. CPU-DVR :
+                        </span>
+                        <span
+                          className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                            isCpuConnected
+                              ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
+                              : "bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30"
+                          }`}
+                        >
+                          {isCpuConnected ? "[ Connected ]" : "[ Disconnected / No Response ]"}
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-slate-500 dark:text-slate-400 font-sans">
+                        (IP: {d.ip_address} • Port: {d.cpu_dvr.port} • Latency: {isOffline ? "-" : d.cpu_dvr.response_time} • Packet Loss: {d.cpu_dvr.packet_loss})
+                      </span>
+                    </div>
+
+                    {/* 2. Video Recording */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 p-2 rounded-lg bg-white/70 dark:bg-[#070e1d]/70 border border-slate-200/70 dark:border-slate-800/70">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-slate-700 dark:text-slate-300">
+                          2. Video Recording :
+                        </span>
+                        <span
+                          className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                            !isOffline && !isNotRecording
+                              ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
+                              : "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30"
+                          }`}
+                        >
+                          {!isOffline && !isNotRecording ? "[ Active Recording (24/7 CMR) ]" : "[ Not Recording ]"}
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-slate-500 dark:text-slate-400 font-sans">
+                        (Status: {d.recording_storage.status} • Active Writing: {d.camera_status.online}/{d.camera_status.total} Channels • Mode: Continuous 24/7 CMR)
+                      </span>
+                    </div>
+
+                    {/* 3. Camera Channels Stream Status */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 p-2 rounded-lg bg-white/70 dark:bg-[#070e1d]/70 border border-slate-200/70 dark:border-slate-800/70">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-slate-700 dark:text-slate-300">
+                          3. Camera Channel Streams :
+                        </span>
+                        <span
+                          className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                            d.camera_status.no_video === 0 && d.camera_status.offline === 0
+                              ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
+                              : "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30"
+                          }`}
+                        >
+                          {d.camera_status.no_video === 0 && d.camera_status.offline === 0
+                            ? `[ All ${d.camera_status.total} Channels Online ]`
+                            : `[ ${d.camera_status.online} Online • ${d.camera_status.no_video} No Video${d.camera_status.offline > 0 ? ` • ${d.camera_status.offline} Offline` : ""} ]`}
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-slate-500 dark:text-slate-400 font-sans">
+                        {troubledCameras.length > 0
+                          ? `(Impacted: ${troubledCamNames})`
+                          : `(All ${d.camera_status.total} video stream RTSP feeds normal)`}
+                      </span>
+                    </div>
+
+                    {/* 4. Storage HDD */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 p-2 rounded-lg bg-white/70 dark:bg-[#070e1d]/70 border border-slate-200/70 dark:border-slate-800/70">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-slate-700 dark:text-slate-300">
+                          4. Storage HDD :
+                        </span>
+                        <span
+                          className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                            !isHddAlert
+                              ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
+                              : "bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30"
+                          }`}
+                        >
+                          {!isHddAlert
+                            ? "[ Healthy / Normal ]"
+                            : `[ Alert (${d.dvr_health.hdd_status} | ${badSec} Bad Sectors) ]`}
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-slate-500 dark:text-slate-400 font-sans">
+                        ({d.recording_storage.used_tb} TB / {d.recording_storage.total_tb} TB ({d.recording_storage.percent}%) • Temp: {d.dvr_health.temperature || "36°C"} • Fan: {d.dvr_health.fan_status || "Normal"})
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
             <div className="grid grid-cols-1 xl:grid-cols-12 gap-3.5 items-stretch">
               <div className="xl:col-span-9 col-span-12 bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 flex flex-col justify-between shadow-xs">
                 <div className="flex flex-col md:flex-row gap-5 items-center md:items-start">
@@ -851,7 +1017,7 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                       </span>
                     </div>
                     <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-snug mt-1.5">
-                      {d.cpu_dvr.message}
+                      {formatIncidentEn(d.cpu_dvr.message)}
                     </p>
                   </div>
                 </div>
@@ -1050,7 +1216,7 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                 <div className="text-xs space-y-1.5 text-slate-700 dark:text-slate-300 font-medium px-1">
                   <div className="flex items-center justify-between">
                     <span className="text-slate-500 dark:text-slate-400">
-                      HDD S.M.A.R.T:
+                      HDD Status:
                     </span>
                     <span
                       className={`font-semibold ${
@@ -1063,7 +1229,7 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                           : "text-[#00c875]"
                       }`}
                     >
-                      {d.dvr_health.hdd_status || "SMART OK"}
+                      {d.dvr_health.hdd_status.replace(/SMART\s*/gi, "") || "Healthy"}
                       {isOffline && <span className="ml-1 text-[10px] font-normal text-slate-400 font-sans">(Last)</span>}
                     </span>
                   </div>
@@ -1333,7 +1499,7 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                   )}
                 </div>
                 <p className={`text-[11px] italic ${isCpuConnected ? "text-slate-500 dark:text-slate-400" : "text-rose-500 dark:text-rose-400"}`}>
-                  {d.cpu_dvr.message}
+                  {formatIncidentEn(d.cpu_dvr.message)}
                 </p>
               </div>
             </div>
@@ -1460,7 +1626,7 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                 <div className="p-3 rounded-lg bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 space-y-1">
-                  <div className="text-slate-400">SMART Health</div>
+                  <div className="text-slate-400">HDD Health</div>
                   <div
                     className={`font-semibold ${
                       d.dvr_health.hdd_status.toLowerCase().includes("error") || d.dvr_health.hdd_status.toLowerCase().includes("fail") || d.dvr_health.hdd_status.toLowerCase().includes("danger")
