@@ -157,7 +157,7 @@ export interface ISystemHealthFilters {
   page?: number;
   pageSize?: number;
   sortBy?: string | null;
-  sortOrder?: "asc" | "desc" | null;
+  sortOrder?: "asc" | "desc" | string | null;
 }
 
 export const fetchSystemHealthDashboard = async (
@@ -293,10 +293,11 @@ export interface ICellularFilters {
   type?: string;
   status?: string;
   provider?: string;
+  cpu_modem?: string;
   page?: number;
   pageSize?: number;
   sortBy?: string | null;
-  sortOrder?: "asc" | "desc" | null;
+  sortOrder?: "asc" | "desc" | string | null;
 }
 
 export const fetchCellularDashboard = async (
@@ -326,6 +327,12 @@ export const fetchCellularDashboard = async (
     !filters.provider.startsWith("All")
   )
     params.append("provider", filters.provider);
+  if (
+    filters?.cpu_modem &&
+    !filters.cpu_modem.startsWith("Semua") &&
+    !filters.cpu_modem.startsWith("All")
+  )
+    params.append("cpu_modem", filters.cpu_modem);
   if (filters?.page) params.append("page", String(filters.page));
   if (filters?.pageSize) params.append("page_size", String(filters.pageSize));
   if (filters?.sortBy) params.append("sort_by", filters.sortBy);
@@ -393,6 +400,7 @@ export interface IDVRGatewayItem {
   type: string;
   dvr_model: string;
   status?: string;
+  is_offline?: boolean;
   cpu_dvr: string;
   total_kamera: number;
   kamera_online: number | string;
@@ -425,7 +433,7 @@ export interface IDVRFilters {
   page?: number;
   pageSize?: number;
   sortBy?: string | null;
-  sortOrder?: "asc" | "desc" | null;
+  sortOrder?: "asc" | "desc" | string | null;
 }
 
 export const fetchDVRDashboard = async (
@@ -615,6 +623,7 @@ export interface ITroubleEventItem {
   end_time: string;
   duration: string;
   cause: string;
+  status?: string;
   title?: string;
   description?: string;
   category?: string;
@@ -1561,6 +1570,7 @@ export interface ICameraStatusDetail {
   offline: number;
   percent: number;
   sparkline: number[];
+  is_offline?: boolean;
 }
 
 export interface IRecordingStorageDetail {
@@ -1570,6 +1580,7 @@ export interface IRecordingStorageDetail {
   percent: number;
   retention_days: number;
   sparkline: number[];
+  is_offline?: boolean;
 }
 
 export interface IDVRHealthDetail {
@@ -1581,6 +1592,7 @@ export interface IDVRHealthDetail {
   power_on_hours?: number;
   health_percent?: number;
   health_label?: string;
+  is_offline?: boolean;
 }
 
 export interface ICameraChannelPreview {
@@ -1592,6 +1604,7 @@ export interface ICameraChannelPreview {
   resolution: string;
   bitrate: string;
   timestamp: string;
+  is_offline?: boolean;
 }
 
 export interface IDVREventItem {
@@ -1617,6 +1630,9 @@ export interface IDVRGatewayDetailData {
   ip_address: string;
   last_update: string;
   status?: string;
+  is_offline?: boolean;
+  offline_duration?: string;
+  last_telemetry_time?: string;
   service_status: string;
   cpu_dvr: ICPUDVRDetail;
   camera_status: ICameraStatusDetail;

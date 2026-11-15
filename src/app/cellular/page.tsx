@@ -145,7 +145,7 @@ export default function CellularConnectivityPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [sortBy, setSortBy] = useState<string | null>(null);
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc" | null>(null);
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc" | string | null>(null);
   const [selectedGateways, setSelectedGateways] = useState<string[]>([]);
   const [selectedGatewayId, setSelectedGatewayId] = useState<string | null>(null);
 
@@ -203,22 +203,6 @@ export default function CellularConnectivityPage() {
     }
     setCurrentPage(1);
   };
-
-  const filters: IFilterConfig[] = [
-    {
-      id: "type",
-      value: typeFilter,
-      onChange: (val) => {
-        setTypeFilter(val);
-        setCurrentPage(1);
-      },
-      options: [
-        { label: "All Types", value: "All Types" },
-        { label: "SmartBox Black", value: "SmartBox Hitam" },
-        { label: "SmartBox White", value: "SmartBox Putih" },
-      ],
-    },
-  ];
 
   // Chart Data
   const cpuModemData =
@@ -301,11 +285,16 @@ export default function CellularConnectivityPage() {
       id: "modem",
       header: "Modem",
       accessorKey: "modem",
-      cell: (item) => (
-        <span className="font-mono text-slate-700 dark:text-slate-300 text-[11px]">
-          {item.modem}
-        </span>
-      ),
+      cell: (item) => {
+        const isDisconnected = item.cpu_modem === "Not Connected" || item.cpu_modem === "No Response";
+        const rawModem = (item.modem || "").toLowerCase();
+        const isNotDetected = isDisconnected || rawModem.includes("tidak") || rawModem.includes("not detected") || rawModem === "-";
+        return (
+          <span className={`font-mono text-[11px] ${isNotDetected ? "text-slate-400 dark:text-slate-500 italic" : "text-slate-700 dark:text-slate-300"}`}>
+            {isNotDetected ? "Not Detected" : item.modem}
+          </span>
+        );
+      },
     },
     {
       id: "provider",
@@ -325,36 +314,40 @@ export default function CellularConnectivityPage() {
       defaultSortOrder: "asc",
       cell: (item) => {
         const isOffline = (item.status || "").toLowerCase() === "offline";
+        const isModemDown = item.cpu_modem === "Not Connected" || item.cpu_modem === "No Response";
         const raw = (item.sim_status || "").toLowerCase();
+        const isNoQuota = !isModemDown && (raw.includes("quota") || (item as any).is_quota_empty);
         const isReady =
-          raw.includes("ready") ||
-          raw.includes("aktif") ||
-          raw.includes("active") ||
-          raw.includes("inserted");
-        const isNotDetected =
-          raw.includes("tidak") ||
-          raw.includes("not detected") ||
-          raw.includes("no sim");
-        const displayLabel = isReady
+          !isModemDown &&
+          !isNoQuota &&
+          (raw.includes("ready") ||
+            raw.includes("aktif") ||
+            raw.includes("active") ||
+            raw.includes("inserted"));
+        const displayLabel = isNoQuota
+          ? "No Quota"
+          : isReady
           ? isOffline
             ? "Ready (Last)"
             : "Ready"
-          : isNotDetected
-          ? isOffline
-            ? "Not Detected (Last)"
-            : "Not Detected"
-          : item.sim_status || "Not Detected";
+          : isOffline
+          ? "Not Detected (Last)"
+          : "Not Detected";
         return (
           <span
             className={`font-mono text-[11px] font-semibold ${
               isOffline
                 ? "text-slate-400 dark:text-slate-400 font-medium"
+                : isNoQuota
+                ? "text-amber-500 font-bold"
                 : isReady
                 ? "text-[#00c875]"
                 : "text-rose-500"
             }`}
             title={
-              isOffline
+              isNoQuota
+                ? "Cellular data quota exhausted (Sisa kuota 0 GB)"
+                : isOffline
                 ? "Last recorded SIM status prior to gateway going offline"
                 : undefined
             }
@@ -369,7 +362,7 @@ export default function CellularConnectivityPage() {
       header: "CPU – Modem",
       align: "center",
       sortable: true,
-      defaultSortOrder: "asc",
+      sortCycle: ["not_connected", "no_response", "connected", null],
       cell: (item) => {
         const isOffline = item.status === "Offline";
         const isConnected = item.cpu_modem === "Connected" && !isOffline;
@@ -399,12 +392,12 @@ export default function CellularConnectivityPage() {
       sortable: true,
       defaultSortOrder: "asc",
       cell: (item) => {
-        const isWarn = item.status === "Warning" || item.status === "Degraded";
-        const displayStatus = isWarn ? "Warning" : item.status;
+        const isOffline = (item.status || "").toLowerCase().includes("off");
+        const displayStatus = isOffline ? "Offline" : "Online";
         return (
           <StatusBadge
             status={displayStatus}
-            variant={item.status === "Online" ? "online" : isWarn ? "warning" : "offline"}
+            variant={displayStatus === "Online" ? "online" : "offline"}
           />
         );
       },
@@ -416,7 +409,10 @@ export default function CellularConnectivityPage() {
       sortable: true,
       defaultSortOrder: "asc",
       cell: (item) => {
-        if (!item.signal_rsrp || item.signal_rsrp === "-") {
+        const isModemDown = item.cpu_modem === "Not Connected" || item.cpu_modem === "No Response";
+        const rawSim = (item.sim_status || "").toLowerCase();
+        const isNoSim = !rawSim.includes("ready") && !rawSim.includes("aktif") && !rawSim.includes("active");
+        if (isModemDown || isNoSim || !item.signal_rsrp || item.signal_rsrp === "-") {
           return <span className="font-mono text-slate-400 font-bold text-[11px]">-</span>;
         }
         if (item.status === "Offline") {
@@ -451,12 +447,33 @@ export default function CellularConnectivityPage() {
       defaultSortOrder: "asc",
       cell: (item) => {
         const isOffline = item.status === "Offline";
-        const quality = isOffline
-          ? {
-              label: "No Signal",
-              badgeClass: "bg-slate-500/10 text-slate-400 border-slate-500/20",
-            }
-          : getSignalQuality(item.signal_rsrp);
+        const isModemDown = item.cpu_modem === "Not Connected" || item.cpu_modem === "No Response";
+        const rawSim = (item.sim_status || "").toLowerCase();
+        const isNoQuota = rawSim.includes("quota") || (item as any).is_quota_empty;
+        const isNoSim = !isNoQuota && !rawSim.includes("ready") && !rawSim.includes("aktif") && !rawSim.includes("active");
+        const hasNoSignal = isOffline || isModemDown || isNoSim || !item.signal_rsrp || item.signal_rsrp === "-";
+
+        if (hasNoSignal) {
+          return (
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold border bg-slate-500/10 text-slate-400 border-slate-500/20">
+              No Signal
+            </span>
+          );
+        }
+
+        const isDataBlocked = isNoQuota || (item as any).data_status === "No Internet";
+        if (isDataBlocked) {
+          return (
+            <span
+              className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold border bg-rose-500/15 text-rose-500 border-rose-500/30"
+              title="RF radio connected, but cellular internet data session is down (No Quota / Data Suspended)"
+            >
+              No Internet
+            </span>
+          );
+        }
+
+        const quality = getSignalQuality(item.signal_rsrp);
         return (
           <span
             className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${quality.badgeClass}`}

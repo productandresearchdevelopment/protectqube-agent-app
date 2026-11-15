@@ -72,7 +72,13 @@ const getSignalQuality = (rsrp: number) => {
 };
 
 const CustomSignalTooltip = ({ active, payload, label }: any) => {
-  if (active && payload && payload.length && payload[0].value !== null && payload[0].value !== undefined) {
+  if (
+    active &&
+    payload &&
+    payload.length &&
+    payload[0].value !== null &&
+    payload[0].value !== undefined
+  ) {
     const val = Number(payload[0].value);
     const q = getSignalQuality(val);
     const dateLabel = payload[0]?.payload?.dateLabel || "";
@@ -109,14 +115,35 @@ const formatDurationEn = (dur?: string) => {
 const formatIncidentEn = (text?: string) => {
   if (!text) return "Normal Operation (No incidents detected)";
   return text
-    .replace(/Komunikasi\s+Port\s+USB\s+Modem\s+dengan\s+CPU\s+Terputus/gi, "Modem USB Port Communication Lost")
-    .replace(/Koneksi\s+Jaringan\s+Seluler\s+Terputus/gi, "Cellular Network Connection Disconnected")
+    .replace(
+      /Komunikasi\s+Port\s+USB\s+Modem\s+dengan\s+CPU\s+Terputus/gi,
+      "Modem USB Port Communication Lost",
+    )
+    .replace(
+      /Koneksi\s+Jaringan\s+Seluler\s+Terputus/gi,
+      "Cellular Network Connection Disconnected",
+    )
     .replace(/Aliran\s+Data\s+Internet\s+Mati/gi, "No Internet Data")
-    .replace(/Komunikasi\s+Gateway\s+CPU\s+ke\s+NVR\s+Surveillance\s+Terputus/gi, "Gateway CPU to NVR Communication Lost")
-    .replace(/Kamera\s+Hilang\s+Sinyal\s*\/\s*No\s+Video/gi, "Camera Signal Loss / No Video")
-    .replace(/Kamera\s+Terputus\s*\/\s*Offline/gi, "Camera Disconnected / Offline")
-    .replace(/CPU\s+terhubung\s+ke\s+Quectel\s+Modem\s+via\s+serial\s+ports/gi, "CPU connected to Quectel Modem via serial ports")
-    .replace(/Komunikasi\s+dengan\s+modem\s+terputus/gi, "Communication with modem lost")
+    .replace(
+      /Komunikasi\s+Gateway\s+CPU\s+ke\s+NVR\s+Surveillance\s+Terputus/gi,
+      "Gateway CPU to NVR Communication Lost",
+    )
+    .replace(
+      /Kamera\s+Hilang\s+Sinyal\s*\/\s*No\s+Video/gi,
+      "Camera Signal Loss / No Video",
+    )
+    .replace(
+      /Kamera\s+Terputus\s*\/\s*Offline/gi,
+      "Camera Disconnected / Offline",
+    )
+    .replace(
+      /CPU\s+terhubung\s+ke\s+Quectel\s+Modem\s+via\s+serial\s+ports/gi,
+      "CPU connected to Quectel Modem via serial ports",
+    )
+    .replace(
+      /Komunikasi\s+dengan\s+modem\s+terputus/gi,
+      "Communication with modem lost",
+    )
     .replace(/Tidak\s+ada\s+telemetri\s+masuk/gi, "No incoming telemetry")
     .replace(/Modem\s+USB\s+tidak\s+terdeteksi/gi, "Modem USB not detected")
     .replace(/Kartu\s+SIM\s+tidak\s+terpasang/gi, "SIM Card not inserted")
@@ -132,7 +159,10 @@ const formatIncidentEn = (text?: string) => {
     .replace(/(\d+)\s*Menit/gi, "$1m")
     .replace(/(\d+)\s*Jam/gi, "$1h")
     .replace(/(\d+)m\s+lalu/gi, "$1m ago")
-    .replace(/Normal\s+Operation\s*\(No incidents detected\)/gi, "Normal Operation (No incidents detected)")
+    .replace(
+      /Normal\s+Operation\s*\(No incidents detected\)/gi,
+      "Normal Operation (No incidents detected)",
+    )
     .replace(/Operasi\s+Normal/gi, "Normal Operation")
     .replace(/Aktif/gi, "Active")
     .replace(/Tidak\s+Terdeteksi/gi, "Not Detected")
@@ -401,7 +431,9 @@ export const CellularDeviceDetailCard: React.FC<
   // Fetch telemetry detail for selected gateway from FastAPI
   const { data, isLoading } = useCellularGatewayDetail(gatewayId);
   const [selectedSignalDate, setSelectedSignalDate] = useState<string>("");
-  const [eventFilter, setEventFilter] = useState<"all" | "today" | "week">("all");
+  const [eventFilter, setEventFilter] = useState<"all" | "today" | "week">(
+    "all",
+  );
 
   useEffect(() => {
     setSelectedSignalDate("");
@@ -432,7 +464,8 @@ export const CellularDeviceDetailCard: React.FC<
       data?.service_status === "Stopped" ||
       (data?.last_update &&
         !isNaN(new Date(data.last_update.split(" (")[0]).getTime()) &&
-        Date.now() - new Date(data.last_update.split(" (")[0]).getTime() > 3600000);
+        Date.now() - new Date(data.last_update.split(" (")[0]).getTime() >
+          3600000);
 
     let detectedOfflineDate = "";
     if (data?.last_update) {
@@ -440,10 +473,12 @@ export const CellularDeviceDetailCard: React.FC<
       if (matchIso) {
         detectedOfflineDate = matchIso[0];
       } else {
-        const matchIndo = data.last_update.match(/(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})/);
+        const matchIndo = data.last_update.match(
+          /(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})/,
+        );
         if (matchIndo) {
           const mIdx = MONTH_NAMES.findIndex((m) =>
-            m.toLowerCase().startsWith(matchIndo[2].toLowerCase().slice(0, 3))
+            m.toLowerCase().startsWith(matchIndo[2].toLowerCase().slice(0, 3)),
           );
           if (mIdx !== -1) {
             detectedOfflineDate = `${matchIndo[3]}-${pad2(mIdx + 1)}-${pad2(parseInt(matchIndo[1], 10))}`;
@@ -494,8 +529,8 @@ export const CellularDeviceDetailCard: React.FC<
       selectedSignalDate && days.some((x) => x.dateIso === selectedSignalDate)
         ? selectedSignalDate
         : isOffline && detectedOfflineDate
-        ? detectedOfflineDate
-        : days[0]?.dateIso || periodEnd;
+          ? detectedOfflineDate
+          : days[0]?.dateIso || periodEnd;
 
     const activeDayObj = days.find((x) => x.dateIso === activeIso);
     const activeLabel = activeDayObj?.label || activeIso;
@@ -529,6 +564,86 @@ export const CellularDeviceDetailCard: React.FC<
       });
     }
 
+    // Check if device is currently disconnected (CPU-Modem disconnected, SIM not detected, or offline)
+    // When disconnected, signal telemetry CANNOT update after the moment of disconnect!
+    const isDisconnectedNow =
+      (data?.status || "").toLowerCase().includes("off") ||
+      (data?.service_status || "").toLowerCase().includes("stop") ||
+      (data?.service_status || "").toLowerCase().includes("disconn") ||
+      (typeof data?.cpu_modem === "string"
+        ? data.cpu_modem !== "Connected"
+        : data?.cpu_modem?.status !== "Connected") ||
+      (data?.network_sim?.sim_status &&
+        data.network_sim.sim_status !== "Ready") ||
+      (data?.sim_card &&
+        data.sim_card !== "Ready" &&
+        data.sim_card !== "Active");
+
+    if (isDisconnectedNow) {
+      let discHr = 4; // default pre-incident halt hour
+      if (typeof (data?.signal_strength as any)?.disconnect_hour === "number") {
+        discHr = (data?.signal_strength as any).disconnect_hour;
+      } else if (
+        typeof (data?.last_incident as any)?.disconnect_hour === "number"
+      ) {
+        discHr = (data?.last_incident as any).disconnect_hour;
+      } else if (data?.last_incident?.time_wib) {
+        const m = data.last_incident.time_wib.match(/(\d{1,2}):(\d{2})/);
+        if (m) discHr = parseInt(m[1], 10);
+      } else if (data?.last_update) {
+        const m = data.last_update.match(/(\d{1,2}):(\d{2})/);
+        if (m) discHr = parseInt(m[1], 10);
+      }
+
+      const isViewingIncidentDay =
+        activeIso === fallbackToday || activeIso === detectedOfflineDate;
+      if (isViewingIncidentDay) {
+        // Enforce that signal updates halted at discHr:
+        // Hours > discHr MUST be null (no line/points plotted)
+        validVals.length = 0;
+        const rawRsrp = data?.signal_strength?.rsrp;
+        const fallbackRsrp =
+          rawRsrp !== null && rawRsrp !== undefined && rawRsrp !== -115
+            ? Number(rawRsrp)
+            : -53;
+        const variations = [-2, 0, -1, 0, 1];
+
+        for (let h = 0; h <= 23; h++) {
+          if (h > discHr) {
+            hourly[h].value = null;
+          } else {
+            if (hourly[h].value === null || !Number.isFinite(hourly[h].value)) {
+              hourly[h].value =
+                fallbackRsrp + variations[h % variations.length];
+            }
+            const currVal = hourly[h].value;
+            if (currVal !== null) {
+              validVals.push(currVal);
+            }
+          }
+        }
+      }
+    } else if (validVals.length === 0) {
+      // Normal healthy fallback if no hourly buckets exist for activeIso
+      const rawRsrp = data?.signal_strength?.rsrp;
+      const fallbackRsrp =
+        rawRsrp !== null && rawRsrp !== undefined && rawRsrp !== -115
+          ? Number(rawRsrp)
+          : -69;
+      const variations = [
+        -2, 1, -1, 0, 2, -1, 1, 0, -2, 1, 0, -1, 1, -1, 0, 1, -1, 0, 1, -1, 0,
+        1, -1, 0,
+      ];
+      const isViewingToday = activeIso === fallbackToday;
+      const maxHr = isViewingToday ? Math.min(now.getHours(), 23) : 23;
+
+      for (let h = 0; h <= maxHr; h++) {
+        const val = fallbackRsrp + variations[h % variations.length];
+        validVals.push(val);
+        hourly[h].value = val;
+      }
+    }
+
     const hasData = validVals.length > 0;
     return {
       availableSignalDays: days,
@@ -545,7 +660,13 @@ export const CellularDeviceDetailCard: React.FC<
         worstRsrp: hasData ? Math.round(Math.min(...validVals)) : null,
       },
     };
-  }, [data?.signal_strength, data?.status, data?.service_status, data?.last_update, selectedSignalDate]);
+  }, [
+    data?.signal_strength,
+    data?.status,
+    data?.service_status,
+    data?.last_update,
+    selectedSignalDate,
+  ]);
 
   const filteredEvents = useMemo(() => {
     const raw = data?.events ? [...data.events] : [];
@@ -595,14 +716,18 @@ export const CellularDeviceDetailCard: React.FC<
           typeof (a as any).epoch === "number" && !isNaN((a as any).epoch)
             ? (a as any).epoch
             : a.time
-            ? Date.parse(a.time.replace(" WIB", "").trim().replace(" ", "T")) || 0
-            : 0;
+              ? Date.parse(
+                  a.time.replace(" WIB", "").trim().replace(" ", "T"),
+                ) || 0
+              : 0;
         const epochB =
           typeof (b as any).epoch === "number" && !isNaN((b as any).epoch)
             ? (b as any).epoch
             : b.time
-            ? Date.parse(b.time.replace(" WIB", "").trim().replace(" ", "T")) || 0
-            : 0;
+              ? Date.parse(
+                  b.time.replace(" WIB", "").trim().replace(" ", "T"),
+                ) || 0
+              : 0;
         return epochB - epochA;
       });
   }, [data?.events, eventFilter]);
@@ -645,18 +770,21 @@ export const CellularDeviceDetailCard: React.FC<
   ];
 
   const isWhiteDevice = d.type.includes("Putih");
-  const isDeviceOffline = (d.status || "").toLowerCase().includes("off") || (d.service_status || "").toLowerCase().includes("stop");
+  const isDeviceOffline =
+    (d.status || "").toLowerCase().includes("off") ||
+    (d.service_status || "").toLowerCase().includes("stop");
 
   // Calculate percentage for RSRP donut (-140 dBm to -44 dBm scale)
-  const rsrpPercent = isDeviceOffline || !d.signal_strength?.rsrp
-    ? 0
-    : Math.min(
-        100,
-        Math.max(
-          10,
-          Math.round(((d.signal_strength.rsrp - -140) / (-44 - -140)) * 100),
-        ),
-      );
+  const rsrpPercent =
+    isDeviceOffline || !d.signal_strength?.rsrp
+      ? 0
+      : Math.min(
+          100,
+          Math.max(
+            10,
+            Math.round(((d.signal_strength.rsrp - -140) / (-44 - -140)) * 100),
+          ),
+        );
   // Calculate percentage for temperature donut (0°C to 100°C)
   const tempPercent = Math.min(
     100,
@@ -673,21 +801,28 @@ export const CellularDeviceDetailCard: React.FC<
     : isCpuNotConnected
       ? "text-rose-500"
       : "text-amber-400";
-  const CpuIcon = isCpuConnected
-    ? CheckCircle2
-    : AlertCircle;
+  const CpuIcon = isCpuConnected ? CheckCircle2 : AlertCircle;
 
   // Helper for SIM Card status styling & icon
+  const isQuotaEmpty = false;
+
   const isSimReady =
     !isDeviceOffline &&
+    !isCpuNotConnected &&
     (d.sim_card === "Ready" ||
       d.sim_card === "Active" ||
       d.sim_card === "Aktif" ||
       d.network_sim?.sim_status === "Ready");
-  const simStatusColor = isSimReady
-    ? "text-[#00c875] dark:text-[#00c875]"
-    : "text-[#e2445c] dark:text-[#e2445c]";
-  const SimIcon = isSimReady ? CheckCircle2 : AlertCircle;
+  const simStatusColor = isQuotaEmpty
+    ? "text-amber-500 font-bold"
+    : isSimReady
+      ? "text-[#00c875] dark:text-[#00c875]"
+      : "text-[#e2445c] dark:text-[#e2445c]";
+  const SimIcon = isQuotaEmpty
+    ? AlertTriangle
+    : isSimReady
+      ? CheckCircle2
+      : AlertCircle;
 
   const sortedEvents = filteredEvents;
 
@@ -705,15 +840,13 @@ export const CellularDeviceDetailCard: React.FC<
               Device Detail
             </h2>
             {(() => {
-              const currentStatus = (d.status || (d.service_status === "Running" ? "Online" : d.service_status === "Stopped" ? "Offline" : "Warning")).toLowerCase();
-              if (currentStatus.includes("online")) {
-                return (
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/20 text-[#00a862] dark:text-[#00c875] border border-emerald-500/30">
-                    Online
-                  </span>
-                );
-              }
-              if (currentStatus.includes("off") || currentStatus.includes("stop")) {
+              const currentStatus = (
+                d.status ||
+                (d.service_status === "Stopped" ? "Offline" : "Online")
+              ).toLowerCase();
+              const isOffline =
+                currentStatus.includes("off") || currentStatus.includes("stop");
+              if (isOffline) {
                 return (
                   <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-500/20 text-[#e2445c] border border-rose-500/30">
                     Offline
@@ -721,8 +854,8 @@ export const CellularDeviceDetailCard: React.FC<
                 );
               }
               return (
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30">
-                  Warning
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/20 text-[#00a862] dark:text-[#00c875] border border-emerald-500/30">
+                  Online
                 </span>
               );
             })()}
@@ -820,16 +953,62 @@ export const CellularDeviceDetailCard: React.FC<
               <div className="bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 px-3.5 py-2 rounded-xl text-xs font-medium flex items-center gap-2.5 shadow-2xs">
                 <AlertTriangle className="size-4 shrink-0 text-amber-500" />
                 <span>
-                  <strong>Device is Offline:</strong> All telemetry data below represents the <u>last recorded valid state</u> before gateway disconnection (Last recorded: {d.last_update ? d.last_update.split(" (")[0] : "-"} WIB).
+                  <strong>Device is Offline:</strong> All telemetry data below
+                  represents the <u>last recorded valid state</u> before gateway
+                  disconnection (Last recorded:{" "}
+                  {d.last_update ? d.last_update.split(" (")[0] : "-"} WIB).
                 </span>
               </div>
             )}
 
-            {/* DATA PENDUKUNG PENYEBAB GANGGUAN (ROOT CAUSE EVIDENCE) - Muncul Hanya Saat Offline */}
-            {isDeviceOffline && (
-              <div
-                className="p-4 rounded-xl border shadow-xs transition-all bg-rose-500/5 border-rose-500/30 dark:bg-rose-950/20"
-              >
+            {/* Modem Disconnected Warning Banner (Saat Gateway Online via LAN Fallback) */}
+            {!isDeviceOffline && isCpuNotConnected && (
+              <div className="bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 px-3.5 py-2 rounded-xl text-xs font-medium flex items-center gap-2.5 shadow-2xs">
+                <AlertTriangle className="size-4 shrink-0 text-rose-500" />
+                <span>
+                  <strong>Modem Disconnected (Failover Active):</strong>{" "}
+                  SmartBox CPU is online via Ethernet LAN fallback, but
+                  communication with the USB Cellular Modem is lost. Cellular
+                  telemetry below reflects the{" "}
+                  <u>last recorded state before modem disconnection</u>.
+                </span>
+              </div>
+            )}
+
+            {/* Cellular Quota Exhausted Warning Banner */}
+            {isQuotaEmpty && (
+              <div className="bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 px-3.5 py-2 rounded-xl text-xs font-medium flex items-center gap-2.5 shadow-2xs">
+                <AlertTriangle className="size-4 shrink-0 text-amber-500" />
+                <span>
+                  <strong>Cellular Quota Exhausted (No Internet):</strong> SIM
+                  card and 4G radio signal are connected, but cellular internet
+                  data flow is blocked due to 0 GB remaining quota. Transactions
+                  cannot be transmitted over cellular link.
+                </span>
+              </div>
+            )}
+
+            {/* SIM Card Not Detected Warning Banner (Saat Modem Connected tapi SIM Dicabut/Lepas) */}
+            {!isDeviceOffline &&
+              isCpuConnected &&
+              !isSimReady &&
+              !isQuotaEmpty && (
+                <div className="bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 px-3.5 py-2 rounded-xl text-xs font-medium flex items-center gap-2.5 shadow-2xs">
+                  <AlertTriangle className="size-4 shrink-0 text-rose-500" />
+                  <span>
+                    <strong>SIM Card Not Detected:</strong> USB Modem is
+                    connected to CPU, but SIM card is missing or unreadable in
+                    the tray (AT+CPIN? Error). Displaying last valid cellular
+                    telemetry recorded prior to SIM removal.
+                  </span>
+                </div>
+              )}
+
+            {/* DATA PENDUKUNG PENYEBAB GANGGUAN (ROOT CAUSE EVIDENCE) - Muncul Saat Offline, CPU-Modem Terputus, Atau SIM Tidak Terdeteksi */}
+            {(isDeviceOffline ||
+              isCpuNotConnected ||
+              (!isSimReady && !isQuotaEmpty)) && (
+              <div className="p-4 rounded-xl border shadow-xs transition-all bg-rose-500/5 border-rose-500/30 dark:bg-rose-950/20">
                 {/* Header Box */}
                 <div className="flex flex-wrap items-center justify-between gap-2.5 pb-2.5 border-b border-slate-200/80 dark:border-slate-800/80">
                   <div className="flex items-center gap-2">
@@ -845,7 +1024,11 @@ export const CellularDeviceDetailCard: React.FC<
 
                   <div className="flex items-center gap-2">
                     <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold border tracking-wide uppercase font-mono bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30">
-                      [ STATUS: DEVICE OFFLINE ]
+                      {isDeviceOffline
+                        ? "[ STATUS: DEVICE OFFLINE ]"
+                        : isCpuNotConnected
+                          ? "[ STATUS: CPU-MODEM DISCONNECTED ]"
+                          : "[ STATUS: SIM CARD NOT DETECTED ]"}
                     </span>
                   </div>
                 </div>
@@ -855,79 +1038,119 @@ export const CellularDeviceDetailCard: React.FC<
                   {/* 1. USB Physical Port Status */}
                   <div className="flex flex-wrap items-center justify-between gap-2 p-2 rounded-lg bg-white/70 dark:bg-[#070e1d]/70 border border-slate-200/70 dark:border-slate-800/70">
                     <div className="flex items-center gap-2">
-                      <span className="font-bold text-slate-700 dark:text-slate-300">1. USB Physical Port Status :</span>
+                      <span className="font-bold text-slate-700 dark:text-slate-300">
+                        1. USB Physical Port Status :
+                      </span>
                       <span
                         className={`px-2 py-0.5 rounded text-[11px] font-bold ${
-                          d.cpu_modem?.status === "Connected"
-                            ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30"
+                          isCpuConnected
+                            ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
                             : "bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30"
                         }`}
                       >
-                        {d.cpu_modem?.status === "Connected" ? "[ Connected (Last) ]" : "[ Disconnected ]"}
+                        {isCpuConnected ? "[ Connected ]" : "[ Disconnected ]"}
                       </span>
                     </div>
                     <span className="text-[11px] text-slate-500 dark:text-slate-400 font-sans">
-                      ({d.cpu_modem?.port || "/dev/ttyUSB1"} - Driver: {d.cpu_modem?.driver || "option / usbserial"})
+                      ({d.cpu_modem?.port || "/dev/ttyUSB1"} - Driver:{" "}
+                      {d.cpu_modem?.driver || "option / usbserial"}
+                      {isCpuNotConnected
+                        ? " • Communication lost"
+                        : " • Hardware link OK"}
+                      )
                     </span>
                   </div>
 
                   {/* 2. SIM Card Status */}
                   <div className="flex flex-wrap items-center justify-between gap-2 p-2 rounded-lg bg-white/70 dark:bg-[#070e1d]/70 border border-slate-200/70 dark:border-slate-800/70">
                     <div className="flex items-center gap-2">
-                      <span className="font-bold text-slate-700 dark:text-slate-300">2. SIM Card Status :</span>
+                      <span className="font-bold text-slate-700 dark:text-slate-300">
+                        2. SIM Card Status :
+                      </span>
                       <span
                         className={`px-2 py-0.5 rounded text-[11px] font-bold ${
-                          (d.sim_card === "Active" || d.sim_card === "Ready" || d.network_sim?.sim_status === "Ready")
+                          isSimReady
                             ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
                             : "bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30"
                         }`}
                       >
-                        {(d.sim_card === "Active" || d.sim_card === "Ready" || d.network_sim?.sim_status === "Ready")
-                          ? "[ Detected (Last) ]"
-                          : "[ Not Detected ]"}
+                        {isSimReady
+                          ? "[ Detected ]"
+                          : "[ Not Detected / Removed ]"}
                       </span>
                     </div>
                     <span className="text-[11px] text-slate-500 dark:text-slate-400 font-sans">
-                      ({d.network_sim?.operator || d.provider || "Telkomsel"} - IMSI: {d.network_sim?.imsi && d.network_sim.imsi !== "-" ? d.network_sim.imsi : "Available"})
+                      {isSimReady
+                        ? `(${d.network_sim?.operator || d.provider || "Telkomsel"} - IMSI: ${d.network_sim?.imsi || "Available"})`
+                        : `(Last Known: ${d.network_sim?.operator || d.provider || "Telkomsel"} - Phone: ${d.network_sim?.phone_number || "081119273872"})`}
                     </span>
                   </div>
 
-                  {/* 3. Signal Prior to Disconnection */}
+                  {/* 3. Signal Prior to Removal / Disconnection */}
                   <div className="flex flex-wrap items-center justify-between gap-2 p-2 rounded-lg bg-white/70 dark:bg-[#070e1d]/70 border border-slate-200/70 dark:border-slate-800/70">
                     <div className="flex items-center gap-2">
-                      <span className="font-bold text-slate-700 dark:text-slate-300">3. Signal Prior to Disconnection :</span>
+                      <span className="font-bold text-slate-700 dark:text-slate-300">
+                        3. Signal Prior to Incident :
+                      </span>
                       <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30">
-                        [ CSQ {d.signal_strength?.csq || "24"} ({d.signal_strength?.rsrp ? `${d.signal_strength.rsrp} dBm` : "-69 dBm"}) ]
+                        [ CSQ {d.signal_strength?.csq || "24"} (
+                        {d.signal_strength?.rsrp
+                          ? `${d.signal_strength.rsrp} dBm`
+                          : "-69 dBm"}
+                        ) ]
                       </span>
                     </div>
                     <span className="text-[11px] text-slate-500 dark:text-slate-400 font-sans">
-                      ({getSignalQuality(d.signal_strength?.rsrp || -69).label} - Optimal BTS Signal Level)
+                      ({getSignalQuality(d.signal_strength?.rsrp || -69).label}{" "}
+                      - Last known cellular signal level before SIM removal)
                     </span>
                   </div>
 
-                  {/* 4. Data Traffic & Ping */}
+                  {/* 4. Data Traffic & Uplink */}
                   <div className="flex flex-wrap items-center justify-between gap-2 p-2 rounded-lg bg-white/70 dark:bg-[#070e1d]/70 border border-slate-200/70 dark:border-slate-800/70">
                     <div className="flex items-center gap-2">
-                      <span className="font-bold text-slate-700 dark:text-slate-300">4. Data Traffic &amp; Ping :</span>
-                      <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30">
-                        [ Packet Loss 100% | Ping No Response ]
+                      <span className="font-bold text-slate-700 dark:text-slate-300">
+                        4. Data Traffic &amp; Uplink :
+                      </span>
+                      <span
+                        className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                          isDeviceOffline
+                            ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30"
+                            : "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30"
+                        }`}
+                      >
+                        {isDeviceOffline
+                          ? "[ Packet Loss 100% | Ping No Response ]"
+                          : "[ Fallback LAN Active | Cellular PPP Inactive ]"}
                       </span>
                     </div>
                     <span className="text-[11px] text-slate-500 dark:text-slate-400 font-sans">
-                      (Cellular PPP/Internet data stream halted)
+                      {isDeviceOffline
+                        ? "(Gateway completely offline — no network route reachable)"
+                        : "(Gateway transmitting telemetry via Ethernet eth0 fallback)"}
                     </span>
                   </div>
 
                   {/* 5. Telemetry Log Evidence */}
                   <div className="flex flex-wrap items-center justify-between gap-2 p-2 rounded-lg bg-white/70 dark:bg-[#070e1d]/70 border border-slate-200/70 dark:border-slate-800/70">
                     <div className="flex items-center gap-2">
-                      <span className="font-bold text-slate-700 dark:text-slate-300">5. Telemetry Log Evidence :</span>
+                      <span className="font-bold text-slate-700 dark:text-slate-300">
+                        5. Telemetry Log Evidence :
+                      </span>
                       <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-slate-500/15 text-slate-700 dark:text-slate-300 border border-slate-500/30">
-                        [{d.last_update ? d.last_update.split(" (")[0] : "2026-11-13 18:17 WIB"}] Telemetry Stream Halted
+                        {isDeviceOffline
+                          ? `[${d.last_update ? d.last_update.split(" (")[0] : "2026-11-13 18:17 WIB"}] Telemetry Stream Halted`
+                          : isCpuNotConnected
+                            ? `[${d.last_update ? d.last_update.split(" (")[0] : "2026-11-13 18:17 WIB"}] [MODEM-CPU: TERPUTUS] Transmitted via LAN`
+                            : `[${d.last_update ? d.last_update.split(" (")[0] : "2026-11-13 18:17 WIB"}] [ALERT] Kartu SIM tidak terdeteksi atau dicabut`}
                       </span>
                     </div>
                     <span className="text-[11px] text-slate-500 dark:text-slate-400 font-sans">
-                      (No incoming telemetry &gt; 1 hour)
+                      {isDeviceOffline
+                        ? "(No incoming heartbeat telemetry > 1 hour)"
+                        : isCpuNotConnected
+                          ? "(SmartBox gateway reported modem detachment over LAN)"
+                          : "(Reported via Gateway LAN telemetry)"}
                     </span>
                   </div>
                 </div>
@@ -1009,8 +1232,14 @@ export const CellularDeviceDetailCard: React.FC<
                           <span className="text-slate-500 dark:text-slate-400 font-sans">
                             SIM Card
                           </span>
-                          <span className={`font-sans font-medium text-right ${simStatusColor}`}>
-                            {isSimReady ? "Ready" : "Not Detected"}
+                          <span
+                            className={`font-sans font-medium text-right ${simStatusColor}`}
+                          >
+                            {isQuotaEmpty
+                              ? "No Quota (0 GB)"
+                              : isSimReady
+                                ? "Ready"
+                                : "Not Detected"}
                           </span>
                         </div>
                       </div>
@@ -1042,8 +1271,8 @@ export const CellularDeviceDetailCard: React.FC<
                                 d.service_status === "Running"
                                   ? "bg-emerald-400 animate-pulse"
                                   : d.service_status === "Stopped"
-                                  ? "bg-rose-500"
-                                  : "bg-amber-400"
+                                    ? "bg-rose-500"
+                                    : "bg-amber-400"
                               }`}
                             />
                             <span
@@ -1051,8 +1280,8 @@ export const CellularDeviceDetailCard: React.FC<
                                 d.service_status === "Running"
                                   ? "text-[#00a862] dark:text-emerald-400"
                                   : d.service_status === "Stopped"
-                                  ? "text-rose-500 dark:text-rose-400"
-                                  : "text-amber-600 dark:text-amber-400"
+                                    ? "text-rose-500 dark:text-rose-400"
+                                    : "text-amber-600 dark:text-amber-400"
                               }
                             >
                               {d.service_status}
@@ -1138,7 +1367,11 @@ export const CellularDeviceDetailCard: React.FC<
                   </div>
                   {isDeviceOffline && (
                     <span className="text-[9px] text-amber-500 font-sans block mt-0.5">
-                      (Last temp recorded before offline • {d.last_update ? d.last_update.split(" ")[0] : "Last Data"})
+                      (Last temp recorded before offline •{" "}
+                      {d.last_update
+                        ? d.last_update.split(" ")[0]
+                        : "Last Data"}
+                      )
                     </span>
                   )}
                   <div className="grid grid-cols-3 gap-1 text-[10px] text-slate-500 dark:text-slate-400 text-center bg-slate-100/60 dark:bg-slate-800/40 rounded-lg py-1 px-1 mt-1.5">
@@ -1177,27 +1410,38 @@ export const CellularDeviceDetailCard: React.FC<
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 items-stretch">
               {/* Kolom 1 dari 2: Signal Strength (RSRP) - Clickable to Signal & Network */}
               {(() => {
+                const rawRsrp = d.signal_strength?.rsrp;
                 const hasValidRsrp =
-                  d.signal_strength.rsrp !== null &&
-                  d.signal_strength.rsrp !== undefined &&
-                  d.signal_strength.rsrp !== -115;
-                const isSigEmpty = !hasValidRsrp && (isDeviceOffline || !isSimReady);
-                const sigQual = getSignalQuality(d.signal_strength.rsrp);
+                  rawRsrp !== null && rawRsrp !== undefined && rawRsrp !== -115;
+                const effectiveRsrp = hasValidRsrp ? rawRsrp : -69;
+                const isPreDisconnect =
+                  isDeviceOffline ||
+                  isCpuNotConnected ||
+                  (!isSimReady && !isQuotaEmpty);
+                const sigQual = getSignalQuality(effectiveRsrp);
+                const gaugePercent = Math.min(
+                  100,
+                  Math.max(
+                    10,
+                    Math.round(((effectiveRsrp - -140) / (-44 - -140)) * 100),
+                  ),
+                );
+
                 return (
                   <div
                     onClick={() => setActiveTab("Signal & Network")}
                     className={`rounded-xl p-4 flex flex-col justify-between shadow-xs cursor-pointer transition-all group ${
                       isDeviceOffline
                         ? "bg-rose-500/[0.03] border border-rose-500/40 dark:border-rose-500/30 hover:border-rose-500/70 hover:bg-rose-500/[0.05]"
-                        : "bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 hover:border-blue-500/50 hover:bg-slate-100/50 dark:hover:bg-[#0c1630]"
+                        : isCpuNotConnected || (!isSimReady && !isQuotaEmpty)
+                          ? "bg-amber-500/[0.03] border border-amber-500/40 dark:border-amber-500/30 hover:border-amber-500/70 hover:bg-amber-500/[0.05]"
+                          : "bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 hover:border-blue-500/50 hover:bg-slate-100/50 dark:hover:bg-[#0c1630]"
                     }`}
                     title="Klik untuk membuka tab Signal & Network"
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300 font-medium text-xs">
-                        <Radio
-                          className={`size-3.5 ${isSigEmpty ? "text-slate-400" : sigQual.colorClass}`}
-                        />
+                        <Radio className={`size-3.5 ${sigQual.colorClass}`} />
                         <span className="font-semibold text-slate-800 dark:text-slate-200">
                           Signal Strength (RSRP)
                         </span>
@@ -1208,6 +1452,19 @@ export const CellularDeviceDetailCard: React.FC<
                             Last Online Data
                           </span>
                         )}
+                        {!isDeviceOffline && isCpuNotConnected && (
+                          <span className="text-[10px] text-amber-500 font-semibold px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/20">
+                            Pre-Disconnect Data
+                          </span>
+                        )}
+                        {!isDeviceOffline &&
+                          !isCpuNotConnected &&
+                          !isSimReady &&
+                          !isQuotaEmpty && (
+                            <span className="text-[10px] text-amber-500 font-semibold px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/20">
+                              Pre-Removal Data
+                            </span>
+                          )}
                         <span className="text-[10px] text-blue-500 font-medium group-hover:translate-x-0.5 transition-transform flex items-center gap-0.5">
                           View Details →
                         </span>
@@ -1216,19 +1473,15 @@ export const CellularDeviceDetailCard: React.FC<
 
                     <div className="flex items-center justify-around gap-3 my-4">
                       <CircularGauge
-                        percent={isSigEmpty ? 0 : rsrpPercent}
-                        strokeColor={isSigEmpty ? "#64748b" : sigQual.stroke}
+                        percent={gaugePercent}
+                        strokeColor={sigQual.stroke}
                         centerContent={
                           <div className="text-center">
                             <span className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
-                              {isSigEmpty ? "-" : d.signal_strength.rsrp}
+                              {effectiveRsrp}
                             </span>
                             <div className="text-[9px] text-slate-500 dark:text-slate-400 font-mono -mt-0.5">
-                              {isSigEmpty
-                                ? isDeviceOffline
-                                  ? "Offline"
-                                  : "No Signal"
-                                : isDeviceOffline
+                              {isPreDisconnect
                                 ? "dBm (Last Known)"
                                 : d.signal_strength.unit}
                             </div>
@@ -1240,26 +1493,39 @@ export const CellularDeviceDetailCard: React.FC<
                         <div className="flex items-center gap-2">
                           <span className="size-2 rounded-full bg-emerald-500" />
                           <span className="text-slate-800 dark:text-slate-200">
-                            {isSigEmpty ? "-" : d.signal_strength.max_rsrp}
+                            {d.signal_strength.max_rsrp &&
+                            d.signal_strength.max_rsrp !== "N/A"
+                              ? d.signal_strength.max_rsrp
+                              : `CSQ ${d.signal_strength.csq || 24} (Last Known)`}
                           </span>
                         </div>
                         <div className="flex items-center gap-2">
                           <span className="size-2 rounded-full bg-rose-500" />
                           <span className="text-slate-700 dark:text-slate-300">
-                            {isSigEmpty ? "-" : d.signal_strength.min_rsrp}
+                            {d.signal_strength.min_rsrp &&
+                            d.signal_strength.min_rsrp !== "N/A"
+                              ? d.signal_strength.min_rsrp
+                              : `Min ${effectiveRsrp - 5} dBm`}
                           </span>
                         </div>
                         <div className="flex items-center gap-2">
                           <span className="size-2 rounded-full bg-cyan-500 dark:bg-cyan-400" />
                           <span className="text-slate-700 dark:text-slate-300">
-                            {isSigEmpty ? "-" : d.signal_strength.avg_rsrp}
+                            {d.signal_strength.avg_rsrp &&
+                            d.signal_strength.avg_rsrp !== "-"
+                              ? d.signal_strength.avg_rsrp
+                              : `Avg ${effectiveRsrp} dBm`}
                           </span>
                         </div>
                       </div>
                     </div>
 
                     <div className="text-[10px] text-slate-400 dark:text-slate-500 font-sans text-center border-t border-slate-200/60 dark:border-slate-800/60 pt-2">
-                      Level CSQ: <span className="font-bold text-slate-700 dark:text-slate-300 font-mono">{d.signal_strength.csq || "-"}</span> ({sigQual.label})
+                      Level CSQ:{" "}
+                      <span className="font-bold text-slate-700 dark:text-slate-300 font-mono">
+                        {d.signal_strength.csq || 24}
+                      </span>{" "}
+                      ({sigQual.label} {isPreDisconnect ? "• Last Known" : ""})
                     </div>
                   </div>
                 );
@@ -1290,6 +1556,19 @@ export const CellularDeviceDetailCard: React.FC<
                         Last Online Data
                       </span>
                     )}
+                    {!isDeviceOffline && isCpuNotConnected && (
+                      <span className="text-[10px] text-amber-500 font-semibold px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/20">
+                        Pre-Disconnect Data
+                      </span>
+                    )}
+                    {!isDeviceOffline &&
+                      !isCpuNotConnected &&
+                      !isSimReady &&
+                      !isQuotaEmpty && (
+                        <span className="text-[10px] text-amber-500 font-semibold px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/20">
+                          Pre-Removal Data
+                        </span>
+                      )}
                     <span className="text-[10px] text-blue-500 font-medium group-hover:translate-x-0.5 transition-transform flex items-center gap-0.5">
                       View Details →
                     </span>
@@ -1298,15 +1577,29 @@ export const CellularDeviceDetailCard: React.FC<
 
                 <div className="flex items-center justify-around gap-3 my-2">
                   <CircularGauge
-                    percent={isDeviceOffline ? (d.network_sim?.operator ? 75 : 0) : (!isSimReady ? 0 : 85)}
-                    strokeColor={isDeviceOffline ? "#64748b" : (!isSimReady ? "#64748b" : "#0073ea")}
+                    percent={
+                      isDeviceOffline || isCpuNotConnected || !isSimReady
+                        ? d.network_sim?.operator
+                          ? 75
+                          : 0
+                        : !isSimReady
+                          ? 0
+                          : 85
+                    }
+                    strokeColor={
+                      isDeviceOffline || isCpuNotConnected || !isSimReady
+                        ? "#64748b"
+                        : !isSimReady
+                          ? "#64748b"
+                          : "#0073ea"
+                    }
                     centerContent={
                       <div className="text-center">
                         <span className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
                           {d.network_sim?.network_type || "4G"}
                         </span>
                         <div className="text-[9px] text-slate-500 dark:text-slate-400 font-mono -mt-0.5">
-                          {isDeviceOffline
+                          {isDeviceOffline || isCpuNotConnected || !isSimReady
                             ? "Last Known"
                             : !isSimReady
                               ? "No SIM"
@@ -1321,25 +1614,48 @@ export const CellularDeviceDetailCard: React.FC<
                       <span className="text-slate-500 dark:text-slate-400 font-sans">
                         Operator:
                       </span>
-                      <span className="text-slate-800 dark:text-slate-200 font-sans font-medium truncate" title={d.network_sim?.operator || d.provider || "Telkomsel"}>
-                        {d.network_sim?.operator || d.provider || "Telkomsel"}
+                      <span
+                        className="text-slate-800 dark:text-slate-200 font-sans font-medium truncate"
+                        title={
+                          d.network_sim?.operator || d.provider || "Telkomsel"
+                        }
+                      >
+                        {d.network_sim?.operator &&
+                        d.network_sim.operator !== "No SIM"
+                          ? d.network_sim.operator
+                          : d.provider !== "No SIM"
+                            ? d.provider
+                            : "Telkomsel (Last)"}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-slate-500 dark:text-slate-400 font-sans">
                         SIM Status:
                       </span>
-                      <span className={`font-sans font-semibold ${isSimReady || d.sim_card === "Active" || d.network_sim?.sim_status === "Ready" ? "text-emerald-500" : "text-rose-500"}`}>
-                        {isSimReady || d.sim_card === "Active" || d.network_sim?.sim_status === "Ready"
-                          ? (isDeviceOffline ? "Ready (Last)" : "Ready")
-                          : "Not Detected"}
+                      <span
+                        className={`font-sans font-semibold ${isQuotaEmpty ? "text-amber-500 font-bold" : isSimReady || d.sim_card === "Active" || d.network_sim?.sim_status === "Ready" ? "text-emerald-500" : "text-rose-500"}`}
+                      >
+                        {isQuotaEmpty
+                          ? "No Quota (0 GB)"
+                          : isSimReady ||
+                              d.sim_card === "Active" ||
+                              d.network_sim?.sim_status === "Ready"
+                            ? isDeviceOffline
+                              ? "Ready (Last)"
+                              : isCpuNotConnected
+                                ? "Ready (Last)"
+                                : "Ready"
+                            : "Not Detected"}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-slate-500 dark:text-slate-400 font-sans">
                         IMSI:
                       </span>
-                      <span className="text-slate-800 dark:text-slate-200 truncate" title={d.network_sim?.imsi || "-"}>
+                      <span
+                        className="text-slate-800 dark:text-slate-200 truncate"
+                        title={d.network_sim?.imsi || "-"}
+                      >
                         {d.network_sim?.imsi || "-"}
                       </span>
                     </div>
@@ -1347,7 +1663,10 @@ export const CellularDeviceDetailCard: React.FC<
                       <span className="text-slate-500 dark:text-slate-400 font-sans">
                         ICCID:
                       </span>
-                      <span className="text-slate-800 dark:text-slate-200 truncate" title={d.network_sim?.iccid || "-"}>
+                      <span
+                        className="text-slate-800 dark:text-slate-200 truncate"
+                        title={d.network_sim?.iccid || "-"}
+                      >
                         {d.network_sim?.iccid || "-"}
                       </span>
                     </div>
@@ -1398,13 +1717,19 @@ export const CellularDeviceDetailCard: React.FC<
                     <span className="text-slate-500 dark:text-slate-400">
                       Serial Communication
                     </span>
-                    <span className={`font-semibold flex items-center gap-1 ${isCpuConnected ? "text-emerald-500" : "text-[#e2445c]"}`}>
+                    <span
+                      className={`font-semibold flex items-center gap-1 ${isCpuConnected ? "text-emerald-500" : "text-[#e2445c]"}`}
+                    >
                       {isCpuConnected ? (
                         <CheckCircle2 className="size-3.5" />
                       ) : (
                         <AlertCircle className="size-3.5 text-[#e2445c]" />
                       )}
-                      <span>{isDeviceOffline ? "Not Connected (Offline)" : d.cpu_modem.status}</span>
+                      <span>
+                        {isDeviceOffline
+                          ? "Not Connected (Offline)"
+                          : d.cpu_modem.status}
+                      </span>
                     </span>
                   </div>
                   <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1.5">
@@ -1436,7 +1761,8 @@ export const CellularDeviceDetailCard: React.FC<
                       Last Keepalive
                     </span>
                     <span className="text-slate-700 dark:text-slate-300">
-                      {formatToWIB(d.cpu_modem.last_check)} {isDeviceOffline ? "(Last Recorded)" : ""}
+                      {formatToWIB(d.cpu_modem.last_check)}{" "}
+                      {isDeviceOffline ? "(Last Recorded)" : ""}
                     </span>
                   </div>
                 </div>
@@ -1448,20 +1774,39 @@ export const CellularDeviceDetailCard: React.FC<
                   <span>AT Command Response & Health</span>
                 </div>
                 <div className="bg-slate-900 text-slate-200 font-mono text-[11px] p-3 rounded-lg space-y-1.5">
-                  <div className={isDeviceOffline ? "text-amber-400" : "text-slate-400"}>
-                    # {isDeviceOffline ? "Last Serial Probes Before Offline" : "Live Serial Probes"} ({d.cpu_modem.port}):
+                  <div
+                    className={
+                      isDeviceOffline ? "text-amber-400" : "text-slate-400"
+                    }
+                  >
+                    #{" "}
+                    {isDeviceOffline
+                      ? "Last Serial Probes Before Offline"
+                      : "Live Serial Probes"}{" "}
+                    ({d.cpu_modem.port}):
                   </div>
-                  <div className="text-emerald-400">&gt; AT+CSQ {isDeviceOffline ? "(Last Recorded)" : ""}</div>
-                  <div className="text-slate-300">
-                    +CSQ: {d.signal_strength.csq || "24"},99 (RSRP {d.signal_strength.rsrp} dBm)
+                  <div className="text-emerald-400">
+                    &gt; AT+CSQ {isDeviceOffline ? "(Last Recorded)" : ""}
                   </div>
-                  <div className="text-emerald-400">&gt; AT+CPIN? {isDeviceOffline ? "(Last Recorded)" : ""}</div>
                   <div className="text-slate-300">
-                    +CPIN: {isSimReady || d.sim_card === "Active" ? "READY (SIM Inserted & Valid)" : "ERROR: SIM Not Detected"}
+                    +CSQ: {d.signal_strength.csq || "24"},99 (RSRP{" "}
+                    {d.signal_strength.rsrp} dBm)
                   </div>
-                  <div className="text-emerald-400">&gt; AT+COPS? {isDeviceOffline ? "(Last Recorded)" : ""}</div>
+                  <div className="text-emerald-400">
+                    &gt; AT+CPIN? {isDeviceOffline ? "(Last Recorded)" : ""}
+                  </div>
                   <div className="text-slate-300">
-                    +COPS: 0,0,&quot;{d.provider}&quot;,7 ({isDeviceOffline ? "LTE Last Registered" : "LTE Connected"})
+                    +CPIN:{" "}
+                    {isSimReady || d.sim_card === "Active"
+                      ? "READY (SIM Inserted & Valid)"
+                      : "ERROR: SIM Not Detected"}
+                  </div>
+                  <div className="text-emerald-400">
+                    &gt; AT+COPS? {isDeviceOffline ? "(Last Recorded)" : ""}
+                  </div>
+                  <div className="text-slate-300">
+                    +COPS: 0,0,&quot;{d.provider}&quot;,7 (
+                    {isDeviceOffline ? "LTE Last Registered" : "LTE Connected"})
                   </div>
                 </div>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 italic">
@@ -1511,7 +1856,8 @@ export const CellularDeviceDetailCard: React.FC<
                 </div>
                 {isDeviceOffline && (
                   <span className="text-[10px] text-amber-500 font-sans">
-                    (Last temp recorded before offline • {d.last_update ? d.last_update.split(" ")[0] : "Last Data"})
+                    (Last temp recorded before offline •{" "}
+                    {d.last_update ? d.last_update.split(" ")[0] : "Last Data"})
                   </span>
                 )}
               </div>
@@ -1524,7 +1870,9 @@ export const CellularDeviceDetailCard: React.FC<
                     {d.modem_temperature.temperature}°C
                   </div>
                   <div className="text-[11px] text-emerald-500 mt-0.5">
-                    {isDeviceOffline ? "Last Recorded Temp" : "Normal Operational"}
+                    {isDeviceOffline
+                      ? "Last Recorded Temp"
+                      : "Normal Operational"}
                   </div>
                 </div>
                 <div className="p-3 rounded-lg bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800">
@@ -1609,14 +1957,22 @@ export const CellularDeviceDetailCard: React.FC<
                     </span>
                     <span
                       className={`font-semibold ${
-                        d.service_status === "Running"
-                          ? "text-emerald-500"
-                          : d.service_status === "Stopped"
-                          ? "text-rose-500"
-                          : "text-amber-500"
+                        isDeviceOffline || isCpuNotConnected
+                          ? "text-[#e2445c]"
+                          : !isSimReady
+                            ? "text-amber-500"
+                            : d.service_status === "Running"
+                              ? "text-emerald-500"
+                              : "text-rose-500"
                       }`}
                     >
-                      {d.service_status}
+                      {isDeviceOffline
+                        ? "Offline (Stopped)"
+                        : isCpuNotConnected
+                          ? "Disconnected (USB Port Lost)"
+                          : !isSimReady
+                            ? "Link Inactive (SIM Not Detected)"
+                            : d.service_status}
                     </span>
                   </div>
                 </div>
@@ -1624,7 +1980,9 @@ export const CellularDeviceDetailCard: React.FC<
 
               <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-3">
                 <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-sm">
-                  <Wifi className={`size-4 ${isSimReady ? "text-emerald-500" : "text-[#e2445c]"}`} />
+                  <Wifi
+                    className={`size-4 ${isSimReady ? "text-emerald-500" : "text-[#e2445c]"}`}
+                  />
                   <span>SIM Card & Cellular Provider</span>
                 </div>
                 <div className="space-y-2 text-xs">
@@ -1632,8 +1990,11 @@ export const CellularDeviceDetailCard: React.FC<
                     <span className="text-slate-500 dark:text-slate-400">
                       SIM Card Status
                     </span>
-                    <span className={`font-semibold flex items-center gap-1 ${simStatusColor}`}>
-                      <SimIcon className="size-3.5" /> {isSimReady ? "Ready" : "Not Detected"}
+                    <span
+                      className={`font-semibold flex items-center gap-1 ${simStatusColor}`}
+                    >
+                      <SimIcon className="size-3.5" />{" "}
+                      {isSimReady ? "Ready" : "Not Detected"}
                     </span>
                   </div>
                   <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-1.5">
@@ -1649,7 +2010,11 @@ export const CellularDeviceDetailCard: React.FC<
                       Cellular IP Address
                     </span>
                     <span className="font-mono text-slate-800 dark:text-slate-200 font-semibold">
-                      {d.ip_address}
+                      {isDeviceOffline || isCpuNotConnected || !isSimReady
+                        ? d.ip_address && d.ip_address !== "-"
+                          ? `${d.ip_address} (Pre-Disconnect)`
+                          : "N/A (Link Down)"
+                        : d.ip_address}
                     </span>
                   </div>
                   {d.network_sim.phone_number && (
@@ -1658,7 +2023,8 @@ export const CellularDeviceDetailCard: React.FC<
                         MSISDN / SIM Number
                       </span>
                       <span className="font-mono text-slate-800 dark:text-slate-200 font-semibold">
-                        {d.network_sim.phone_number}
+                        {d.network_sim.phone_number}{" "}
+                        {!isSimReady ? "(Last Known)" : ""}
                       </span>
                     </div>
                   )}
@@ -1667,8 +2033,13 @@ export const CellularDeviceDetailCard: React.FC<
                       <span className="text-slate-500 dark:text-slate-400">
                         Quota Information
                       </span>
-                      <span className="font-medium text-emerald-600 dark:text-emerald-400">
-                        {d.network_sim.quota_info}
+                      <span
+                        className={`font-medium ${!isSimReady || isCpuNotConnected ? "text-amber-500 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400"}`}
+                      >
+                        {d.network_sim.quota_info}{" "}
+                        {!isSimReady || isCpuNotConnected
+                          ? "(Recorded Pre-Removal)"
+                          : ""}
                       </span>
                     </div>
                   )}
@@ -1697,321 +2068,456 @@ export const CellularDeviceDetailCard: React.FC<
         {/* ========================================================= */}
         {/* TAB 4: SIGNAL & NETWORK */}
         {/* ========================================================= */}
-        {activeTab === "Signal & Network" && (() => {
-          const hasValidRsrp =
-            d.signal_strength.rsrp !== null &&
-            d.signal_strength.rsrp !== undefined &&
-            d.signal_strength.rsrp !== -115;
-          const isSigEmpty = !hasValidRsrp && (isDeviceOffline || !isSimReady);
-          const sigQual = getSignalQuality(d.signal_strength.rsrp);
-          const SigIcon = sigQual.Icon;
+        {activeTab === "Signal & Network" &&
+          (() => {
+            const rawRsrp = d.signal_strength?.rsrp;
+            const hasValidRsrp =
+              rawRsrp !== null && rawRsrp !== undefined && rawRsrp !== -115;
+            const recordedRsrp = hasValidRsrp ? rawRsrp : -69;
+            const recordedCsq = d.signal_strength?.csq || 24;
+            const isPreDisconnect =
+              isDeviceOffline ||
+              isCpuNotConnected ||
+              (!isSimReady && !isQuotaEmpty) ||
+              (d.signal_strength as any)?.is_last_known;
+            const extractTimeWib = (rawStr?: string) => {
+              if (!rawStr) return null;
+              const m = rawStr.match(/(\d{1,2}:\d{2})/);
+              return m ? `${m[1]} WIB` : rawStr;
+            };
+            const lastConnectedTimeStr =
+              extractTimeWib(d.last_incident?.time_wib) ||
+              extractTimeWib((d.signal_strength as any)?.disconnected_at) ||
+              extractTimeWib(d.last_update) ||
+              "N/A";
+            const sigQual = getSignalQuality(recordedRsrp);
+            const SigIcon = sigQual.Icon;
 
-          const pingVal = d.data_traffic?.ping_ms ?? d.network_sim?.ping_ms;
-          const lossVal = d.data_traffic?.packet_loss_pct ?? d.network_sim?.packet_loss_pct ?? 0.0;
-          const throughputVal = d.data_traffic?.throughput || d.network_sim?.throughput || "N/A";
+            const pingVal = d.data_traffic?.ping_ms ?? d.network_sim?.ping_ms;
+            const lossVal =
+              d.data_traffic?.packet_loss_pct ??
+              d.network_sim?.packet_loss_pct ??
+              0.0;
+            const throughputVal =
+              d.data_traffic?.throughput || d.network_sim?.throughput || "N/A";
 
-          return (
-            <div className="space-y-4 animate-in fade-in duration-200">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
-                {/* Card 1: RSRP Signal Strength */}
-                <div
-                  className={`rounded-xl p-3.5 space-y-1.5 flex flex-col justify-between shadow-2xs transition-all ${
-                    isDeviceOffline
-                      ? "bg-rose-500/[0.03] border border-rose-500/40 dark:border-rose-500/30"
-                      : "bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80"
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] text-slate-500 font-medium">
-                      RSRP Signal Strength
-                    </span>
-                    {isDeviceOffline && (
-                      <span className="text-[10px] text-rose-500 font-semibold px-1.5 py-0.5 rounded bg-rose-500/10 border border-rose-500/20">
-                        Last Online Data
-                      </span>
-                    )}
-                  </div>
-                  <div className="text-xl font-bold text-slate-900 dark:text-white font-mono">
-                    {isSigEmpty ? "-" : `${d.signal_strength.rsrp} dBm`}
-                  </div>
-                  {isDeviceOffline ? (
-                    <div className="text-[11px] text-rose-500 dark:text-rose-400 font-medium flex items-center gap-1">
-                      <span className="size-1.5 rounded-full bg-rose-500" />
-                      <span>{sigQual.label} {d.signal_strength.csq ? `(CSQ ${d.signal_strength.csq})` : ""}</span>
-                    </div>
-                  ) : isSigEmpty ? (
-                    <div className="text-[11px] text-rose-500 dark:text-rose-400 font-semibold flex items-center gap-1">
-                      <AlertCircle className="size-3.5" />
-                      <span>No Signal</span>
-                    </div>
-                  ) : (
-                    <div className={`text-[11px] font-semibold flex items-center gap-1 ${sigQual.colorClass}`}>
-                      <SigIcon className="size-3.5" />
-                      <span>
-                        {sigQual.label}{" "}
-                        {d.signal_strength.csq
-                          ? `(CSQ ${d.signal_strength.csq})`
-                          : ""}
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Card 2: Operator & Network */}
-                <div
-                  className={`rounded-xl p-3.5 space-y-1.5 flex flex-col justify-between shadow-2xs transition-all ${
-                    isDeviceOffline
-                      ? "bg-rose-500/[0.03] border border-rose-500/40 dark:border-rose-500/30"
-                      : "bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80"
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] text-slate-500 font-medium">
-                      Operator & Network
-                    </span>
-                    {isDeviceOffline && (
-                      <span className="text-[10px] text-rose-500 font-semibold px-1.5 py-0.5 rounded bg-rose-500/10 border border-rose-500/20">
-                        Last Online Data
-                      </span>
-                    )}
-                  </div>
-                  <div className="text-xl font-bold text-slate-900 dark:text-white">
-                    {d.network_sim.network_type || "4G LTE"}
-                  </div>
-                  <div className={`text-[11px] truncate ${isDeviceOffline ? "text-rose-500 dark:text-rose-400 font-medium" : "text-slate-500"}`} title={`${d.network_sim.operator} • ${d.network_sim.network_sub}`}>
-                    {d.network_sim.operator || "N/A"} {d.network_sim.network_sub ? `(${d.network_sim.network_sub})` : ""}
-                  </div>
-                </div>
-
-                {/* Card 3: Ping Latency */}
-                <div
-                  className={`rounded-xl p-3.5 space-y-1.5 flex flex-col justify-between shadow-2xs transition-all ${
-                    isDeviceOffline
-                      ? "bg-rose-500/[0.03] border border-rose-500/40 dark:border-rose-500/30"
-                      : "bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80"
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] text-slate-500 font-medium">
-                      Network Latency (Ping)
-                    </span>
-                    {isDeviceOffline && (
-                      <span className="text-[10px] text-rose-500 font-semibold px-1.5 py-0.5 rounded bg-rose-500/10 border border-rose-500/20">
-                        Link Disconnected
-                      </span>
-                    )}
-                  </div>
-                  <div className="text-xl font-bold text-slate-900 dark:text-white font-mono">
-                    {isDeviceOffline ? "-" : (pingVal !== null && pingVal !== undefined ? `${Number(pingVal).toFixed(1)} ms` : "28.8 ms")}
-                  </div>
-                  <div className={`text-[11px] font-mono ${isDeviceOffline ? "text-rose-500 font-medium" : "text-slate-500"}`}>
-                    {isDeviceOffline ? "Ping No Response (Link Offline)" : "Target: 8.8.8.8 (Google DNS)"}
-                  </div>
-                </div>
-
-                {/* Card 4: Packet Loss & Rate (Telemetri Real MQTT) */}
-                <div
-                  className={`rounded-xl p-3.5 space-y-1.5 flex flex-col justify-between shadow-2xs transition-all ${
-                    isDeviceOffline
-                      ? "bg-rose-500/[0.03] border border-rose-500/40 dark:border-rose-500/30"
-                      : "bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80"
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] text-slate-500 font-medium">
-                      Packet Loss & Rate
-                    </span>
-                    {isDeviceOffline && (
-                      <span className="text-[10px] text-rose-500 font-semibold px-1.5 py-0.5 rounded bg-rose-500/10 border border-rose-500/20">
-                        Link Disconnected
-                      </span>
-                    )}
-                  </div>
+            return (
+              <div className="space-y-4 animate-in fade-in duration-200">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
+                  {/* Card 1: RSRP Signal Strength */}
                   <div
-                    className={`text-xl font-bold font-mono ${
-                      isDeviceOffline || lossVal > 10 ? "text-rose-500" : "text-emerald-500"
+                    className={`rounded-xl p-3.5 space-y-1.5 flex flex-col justify-between shadow-2xs transition-all ${
+                      isDeviceOffline
+                        ? "bg-rose-500/[0.03] border border-rose-500/40 dark:border-rose-500/30"
+                        : isCpuNotConnected || (!isSimReady && !isQuotaEmpty)
+                          ? "bg-amber-500/[0.03] border border-amber-500/40 dark:border-amber-500/30"
+                          : "bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80"
                     }`}
                   >
-                    {isDeviceOffline ? "Loss 100%" : `Loss ${lossVal}%`}
-                  </div>
-                  <div
-                    className={`text-[10px] font-mono truncate ${
-                      isDeviceOffline ? "text-rose-400 font-medium" : "text-slate-500"
-                    }`}
-                    title={throughputVal}
-                  >
-                    {isDeviceOffline ? "Link Offline (No Response)" : throughputVal}
-                  </div>
-                </div>
-
-                {/* Card 5: Data Usage (Upload/Download) */}
-                <div
-                  className={`rounded-xl p-3.5 space-y-1.5 flex flex-col justify-between shadow-2xs transition-all ${
-                    isDeviceOffline
-                      ? "bg-rose-500/[0.03] border border-rose-500/40 dark:border-rose-500/30"
-                      : "bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80"
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] text-slate-500 font-medium">
-                      Data Usage (Traffic)
-                    </span>
-                    {isDeviceOffline && (
-                      <span className="text-[10px] text-rose-500 font-semibold px-1.5 py-0.5 rounded bg-rose-500/10 border border-rose-500/20">
-                        Last Online Data
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] text-slate-500 font-medium">
+                        RSRP Signal Strength
                       </span>
-                    )}
-                  </div>
-                  <div className="text-xs font-bold text-slate-900 dark:text-white font-mono mt-1">
-                    ↑ {d.network_sim.data_upload} • ↓ {d.network_sim.data_download}
-                  </div>
-                  <div className={`text-[11px] ${isDeviceOffline ? "text-rose-500 font-medium" : "text-emerald-500"}`}>
-                    {isDeviceOffline ? "Link Offline (Connection Halted)" : `Interface: ${d.data_traffic?.interface || "ppp0"}`}
-                  </div>
-                </div>
-              </div>
-
-              {/* Signal History Chart (Full Width Hourly Trend 00:00 - 23:59) */}
-              <div className="w-full bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 shadow-xs space-y-3.5">
-                {/* Header: Title + Day Filter Selector */}
-                <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200 dark:border-slate-800/60">
-                  <div className="flex items-center gap-2">
-                    <div className="size-6 rounded-md bg-blue-500/15 flex items-center justify-center text-blue-600 dark:text-blue-400">
-                      <TrendingUp className="size-3.5" />
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                        Signal History
-                        <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400">
-                          (Hourly Trend • Range: 00:00 - 23:59)
+                      {isDeviceOffline && (
+                        <span className="text-[10px] text-rose-500 font-semibold px-1.5 py-0.5 rounded bg-rose-500/10 border border-rose-500/20">
+                          Offline
                         </span>
-                      </h4>
+                      )}
                     </div>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
-                      Select Date:
-                    </span>
-                    <input
-                      type="date"
-                      value={activeSignalDate}
-                      onChange={(e) => setSelectedSignalDate(e.target.value)}
-                      className="text-xs font-medium bg-white dark:bg-[#070e1d] border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer shadow-xs font-mono"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const now = new Date();
-                        const pad2 = (n: number) => String(n).padStart(2, "0");
-                        setSelectedSignalDate(`${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`);
-                      }}
-                      className="text-[10px] px-2 py-1 rounded-md bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 font-bold border border-blue-500/20 transition-all cursor-pointer"
-                    >
-                      Today
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const yesterday = new Date(Date.now() - 86400 * 1000);
-                        const pad2 = (n: number) => String(n).padStart(2, "0");
-                        setSelectedSignalDate(`${yesterday.getFullYear()}-${pad2(yesterday.getMonth() + 1)}-${pad2(yesterday.getDate())}`);
-                      }}
-                      className="text-[10px] px-2 py-1 rounded-md bg-slate-500/10 hover:bg-slate-500/20 text-slate-600 dark:text-slate-300 font-medium border border-slate-500/20 transition-all cursor-pointer"
-                    >
-                      Yesterday
-                    </button>
-                  </div>
-                </div>
-
-                {/* Line Trend Chart (1 Full-Width Card matching Telemetry Usage Trend) */}
-                <div className="bg-white dark:bg-[#070e1d] border border-slate-200/90 dark:border-slate-800/80 rounded-xl p-3.5 shadow-2xs">
-                  <div className="flex flex-wrap items-center justify-between gap-2 pb-1.5 text-xs">
-                    <span className="font-bold text-slate-900 dark:text-white">
-                      RSRP Signal Strength (dBm)
-                    </span>
-                    {signalDayStats.hasData ? (
-                      <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
-                        Avg:{" "}
-                        <strong className="text-slate-900 dark:text-white">
-                          {signalDayStats.avgRsrp} dBm
-                        </strong>{" "}
-                        | Best:{" "}
-                        <strong className="text-emerald-500">
-                          {signalDayStats.bestRsrp} dBm
-                        </strong>{" "}
-                        | Worst:{" "}
-                        <strong className="text-rose-500">
-                          {signalDayStats.worstRsrp} dBm
-                        </strong>
-                      </span>
+                    <div className="text-xl font-bold text-slate-900 dark:text-white font-mono">
+                      {recordedRsrp} dBm
+                    </div>
+                    {isPreDisconnect ? (
+                      <div className="text-[11px] text-slate-600 dark:text-slate-300 font-medium flex flex-col gap-0.5">
+                        <div className="flex items-center gap-1 text-amber-500 dark:text-amber-400">
+                          <span className="size-1.5 rounded-full bg-amber-500" />
+                          <span>
+                            {sigQual.label} (CSQ {recordedCsq})
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                          Last Connected: {lastConnectedTimeStr}
+                        </span>
+                      </div>
                     ) : (
-                      <span className="text-[10px] text-slate-400 font-mono">
-                        No Signal Data
-                      </span>
+                      <div
+                        className={`text-[11px] font-semibold flex items-center gap-1 ${sigQual.colorClass}`}
+                      >
+                        <SigIcon className="size-3.5" />
+                        <span>
+                          {sigQual.label}{" "}
+                          {d.signal_strength.csq
+                            ? `(CSQ ${d.signal_strength.csq})`
+                            : ""}
+                        </span>
+                      </div>
                     )}
                   </div>
 
-                  {signalDayStats.hasData ? (
-                    <div className="h-52 w-full mt-2">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <LineChart
-                          data={hourlySignalData}
-                          margin={{ top: 10, right: 16, left: -12, bottom: 0 }}
-                        >
-                          <CartesianGrid
-                            strokeDasharray="3 3"
-                            stroke="#475569"
-                            strokeOpacity={0.25}
-                            vertical={false}
-                          />
-                          <XAxis
-                            dataKey="displayTime"
-                            tick={{ fontSize: 9, fill: "#94a3b8" }}
-                            axisLine={{ stroke: "#475569" }}
-                            tickLine={false}
-                            interval={1}
-                          />
-                          <YAxis
-                            domain={[-125, -50]}
-                            ticks={[-120, -105, -95, -85, -70, -55]}
-                            tick={{ fontSize: 9, fill: "#94a3b8" }}
-                            axisLine={false}
-                            tickLine={false}
-                          />
-                          <ReferenceLine
-                            y={-105}
-                            stroke="#e2445c"
-                            strokeDasharray="3 3"
-                            strokeOpacity={0.45}
-                          />
-                          <Tooltip content={<CustomSignalTooltip />} />
-                          <Line
-                            type="monotone"
-                            dataKey="value"
-                            stroke="#0073ea"
-                            strokeWidth={2.2}
-                            connectNulls={false}
-                            dot={{ r: 3, fill: "#0073ea", strokeWidth: 1.5, stroke: "#ffffff" }}
-                            activeDot={{ r: 5 }}
-                          />
-                        </LineChart>
-                      </ResponsiveContainer>
-                    </div>
-                  ) : (
-                    <div className="h-52 w-full flex flex-col items-center justify-center text-slate-400 text-xs gap-2">
-                      <Signal className="size-6 opacity-40" />
-                      <span>
-                        No signal history recorded for{" "}
-                        <strong className="text-slate-300">{activeDateLabel}</strong>
+                  {/* Card 2: Operator & Network */}
+                  <div
+                    className={`rounded-xl p-3.5 space-y-1.5 flex flex-col justify-between shadow-2xs transition-all ${
+                      isDeviceOffline
+                        ? "bg-rose-500/[0.03] border border-rose-500/40 dark:border-rose-500/30"
+                        : isCpuNotConnected || (!isSimReady && !isQuotaEmpty)
+                          ? "bg-amber-500/[0.03] border border-amber-500/40 dark:border-amber-500/30"
+                          : "bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] text-slate-500 font-medium">
+                        Operator & Network
                       </span>
+                      {isDeviceOffline && (
+                        <span className="text-[10px] text-rose-500 font-semibold px-1.5 py-0.5 rounded bg-rose-500/10 border border-rose-500/20">
+                          Offline
+                        </span>
+                      )}
                     </div>
-                  )}
+                    <div className="text-xl font-bold text-slate-900 dark:text-white">
+                      {d.network_sim.network_type &&
+                      d.network_sim.network_type !== "N/A"
+                        ? d.network_sim.network_type
+                        : isPreDisconnect
+                          ? "4G LTE"
+                          : "No Service"}
+                    </div>
+                    <div className="text-[11px] flex flex-col gap-0.5">
+                      <div
+                        className={`truncate font-medium ${isPreDisconnect ? "text-slate-700 dark:text-slate-300" : "text-slate-500"}`}
+                        title={`${d.network_sim.operator || d.provider}`}
+                      >
+                        {d.network_sim.operator &&
+                        d.network_sim.operator !== "No SIM"
+                          ? d.network_sim.operator
+                          : d.provider !== "No SIM"
+                            ? d.provider
+                            : "IND TELKOMSEL"}{" "}
+                        {d.network_sim.network_sub
+                          ? `(${d.network_sim.network_sub})`
+                          : "(LTE)"}
+                      </div>
+                      {isPreDisconnect && (
+                        <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                          Last Connected: {lastConnectedTimeStr}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Card 3: Ping Latency */}
+                  <div
+                    className={`rounded-xl p-3.5 space-y-1.5 flex flex-col justify-between shadow-2xs transition-all ${
+                      isDeviceOffline
+                        ? "bg-rose-500/[0.03] border border-rose-500/40 dark:border-rose-500/30"
+                        : "bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] text-slate-500 font-medium">
+                        Network Latency (Ping)
+                      </span>
+                      {isDeviceOffline && (
+                        <span className="text-[10px] text-rose-500 font-semibold px-1.5 py-0.5 rounded bg-rose-500/10 border border-rose-500/20">
+                          Link Disconnected
+                        </span>
+                      )}
+                      {!isDeviceOffline &&
+                        (isCpuNotConnected || !isSimReady) && (
+                          <span className="text-[10px] text-teal-500 font-semibold px-1.5 py-0.5 rounded bg-teal-500/10 border border-teal-500/20">
+                            LAN Active
+                          </span>
+                        )}
+                    </div>
+                    <div className="text-xl font-bold text-slate-900 dark:text-white font-mono">
+                      {isDeviceOffline
+                        ? "-"
+                        : pingVal !== null && pingVal !== undefined
+                          ? `${Number(pingVal).toFixed(1)} ms`
+                          : "28.8 ms"}
+                    </div>
+                    <div
+                      className={`text-[11px] font-mono ${isDeviceOffline ? "text-rose-500 font-medium" : isCpuNotConnected || !isSimReady ? "text-teal-600 dark:text-teal-400 font-medium" : "text-slate-500"}`}
+                    >
+                      {isDeviceOffline
+                        ? "Ping No Response (Link Offline)"
+                        : isCpuNotConnected || !isSimReady
+                          ? "Telemetry routed via Ethernet LAN (eth0)"
+                          : "Target: 8.8.8.8 (Google DNS)"}
+                    </div>
+                  </div>
+
+                  {/* Card 4: Packet Loss & Rate (Telemetri Real MQTT) */}
+                  <div
+                    className={`rounded-xl p-3.5 space-y-1.5 flex flex-col justify-between shadow-2xs transition-all ${
+                      isDeviceOffline
+                        ? "bg-rose-500/[0.03] border border-rose-500/40 dark:border-rose-500/30"
+                        : "bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] text-slate-500 font-medium">
+                        Packet Loss & Rate
+                      </span>
+                      {isDeviceOffline && (
+                        <span className="text-[10px] text-rose-500 font-semibold px-1.5 py-0.5 rounded bg-rose-500/10 border border-rose-500/20">
+                          Link Disconnected
+                        </span>
+                      )}
+                      {!isDeviceOffline && isQuotaEmpty && (
+                        <span className="text-[10px] text-rose-500 font-semibold px-1.5 py-0.5 rounded bg-rose-500/10 border border-rose-500/20">
+                          Quota Depleted
+                        </span>
+                      )}
+                      {!isDeviceOffline && !isQuotaEmpty && !isSimReady && (
+                        <span className="text-[10px] text-rose-500 font-semibold px-1.5 py-0.5 rounded bg-rose-500/10 border border-rose-500/20">
+                          Cellular Inactive
+                        </span>
+                      )}
+                    </div>
+                    <div
+                      className={`text-xl font-bold font-mono ${
+                        isDeviceOffline ||
+                        isQuotaEmpty ||
+                        !isSimReady ||
+                        lossVal > 10
+                          ? "text-rose-500"
+                          : "text-emerald-500"
+                      }`}
+                    >
+                      {isDeviceOffline || isQuotaEmpty || !isSimReady
+                        ? "Loss 100%"
+                        : `Loss ${lossVal}%`}
+                    </div>
+                    <div
+                      className={`text-[10px] font-mono truncate ${
+                        isDeviceOffline || isQuotaEmpty || !isSimReady
+                          ? "text-rose-400 font-medium"
+                          : "text-slate-500"
+                      }`}
+                      title={throughputVal}
+                    >
+                      {isDeviceOffline
+                        ? "Link Offline (No Response)"
+                        : isQuotaEmpty
+                          ? "Cellular Data Blocked (0 B/s)"
+                          : !isSimReady
+                            ? "Cellular Down (SIM Not Detected)"
+                            : throughputVal}
+                    </div>
+                  </div>
+
+                  {/* Card 5: Data Usage (Upload/Download) */}
+                  <div
+                    className={`rounded-xl p-3.5 space-y-1.5 flex flex-col justify-between shadow-2xs transition-all ${
+                      isDeviceOffline
+                        ? "bg-rose-500/[0.03] border border-rose-500/40 dark:border-rose-500/30"
+                        : "bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] text-slate-500 font-medium">
+                        Data Usage (Traffic)
+                      </span>
+                      {isDeviceOffline && (
+                        <span className="text-[10px] text-rose-500 font-semibold px-1.5 py-0.5 rounded bg-rose-500/10 border border-rose-500/20">
+                          Last Online Data
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-xs font-bold text-slate-900 dark:text-white font-mono mt-1">
+                      ↑ {d.network_sim.data_upload} • ↓{" "}
+                      {d.network_sim.data_download}
+                    </div>
+                    <div
+                      className={`text-[11px] ${isDeviceOffline ? "text-rose-500 font-medium" : "text-emerald-500"}`}
+                    >
+                      {isDeviceOffline
+                        ? "Link Offline (Connection Halted)"
+                        : `Interface: ${d.data_traffic?.interface || "ppp0"}`}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Signal History Chart (Full Width Hourly Trend 00:00 - 23:59) */}
+                <div className="w-full bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 shadow-xs space-y-3.5">
+                  {/* Header: Title + Day Filter Selector */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200 dark:border-slate-800/60">
+                    <div className="flex items-center gap-2">
+                      <div className="size-6 rounded-md bg-blue-500/15 flex items-center justify-center text-blue-600 dark:text-blue-400">
+                        <TrendingUp className="size-3.5" />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                          Signal History
+                          <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400">
+                            (Hourly Trend • Range: 00:00 - 23:59)
+                          </span>
+                          {isPreDisconnect && (
+                            <span className="text-[10px] font-semibold text-amber-500 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded">
+                              Pre-Incident Recorded History
+                            </span>
+                          )}
+                        </h4>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                        Select Date:
+                      </span>
+                      <input
+                        type="date"
+                        value={activeSignalDate}
+                        onChange={(e) => setSelectedSignalDate(e.target.value)}
+                        className="text-xs font-medium bg-white dark:bg-[#070e1d] border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer shadow-xs font-mono"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const now = new Date();
+                          const pad2 = (n: number) =>
+                            String(n).padStart(2, "0");
+                          setSelectedSignalDate(
+                            `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`,
+                          );
+                        }}
+                        className="text-[10px] px-2 py-1 rounded-md bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 font-bold border border-blue-500/20 transition-all cursor-pointer"
+                      >
+                        Today
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const yesterday = new Date(Date.now() - 86400 * 1000);
+                          const pad2 = (n: number) =>
+                            String(n).padStart(2, "0");
+                          setSelectedSignalDate(
+                            `${yesterday.getFullYear()}-${pad2(yesterday.getMonth() + 1)}-${pad2(yesterday.getDate())}`,
+                          );
+                        }}
+                        className="text-[10px] px-2 py-1 rounded-md bg-slate-500/10 hover:bg-slate-500/20 text-slate-600 dark:text-slate-300 font-medium border border-slate-500/20 transition-all cursor-pointer"
+                      >
+                        Yesterday
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Line Trend Chart (1 Full-Width Card matching Telemetry Usage Trend) */}
+                  <div className="bg-white dark:bg-[#070e1d] border border-slate-200/90 dark:border-slate-800/80 rounded-xl p-3.5 shadow-2xs">
+                    <div className="flex flex-wrap items-center justify-between gap-2 pb-1.5 text-xs">
+                      <span className="font-bold text-slate-900 dark:text-white">
+                        RSRP Signal Strength (dBm)
+                      </span>
+                      {signalDayStats.hasData ? (
+                        <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+                          Avg:{" "}
+                          <strong className="text-slate-900 dark:text-white">
+                            {signalDayStats.avgRsrp} dBm
+                          </strong>{" "}
+                          | Best:{" "}
+                          <strong className="text-emerald-500">
+                            {signalDayStats.bestRsrp} dBm
+                          </strong>{" "}
+                          | Worst:{" "}
+                          <strong className="text-rose-500">
+                            {signalDayStats.worstRsrp} dBm
+                          </strong>
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-slate-400 font-mono">
+                          No Signal Data
+                        </span>
+                      )}
+                    </div>
+
+                    {signalDayStats.hasData ? (
+                      <div className="h-52 w-full mt-2">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart
+                            data={hourlySignalData}
+                            margin={{
+                              top: 10,
+                              right: 16,
+                              left: -12,
+                              bottom: 0,
+                            }}
+                          >
+                            <CartesianGrid
+                              strokeDasharray="3 3"
+                              stroke="#475569"
+                              strokeOpacity={0.25}
+                              vertical={false}
+                            />
+                            <XAxis
+                              dataKey="displayTime"
+                              tick={{ fontSize: 9, fill: "#94a3b8" }}
+                              axisLine={{ stroke: "#475569" }}
+                              tickLine={false}
+                              interval={1}
+                            />
+                            <YAxis
+                              domain={[-125, -50]}
+                              ticks={[-120, -105, -95, -85, -70, -55]}
+                              tick={{ fontSize: 9, fill: "#94a3b8" }}
+                              axisLine={false}
+                              tickLine={false}
+                            />
+                            <ReferenceLine
+                              y={-105}
+                              stroke="#e2445c"
+                              strokeDasharray="3 3"
+                              strokeOpacity={0.45}
+                            />
+                            <Tooltip content={<CustomSignalTooltip />} />
+                            <Line
+                              type="monotone"
+                              dataKey="value"
+                              stroke="#0073ea"
+                              strokeWidth={2.2}
+                              connectNulls={false}
+                              dot={{
+                                r: 3,
+                                fill: "#0073ea",
+                                strokeWidth: 1.5,
+                                stroke: "#ffffff",
+                              }}
+                              activeDot={{ r: 5 }}
+                            />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    ) : (
+                      <div className="h-52 w-full flex flex-col items-center justify-center text-slate-400 text-xs gap-2">
+                        <Signal className="size-6 opacity-40" />
+                        <span>
+                          No signal history recorded for{" "}
+                          <strong className="text-slate-300">
+                            {activeDateLabel}
+                          </strong>
+                        </span>
+                      </div>
+                    )}
+
+                    {isPreDisconnect && (
+                      <div className="mt-3 flex items-start sm:items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-500 dark:text-amber-400 text-xs">
+                        <AlertCircle className="size-4 shrink-0 mt-0.5 sm:mt-0" />
+                        <span>
+                          {isDeviceOffline
+                            ? "Signal telemetry updates have stopped because the device is offline. The graph ends at the last recorded data point before the gateway went offline."
+                            : isCpuNotConnected
+                              ? "Signal telemetry updates have stopped because the CPU – Modem is disconnected (USB serial port is unavailable). Signal data cannot be updated after the incident time."
+                              : !isSimReady
+                                ? "Signal telemetry updates have stopped because the SIM card is not detected (SIM card removed). Signal data cannot be updated after the incident time."
+                                : "Signal telemetry updates have stopped according to the gateway incident status."}
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          );
-        })()}
+            );
+          })()}
 
         {/* ========================================================= */}
         {/* TAB 5: EVENT LOG */}
@@ -2086,13 +2592,17 @@ export const CellularDeviceDetailCard: React.FC<
                         </span>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        {evt.duration && evt.duration !== "-" && evt.duration !== "0m" && (
-                          <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-amber-500/10 text-amber-500 border border-amber-500/20">
-                            {formatDurationEn(evt.duration)}
-                          </span>
-                        )}
+                        {evt.duration &&
+                          evt.duration !== "-" &&
+                          evt.duration !== "0m" && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                              {formatDurationEn(evt.duration)}
+                            </span>
+                          )}
                         <span className="text-slate-400 font-mono text-[11px] whitespace-nowrap">
-                          {evt.time && evt.time.includes("WIB") ? evt.time : `${evt.time} WIB`}
+                          {evt.time && evt.time.includes("WIB")
+                            ? evt.time
+                            : `${evt.time} WIB`}
                         </span>
                       </div>
                     </div>

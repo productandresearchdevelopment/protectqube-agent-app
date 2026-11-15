@@ -25,6 +25,7 @@ export interface ColumnDef<T> {
   width?: string;
   sortable?: boolean;
   defaultSortOrder?: "asc" | "desc";
+  sortCycle?: Array<string | null>;
 }
 
 export interface IPaginationData {
@@ -67,8 +68,8 @@ export interface DataTableProps<T> {
   className?: string;
   // Sorting
   sortBy?: string | null;
-  sortOrder?: "asc" | "desc" | null;
-  onSortChange?: (sortBy: string | null, sortOrder: "asc" | "desc" | null) => void;
+  sortOrder?: "asc" | "desc" | string | null;
+  onSortChange?: (sortBy: string | null, sortOrder: any) => void;
   // Layout
   maxHeight?: string;
 }
@@ -229,6 +230,17 @@ export function DataTable<T extends Record<string, any>>({
 
                   const handleHeaderClick = () => {
                     if (!isSortable || !colKey || !onSortChange) return;
+                    if (col.sortCycle && col.sortCycle.length > 0) {
+                      const curIdx = isActiveSort ? col.sortCycle.indexOf(sortOrder) : -1;
+                      const nextIdx = (curIdx + 1) % col.sortCycle.length;
+                      const nextOrder = col.sortCycle[nextIdx];
+                      if (nextOrder === null) {
+                        onSortChange(null, null);
+                      } else {
+                        onSortChange(colKey, nextOrder as any);
+                      }
+                      return;
+                    }
                     if (!isActiveSort) {
                       onSortChange(colKey, defaultOrder);
                     } else if (sortOrder === defaultOrder) {
@@ -255,7 +267,13 @@ export function DataTable<T extends Record<string, any>>({
                       title={
                         isSortable
                           ? isActiveSort
-                            ? sortOrder === defaultOrder
+                            ? sortOrder === "not_connected"
+                              ? "Sorted: Not Connected first (click for No Response)"
+                              : sortOrder === "no_response"
+                              ? "Sorted: No Response first (click for Connected)"
+                              : sortOrder === "connected"
+                              ? "Sorted: Connected first (click to reset)"
+                              : sortOrder === defaultOrder
                               ? `Sorted (${sortOrder.toUpperCase()}) - click to reverse`
                               : `Sorted (${sortOrder?.toUpperCase()}) - click to reset`
                             : "Click to sort"
@@ -266,8 +284,10 @@ export function DataTable<T extends Record<string, any>>({
                         <div className={`inline-flex items-center gap-1 ${justifyClass}`}>
                           <span>{col.header}</span>
                           {isActiveSort ? (
-                            sortOrder === "asc" ? (
+                            sortOrder === "asc" || sortOrder === "not_connected" ? (
                               <ArrowUp className="size-3 shrink-0 text-[#0073ea] dark:text-[#4ea1ff]" />
+                            ) : sortOrder === "no_response" ? (
+                              <ArrowUpDown className="size-3 shrink-0 text-amber-500 dark:text-amber-400" />
                             ) : (
                               <ArrowDown className="size-3 shrink-0 text-[#0073ea] dark:text-[#4ea1ff]" />
                             )

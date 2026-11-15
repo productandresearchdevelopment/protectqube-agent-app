@@ -348,14 +348,14 @@ const CCTVViewport = ({
 
         {camera.is_recording ? (
           <div className="flex items-center gap-1 bg-black/60 px-1.5 py-0.5 rounded-xs border border-rose-500/30">
-            <span className="size-2 rounded-full bg-rose-500 animate-pulse" />
-            <span className="text-[9px] font-bold text-rose-400 font-mono">
-              REC
+            <span className={`size-2 rounded-full ${camera.is_offline ? "bg-slate-400" : "bg-rose-500 animate-pulse"}`} />
+            <span className={`text-[9px] font-bold font-mono ${camera.is_offline ? "text-slate-400" : "text-rose-400"}`}>
+              {camera.is_offline ? "REC (LAST)" : "REC"}
             </span>
           </div>
         ) : (
           <span className="text-[9px] font-semibold text-slate-400 font-mono">
-            IDLE
+            {camera.is_offline ? "LAST STATE" : "IDLE"}
           </span>
         )}
       </div>
@@ -380,7 +380,7 @@ const CCTVViewport = ({
           <path d="M 70 40 L 100 60" strokeWidth="0.5" strokeDasharray="2 2" />
         </svg>
         <span className="text-[10px] text-slate-400 font-mono mt-1">
-          {camera.status === "Online" ? "● LIVE FEED" : "● NO SIGNAL"}
+          {camera.is_offline ? "● LAST RECORDED FRAME" : camera.status === "Online" ? "● LIVE FEED" : "● NO SIGNAL"}
         </span>
       </div>
 
@@ -508,7 +508,7 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
   );
 
   const isWhiteDevice = d.type.includes("Putih");
-  const isOffline = (d.status || "").toLowerCase() === "offline" || (d.service_status || "").toLowerCase() === "stopped";
+  const isOffline = (d.status || "").toLowerCase() === "offline" || (d.service_status || "").toLowerCase() === "stopped" || Boolean((d as any).is_offline);
 
   const isCpuConnected = !isOffline && d.cpu_dvr.status === "Connected";
   const isCpuNotConnected =
@@ -550,7 +550,7 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
 
   const getHealthExplanation = () => {
     if (isOffline) {
-      return "Critical: Gateway is Offline (> 1 hour without telemetry). All NVR telemetry, video streams, and camera recording metrics are unreachable.";
+      return "Offline Notice: Gateway is disconnected (> 1 hour without telemetry). Displaying the last recorded NVR telemetry, cameras, and recording condition prior to outage.";
     }
     const isConn = d.cpu_dvr?.status === "Connected";
     const status = d.dvr_health?.status || "Good";
@@ -644,9 +644,13 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
           <button
             type="button"
             onClick={handleOpenRebootModal}
-            disabled={rebootMutation.isPending}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/30 transition-all cursor-pointer shadow-xs active:scale-95 disabled:opacity-50"
-            title="Reboot Gateway & DVR"
+            disabled={rebootMutation.isPending || isOffline}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all shadow-xs ${
+              isOffline
+                ? "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border-slate-200 dark:border-slate-700 cursor-not-allowed opacity-60"
+                : "bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border-rose-500/30 cursor-pointer active:scale-95"
+            }`}
+            title={isOffline ? "Cannot reboot: Gateway is currently offline" : "Reboot Gateway & DVR"}
           >
             <RotateCcw className={`size-3.5 ${rebootMutation.isPending ? "animate-spin" : ""}`} />
             <span>{rebootMutation.isPending ? "Sending..." : "Reboot"}</span>
@@ -687,6 +691,23 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
           >
             Dismiss
           </button>
+        </div>
+      )}
+
+      {/* Offline Gateway Notice Banner */}
+      {isOffline && (
+        <div className="mx-4 sm:mx-5 mt-4 p-3 rounded-xl bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs text-amber-800 dark:text-amber-200 animate-in fade-in duration-200">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="size-4 shrink-0 text-amber-600 dark:text-amber-400" />
+            <span>
+              <strong>Gateway is Offline</strong> (&gt; 1 Hour without telemetry). All telemetry and video previews below represent the <strong>last recorded valid state</strong> prior to gateway disconnection.
+            </span>
+          </div>
+          {d.last_update && (
+            <span className="font-mono text-[11px] text-amber-700 dark:text-amber-300 shrink-0">
+              Last seen: {formatToWIB(d.last_update)}
+            </span>
+          )}
         </div>
       )}
 
@@ -883,15 +904,15 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
 
                 <div className="flex items-center justify-around gap-3 my-3">
                   <CircularGauge
-                    percent={isOffline ? 0 : d.camera_status.percent}
+                    percent={d.camera_status.percent}
                     strokeColor={isOffline ? "#64748b" : "#00c875"}
                     centerContent={
                       <div className="text-center">
                         <span className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
-                          {isOffline ? "-" : `${d.camera_status.online}/${d.camera_status.total}`}
+                          {`${d.camera_status.online}/${d.camera_status.total}`}
                         </span>
                         <div className="text-[8px] text-slate-500 dark:text-slate-400 font-mono -mt-0.5">
-                          {isOffline ? "OFFLINE" : "ONLINE"}
+                          {isOffline ? "LAST STATE" : "ONLINE"}
                         </div>
                       </div>
                     }
@@ -899,21 +920,22 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
 
                   <div className="text-xs space-y-1.5 font-medium text-slate-700 dark:text-slate-300">
                     <div className="flex items-center gap-2">
-                      <span className={`size-2 rounded-full ${isOffline ? "bg-slate-500" : "bg-emerald-500"}`} />
+                      <span className={`size-2 rounded-full ${isOffline ? "bg-slate-400" : "bg-emerald-500"}`} />
                       <span className="text-slate-800 dark:text-slate-200 font-semibold">
-                        {isOffline ? "-" : `${d.camera_status.online} Online`}
+                        {`${d.camera_status.online} Online`}
+                        {isOffline && <span className="ml-1 text-[9px] font-normal text-slate-400 font-mono">(Last)</span>}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className={`size-2 rounded-full ${isOffline ? "bg-slate-500" : "bg-amber-500"}`} />
+                      <span className={`size-2 rounded-full ${isOffline ? "bg-slate-400" : "bg-amber-500"}`} />
                       <span className="text-slate-700 dark:text-slate-300">
-                        {isOffline ? "-" : `${d.camera_status.no_video} No Video`}
+                        {`${d.camera_status.no_video} No Video`}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className={`size-2 rounded-full ${isOffline ? "bg-rose-500" : "bg-rose-500"}`} />
+                      <span className="size-2 rounded-full bg-rose-500" />
                       <span className="text-slate-700 dark:text-slate-300">
-                        {isOffline ? "-" : `${d.camera_status.offline} Offline`}
+                        {`${d.camera_status.offline} Offline`}
                       </span>
                     </div>
                   </div>
@@ -938,15 +960,15 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
 
                 <div className="flex items-center justify-around gap-3 my-3">
                   <CircularGauge
-                    percent={isOffline ? 0 : d.recording_storage.percent}
+                    percent={d.recording_storage.percent}
                     strokeColor={isOffline ? "#64748b" : "#0073ea"}
                     centerContent={
                       <div className="text-center">
                         <span className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">
-                          {isOffline ? "-" : `${d.recording_storage.percent}%`}
+                          {`${d.recording_storage.percent}%`}
                         </span>
                         <div className="text-[8px] text-slate-500 dark:text-slate-400 font-mono -mt-0.5">
-                          {isOffline ? "OFFLINE" : "STORAGE"}
+                          {isOffline ? "LAST STATE" : "STORAGE"}
                         </div>
                       </div>
                     }
@@ -959,12 +981,15 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                       </span>
                       <span
                         className={`font-semibold font-sans text-[11px] px-2 py-0.5 rounded-full ${
-                          !isOffline && d.recording_storage.status?.includes("Recording") && !d.recording_storage.status?.startsWith("0/")
+                          isOffline
+                            ? "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-300 dark:border-slate-700"
+                            : !isOffline && d.recording_storage.status?.includes("Recording") && !d.recording_storage.status?.startsWith("0/")
                             ? "bg-emerald-500/15 text-[#00a862] dark:text-emerald-400 border border-emerald-500/30"
                             : "bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30"
                         }`}
                       >
-                        {isOffline ? "Not Recording" : (d.recording_storage.status === "Normal" ? "Recording" : d.recording_storage.status)}
+                        {d.recording_storage.status === "Normal" ? "Recording" : d.recording_storage.status}
+                        {isOffline && " (Last)"}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
@@ -972,7 +997,7 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                         Used:
                       </span>
                       <span className="text-slate-800 dark:text-slate-200">
-                        {isOffline ? "-" : `${d.recording_storage.used_tb} TB / ${d.recording_storage.total_tb} TB`}
+                        {`${d.recording_storage.used_tb} TB / ${d.recording_storage.total_tb} TB`}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
@@ -980,7 +1005,7 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                         Mode:
                       </span>
                       <span className="text-slate-800 dark:text-slate-200 font-sans">
-                        {isOffline ? "-" : "Continuous (24/7 CMR)"}
+                        Continuous (24/7 CMR)
                       </span>
                     </div>
                   </div>
@@ -1030,7 +1055,7 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                     <span
                       className={`font-semibold ${
                         isOffline
-                          ? "text-slate-400 font-mono"
+                          ? "text-slate-500 dark:text-slate-400 font-mono"
                           : d.dvr_health.hdd_status.toLowerCase().includes("error") || d.dvr_health.hdd_status.toLowerCase().includes("fail") || d.dvr_health.hdd_status.toLowerCase().includes("danger")
                           ? "text-rose-500"
                           : d.dvr_health.hdd_status.toLowerCase().includes("warn")
@@ -1038,7 +1063,8 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                           : "text-[#00c875]"
                       }`}
                     >
-                      {isOffline ? "-" : d.dvr_health.hdd_status}
+                      {d.dvr_health.hdd_status || "SMART OK"}
+                      {isOffline && <span className="ml-1 text-[10px] font-normal text-slate-400 font-sans">(Last)</span>}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
@@ -1046,7 +1072,8 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                       DVR Temperature:
                     </span>
                     <span className="font-mono text-slate-800 dark:text-slate-200">
-                      {isOffline ? "-" : d.dvr_health.temperature}
+                      {d.dvr_health.temperature || "36°C"}
+                      {isOffline && <span className="ml-1 text-[10px] font-normal text-slate-400 font-sans">(Last)</span>}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
@@ -1054,7 +1081,8 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                       Cooling Fan:
                     </span>
                     <span className="text-slate-800 dark:text-slate-200">
-                      {isOffline ? "-" : d.dvr_health.fan_status}
+                      {d.dvr_health.fan_status || "Normal"}
+                      {isOffline && <span className="ml-1 text-[10px] font-normal text-slate-400 font-sans">(Last)</span>}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
@@ -1062,7 +1090,7 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                       Bad Sector:
                     </span>
                     <span className={`font-mono ${!isOffline && d.dvr_health.bad_sector > 0 ? "text-amber-500 font-bold" : "text-slate-800 dark:text-slate-200"}`}>
-                      {isOffline ? "-" : d.dvr_health.bad_sector}
+                      {d.dvr_health.bad_sector ?? 0}
                     </span>
                   </div>
                 </div>
@@ -1278,6 +1306,18 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                         HTTP/1.1 200 OK ({d.camera_status.online} Channels Live, 25 FPS)
                       </div>
                     </>
+                  ) : isOffline ? (
+                    <>
+                      <div className="text-amber-400">
+                        &gt; NVR Probe State: Gateway Disconnected
+                      </div>
+                      <div className="text-slate-300">
+                        Gateway is offline (&gt; 1 hour). Unable to probe NVR ISAPI endpoint over LAN.
+                      </div>
+                      <div className="text-slate-400">
+                        # Displaying last known configuration ({d.dvr_model}, {d.camera_status.online} channels recorded)
+                      </div>
+                    </>
                   ) : (
                     <>
                       <div className="text-rose-400">
@@ -1373,19 +1413,28 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                 <div className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
                   <span
                     className={`size-3 rounded-full ${
-                      d.recording_storage.status?.includes("Recording") && !d.recording_storage.status?.startsWith("0/")
+                      isOffline
+                        ? "bg-slate-400"
+                        : d.recording_storage.status?.includes("Recording") && !d.recording_storage.status?.startsWith("0/")
                         ? "bg-emerald-500 animate-pulse"
                         : "bg-rose-500"
                     }`}
                   />
-                  <span>{d.recording_storage.status === "Normal" ? "Recording" : d.recording_storage.status}</span>
+                  <span>
+                    {d.recording_storage.status === "Normal" ? "Recording" : d.recording_storage.status}
+                    {isOffline && <span className="text-xs font-normal text-slate-400 font-sans ml-2">(Last Telemetry)</span>}
+                  </span>
                 </div>
                 <div className={`text-xs font-semibold ${
-                  d.recording_storage.status?.includes("Recording") && !d.recording_storage.status?.startsWith("0/")
+                  isOffline
+                    ? "text-slate-400"
+                    : d.recording_storage.status?.includes("Recording") && !d.recording_storage.status?.startsWith("0/")
                     ? "text-emerald-500"
                     : "text-rose-500"
                 }`}>
-                  {d.recording_storage.status?.includes("Recording") && !d.recording_storage.status?.startsWith("0/")
+                  {isOffline
+                    ? "Continuous Mode (CMR 24/7) — Last Recorded Condition"
+                    : d.recording_storage.status?.includes("Recording") && !d.recording_storage.status?.startsWith("0/")
                     ? "Continuous Mode (CMR 24/7)"
                     : "Recording Stopped / Inactive"}
                 </div>

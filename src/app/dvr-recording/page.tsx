@@ -312,8 +312,21 @@ export default function DVRRecordingPage() {
       sortable: true,
       defaultSortOrder: "asc",
       cell: (item) => {
-        if (item.status === "Offline" || typeof item.kamera_online !== "number") {
+        const isOffline = item.status === "Offline";
+        if (typeof item.kamera_online !== "number") {
           return <span className="font-mono text-slate-400 font-bold text-[11px]">-</span>;
+        }
+        if (isOffline) {
+          return (
+            <div className="flex items-center justify-center gap-1.5" title="Last recorded camera count prior to disconnection">
+              <span className="font-mono text-slate-500 dark:text-slate-400 font-semibold text-[11px]">
+                {item.kamera_online} / {item.total_kamera} Online
+              </span>
+              <span className="text-[9px] font-sans px-1.5 py-0.5 rounded bg-slate-200/80 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-medium">
+                Last
+              </span>
+            </div>
+          );
         }
         const isConnected = item.cpu_dvr === "Connected";
         const isAllUp = isConnected && item.kamera_online === item.total_kamera && item.total_kamera > 0;
@@ -337,18 +350,25 @@ export default function DVRRecordingPage() {
       defaultSortOrder: "asc",
       cell: (item) => {
         const isOffline = item.status === "Offline";
-        if (isOffline) {
-          return (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold font-mono border bg-rose-50 dark:bg-rose-500/15 text-[#e2445c] border-rose-200/60 dark:border-rose-500/25">
-              <span className="size-1.5 rounded-full bg-[#e2445c]" />
-              <span>Not Recording</span>
-            </span>
-          );
-        }
         const recStr = item.recording_status || "Not Recording";
         const match = recStr.match(/(\d+)\s*\/\s*(\d+)/);
         const recCount = match ? parseInt(match[1], 10) : (recStr.toLowerCase().includes("recording") && !recStr.toLowerCase().includes("not") ? (typeof item.kamera_online === "number" ? item.kamera_online : 0) : 0);
         const totalCount = match ? parseInt(match[2], 10) : item.total_kamera;
+
+        if (isOffline) {
+          const displayLabel = recStr !== "Not Recording" ? recStr : `${recCount || 0}/${totalCount || 4} Recording`;
+          return (
+            <div className="flex items-center justify-center gap-1.5" title="Last recording status prior to gateway disconnection">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold font-mono border bg-slate-100 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 border-slate-300 dark:border-slate-700">
+                <span className="size-1.5 rounded-full bg-slate-400" />
+                <span>{displayLabel}</span>
+              </span>
+              <span className="text-[9px] font-sans px-1.5 py-0.5 rounded bg-slate-200/80 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-medium">
+                Last
+              </span>
+            </div>
+          );
+        }
         const isConnected = item.cpu_dvr === "Connected";
         const isFull = isConnected && recCount === totalCount && totalCount > 0;
         const isPartial = isConnected && recCount > 0 && recCount < totalCount;
@@ -386,8 +406,21 @@ export default function DVRRecordingPage() {
       sortable: true,
       defaultSortOrder: "desc",
       cell: (item) => {
-        if (item.status === "Offline" || typeof item.storage_usage_percent !== "number") {
+        const isOffline = item.status === "Offline";
+        if (typeof item.storage_usage_percent !== "number") {
           return <span className="font-mono text-slate-400 font-bold text-[11px]">-</span>;
+        }
+        if (isOffline) {
+          return (
+            <div className="flex items-center justify-center gap-1.5" title="Last recorded storage usage prior to disconnection">
+              <div className="opacity-75">
+                <LoadProgressBar percent={item.storage_usage_percent} />
+              </div>
+              <span className="text-[9px] font-sans px-1.5 py-0.5 rounded bg-slate-200/80 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-medium">
+                Last
+              </span>
+            </div>
+          );
         }
         return <LoadProgressBar percent={item.storage_usage_percent} />;
       },
@@ -400,7 +433,7 @@ export default function DVRRecordingPage() {
       defaultSortOrder: "asc",
       cell: (item) => {
         if (item.status === "Offline") {
-          return <StatusBadge status="Critical" variant="critical" />;
+          return <StatusBadge status="Offline" variant="offline" />;
         }
         return (
           <StatusBadge
@@ -506,25 +539,6 @@ export default function DVRRecordingPage() {
             }
           />
         </div>
-
-        {/* Status Filter Indicator */}
-        {statusFilter !== "All Statuses" && (
-          <div className="flex items-center justify-between bg-blue-50/70 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/40 px-3.5 py-2 rounded-xl text-xs shrink-0">
-            <div className="flex items-center gap-2">
-              <span className="text-slate-500 dark:text-slate-400">Filtering table by status:</span>
-              <span className="font-bold text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/50 px-2.5 py-0.5 rounded-full">
-                {statusFilter}
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={() => handleCardFilter("All Statuses")}
-              className="text-blue-500 hover:underline font-semibold cursor-pointer"
-            >
-              Reset Filter (Show All)
-            </button>
-          </div>
-        )}
 
         {/* 3. Filterable & Paginated Daftar Gateway Table (Full Viewport Height) */}
         <DataTable

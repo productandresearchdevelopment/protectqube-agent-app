@@ -107,6 +107,9 @@ const formatIncidentTime = (startStr?: string, endStr?: string) => {
     !endStr ||
     endStr === "-" ||
     endStr.toLowerCase().includes("present") ||
+    endStr.toLowerCase().includes("now") ||
+    endStr.toLowerCase().includes("ongoing") ||
+    endStr.toLowerCase().includes("active") ||
     endStr.toLowerCase().includes("sekarang")
   ) {
     return {
@@ -907,7 +910,7 @@ export const CellularReportDetailCard: React.FC<
       const dStart = new Date(year, mIdx, selectedBarDay, 0, 0, 0);
       const dEnd = new Date(year, mIdx, selectedBarDay, 23, 59, 59, 999);
 
-      return list.filter((ev) => {
+      list = list.filter((ev) => {
         const trimmed = (ev.start_time || "").trim();
         const startMatches =
           trimmed.startsWith(isoPrefix) ||
@@ -931,17 +934,44 @@ export const CellularReportDetailCard: React.FC<
         }
         return false;
       });
+    } else if (selectedEventDate !== "ALL") {
+      list = list.filter((ev) => {
+        const trimmed = (ev.start_time || "").trim();
+        return (
+          trimmed.startsWith(selectedEventDate) ||
+          (ev.date_str && ev.date_str === selectedEventDate)
+        );
+      });
     }
 
-    if (selectedEventDate === "ALL") {
-      return list;
-    }
-    return list.filter((ev) => {
-      const trimmed = (ev.start_time || "").trim();
-      return (
-        trimmed.startsWith(selectedEventDate) ||
-        (ev.date_str && ev.date_str === selectedEventDate)
-      );
+    // Always sort descending: Active first, then latest start_time on top
+    return [...list].sort((a, b) => {
+      const aActive =
+        a.status === "Active" ||
+        a.end_time === "-" ||
+        a.end_time?.toLowerCase().includes("now") ||
+        a.end_time?.toLowerCase().includes("ongoing") ||
+        a.end_time?.toLowerCase().includes("active") ||
+        a.end_time?.toLowerCase().includes("present");
+      const bActive =
+        b.status === "Active" ||
+        b.end_time === "-" ||
+        b.end_time?.toLowerCase().includes("now") ||
+        b.end_time?.toLowerCase().includes("ongoing") ||
+        b.end_time?.toLowerCase().includes("active") ||
+        b.end_time?.toLowerCase().includes("present");
+
+      if (aActive && !bActive) return -1;
+      if (!aActive && bActive) return 1;
+
+      const parseDt = (item: any) => {
+        if (typeof item.epoch === "number") return item.epoch * 1000;
+        const s = (item.start_time || "").trim();
+        const d = new Date(s.replace(" ", "T"));
+        return isNaN(d.getTime()) ? 0 : d.getTime();
+      };
+
+      return parseDt(b) - parseDt(a);
     });
   }, [
     metricMatchedEvents,
@@ -2164,7 +2194,11 @@ export const CellularReportDetailCard: React.FC<
                 <tbody className="divide-y divide-slate-200 dark:divide-slate-800/40 text-[11px]">
                   {filteredEvents.map((event, idx) => {
                     const isStillActive =
+                      event.status === "Active" ||
                       event.end_time === "-" ||
+                      event.end_time?.toLowerCase().includes("now") ||
+                      event.end_time?.toLowerCase().includes("ongoing") ||
+                      event.end_time?.toLowerCase().includes("active") ||
                       event.end_time?.toLowerCase().includes("sekarang") ||
                       event.end_time?.toLowerCase().includes("present");
                     const timeInfo = formatIncidentTime(
