@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import {
   FileSpreadsheet,
   Calendar,
@@ -11,6 +11,7 @@ import {
   Disc,
   Pause,
   AlertCircle,
+  AlertTriangle,
   HardDrive,
   Video,
   X,
@@ -67,6 +68,76 @@ const formatIncidentEn = (text?: string) => {
     .trim();
 };
 
+const cleanIncidentTitle = (text?: string) => {
+  const formatted = formatIncidentEn(text);
+  return formatted
+    .replace(/\s+for\s+\d+h\s*\d+m/gi, "")
+    .replace(/\s+for\s+\d+h/gi, "")
+    .replace(/\s+for\s+\d+m/gi, "")
+    .replace(/\s+for\s+\d+s/gi, "")
+    .trim();
+};
+
+const formatIncidentTime = (startStr?: string, endStr?: string) => {
+  if (!startStr) return { dateStr: "-", timeStr: "-" };
+
+  const sClean = startStr.trim();
+  const sParts = sClean.split(" ");
+  const sDate = sParts[0]; // e.g. "2026-11-12"
+  const sTime = sParts[1] ? sParts[1].slice(0, 5) : ""; // "19:25"
+
+  let startDateLabel = sDate;
+  if (sDate.includes("-")) {
+    const [y, m, d] = sDate.split("-");
+    const mIdx = parseInt(m, 10) - 1;
+    const monthName = MONTH_NAMES[mIdx] || m;
+    startDateLabel = `${parseInt(d, 10)} ${monthName} ${y}`;
+  }
+
+  if (
+    !endStr ||
+    endStr === "-" ||
+    endStr.toLowerCase().includes("present") ||
+    endStr.toLowerCase().includes("now") ||
+    endStr.toLowerCase().includes("ongoing") ||
+    endStr.toLowerCase().includes("active") ||
+    endStr.toLowerCase().includes("sekarang")
+  ) {
+    return {
+      dateStr: startDateLabel,
+      timeStr: sTime ? `${sTime} — Present` : "Present",
+    };
+  }
+
+  const eClean = endStr.trim();
+  const eParts = eClean.split(" ");
+  const eDate = eParts[0];
+  const eTime = eParts[1] ? eParts[1].slice(0, 5) : "";
+
+  let endDateLabel = eDate;
+  if (eDate.includes("-")) {
+    const [y, m, d] = eDate.split("-");
+    const mIdx = parseInt(m, 10) - 1;
+    const monthName = MONTH_NAMES[mIdx] || m;
+    endDateLabel = `${parseInt(d, 10)} ${monthName} ${y}`;
+  }
+
+  if (sDate === eDate) {
+    return {
+      dateStr: startDateLabel,
+      timeStr:
+        sTime && eTime
+          ? `${sTime} — ${eTime}`
+          : `${sTime || "00:00"} — ${eTime || "23:59"}`,
+    };
+  }
+
+  return {
+    dateStr: `${startDateLabel} — ${endDateLabel}`,
+    timeStr: `${sTime} — ${eTime}`,
+  };
+};
+
 const formatMins = (val: number) => {
   if (!val || val === 0) return "0";
   return val % 1 === 0
@@ -91,11 +162,15 @@ const getIncidentScope = (event: any): "cpu_dvr" | "recording" | "both" => {
     m.includes("telemetry stopped") ||
     m.includes("power") ||
     m.includes("mati total") ||
-    m.includes("blackout")
+    m.includes("blackout") ||
+    m.includes("gateway")
   ) {
     return "both";
   }
 
+  // CPU – DVR hardware / link communication loss cascades to recording halt:
+  // When CPU cannot reach DVR over LAN/ISAPI, CCTV recording cannot be verified/written from CPU
+  // Therefore, CPU-DVR outages affect both subsystems simultaneously.
   if (
     m === "cpu_dvr" ||
     m.includes("cpu - dvr") ||
@@ -103,9 +178,10 @@ const getIncidentScope = (event: any): "cpu_dvr" | "recording" | "both" => {
     m.includes("cpu-dvr") ||
     m.includes("dvr communication") ||
     m.includes("port dvr") ||
-    m.includes("isapi")
+    m.includes("isapi") ||
+    m.includes("nvr-cpu")
   ) {
-    return "cpu_dvr";
+    return "both";
   }
   return "recording";
 };
@@ -141,12 +217,23 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
     }
   };
 
-  const handleSelectDay = (day: number | null, dateKey?: string) => {
+  const handleSelectDay = (day: number | null) => {
     setSelectedBarDay((prev) => (prev === day ? null : day));
     if (day === null) {
       setSelectedEventDate("ALL");
-    } else if (dateKey) {
-      setSelectedEventDate(dateKey);
+    } else {
+      setSelectedEventDate(String(day));
+    }
+  };
+
+  const handleDropdownDateChange = (val: string) => {
+    if (val === "ALL") {
+      handleSelectDay(null);
+    } else {
+      const dNum = parseInt(val, 10);
+      if (!isNaN(dNum)) {
+        handleSelectDay(dNum);
+      }
     }
   };
   const [hoveredDay, setHoveredDay] = useState<{
@@ -214,8 +301,8 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
           up = daySla.cpu_dvr_uptime_min ?? daySla.uptime_min ?? obs;
           down = daySla.cpu_dvr_downtime_min ?? daySla.downtime_min ?? 0;
         } else {
-          up = (daySla as any).dvr_uptime_min ?? (daySla as any).recording_uptime_min ?? daySla.uptime_min ?? obs;
-          down = (daySla as any).dvr_downtime_min ?? (daySla as any).recording_downtime_min ?? daySla.downtime_min ?? 0;
+          up = daySla.rec_uptime_min ?? (daySla as any).dvr_uptime_min ?? (daySla as any).recording_uptime_min ?? daySla.uptime_min ?? obs;
+          down = daySla.rec_downtime_min ?? (daySla as any).dvr_downtime_min ?? (daySla as any).recording_downtime_min ?? daySla.downtime_min ?? 0;
         }
 
         if (obs > 0) {
@@ -296,92 +383,108 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
     });
   }, [data?.trouble_events, minActiveDay, periodInfo.endDay, periodInfo.effectiveDays, periodInfo.monthStr]);
 
-  // 2. Extract distinct dates for trouble event filter dropdown
-  const uniqueDates = useMemo(() => {
-    const set = new Set<string>();
-    rangeFilteredEvents.forEach((ev) => {
-      const trimmed = (ev.start_time || "").trim();
-      const isoMatch = trimmed.match(/^(\d{4}-\d{2}-\d{2})/);
-      if (isoMatch) {
-        set.add(isoMatch[1]);
-        return;
-      }
-      const parts = trimmed.split(" ");
-      if (parts.length >= 2) {
-        set.add(`${parts[0]} ${parts[1]}`);
-      }
-    });
-    return Array.from(set);
-  }, [rangeFilteredEvents]);
+  // 2. Filter events matching the active subsystem (CPU-DVR vs Recording) & configured camera channels
+  const metricMatchedEvents = useMemo(() => {
+    const configuredCamIds = new Set(
+      (data?.camera_list || []).map((c: any) => String(c.id || c.channel || "").replace(/\D/g, ""))
+    );
 
-  // 3. Filter trouble events by selected date (timeline bar click or dropdown selection)
-  const filteredEvents = useMemo(() => {
-    if (selectedBarDay !== null) {
-      const dayNumStr = selectedBarDay < 10 ? `0${selectedBarDay}` : `${selectedBarDay}`;
+    return rangeFilteredEvents.filter((ev) => {
+      const scope = getIncidentScope(ev);
+      if (scope !== "both" && scope !== dailyViewMetric) return false;
+
+      // Exclude HDD / Storage Full (normal 24/7 FIFO overwrite operation, does not generate recording downtime)
+      const titleUpper = (ev.title || "").toUpperCase();
+      const causeUpper = (ev.cause || "").toUpperCase();
+      if (titleUpper.includes("STORAGE FULL") || causeUpper.includes("HDD_FULL")) {
+        return false;
+      }
+
+      // Strictly filter out events referencing unconfigured camera channels
+      if (configuredCamIds.size > 0) {
+        const text = `${ev.title || ""} ${ev.description || ""} ${ev.cause || ""}`;
+        const match = text.match(/\b(?:kamera|camera|ch|channel)\s*#?\s*0*(\d+)\b/i);
+        if (match && !configuredCamIds.has(match[1])) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [rangeFilteredEvents, dailyViewMetric, data?.camera_list]);
+
+  // Helper to test if an incident falls on or overlaps a given day number
+  const isEventOnDay = useCallback(
+    (ev: any, day: number): boolean => {
+      const dayNumStr = day < 10 ? `0${day}` : `${day}`;
       const prefix = `${dayNumStr} ${periodInfo.monthStr}`;
-      const mIdx = MONTH_NAMES.findIndex((m) => m.toLowerCase() === periodInfo.monthStr.toLowerCase());
+      const mIdx = MONTH_NAMES.findIndex(
+        (m) => m.toLowerCase() === periodInfo.monthStr.toLowerCase()
+      );
       const mNum = mIdx !== -1 ? String(mIdx + 1).padStart(2, "0") : "11";
       const isoPrefix = `${periodInfo.yearStr}-${mNum}-${dayNumStr}`;
       const year = Number(periodInfo.yearStr) || new Date().getFullYear();
-      const dStart = new Date(year, mIdx, selectedBarDay, 0, 0, 0);
-      const dEnd = new Date(year, mIdx, selectedBarDay, 23, 59, 59, 999);
+      const dStart = new Date(year, mIdx, day, 0, 0, 0);
+      const dEnd = new Date(year, mIdx, day, 23, 59, 59, 999);
 
-      return rangeFilteredEvents.filter((ev) => {
-        const trimmed = (ev.start_time || "").trim();
-        const startMatches = (
-          trimmed.startsWith(isoPrefix) ||
-          trimmed.startsWith(prefix) ||
-          trimmed.startsWith(`${selectedBarDay} ${periodInfo.monthStr}`) ||
-          (ev.date_str && (ev.date_str === isoPrefix || ev.date_str.startsWith(prefix)))
-        );
-        if (startMatches) return true;
-
-        const isStillActive =
-          ev.status === "Active" ||
-          ev.status === "active" ||
-          ev.end_time === "-" ||
-          ev.end_time?.toLowerCase().includes("ongoing") ||
-          ev.end_time?.toLowerCase().includes("present");
-
-        if (isStillActive) {
-          const st = new Date(trimmed.replace(" ", "T"));
-          const now = new Date();
-          if (!isNaN(st.getTime())) {
-            return st.getTime() <= dEnd.getTime() && now.getTime() >= dStart.getTime();
-          }
-        } else if (ev.end_time && ev.end_time !== "-") {
-          const st = new Date(trimmed.replace(" ", "T"));
-          const et = new Date(ev.end_time.trim().replace(" ", "T"));
-          if (!isNaN(st.getTime()) && !isNaN(et.getTime())) {
-            return st.getTime() < dEnd.getTime() && et.getTime() > dStart.getTime();
-          }
-        }
-        return false;
-      });
-    }
-    if (selectedEventDate === "ALL") {
-      return rangeFilteredEvents;
-    }
-    return rangeFilteredEvents.filter((ev) => {
       const trimmed = (ev.start_time || "").trim();
-      return (
-        trimmed.startsWith(selectedEventDate) ||
-        (ev.date_str && ev.date_str === selectedEventDate)
-      );
-    });
-  }, [rangeFilteredEvents, selectedEventDate, selectedBarDay, periodInfo.monthStr, periodInfo.yearStr]);
+      const startMatches =
+        trimmed.startsWith(isoPrefix) ||
+        trimmed.startsWith(prefix) ||
+        trimmed.startsWith(`${day} ${periodInfo.monthStr}`) ||
+        (ev.date_str && (ev.date_str === isoPrefix || ev.date_str.startsWith(prefix)));
 
-  // 4. Filter events according to active subsystem (CPU-DVR vs Recording)
-  const subsystemFilteredEvents = useMemo(() => {
-    return filteredEvents.filter((ev) => {
-      const scope = getIncidentScope(ev);
-      return scope === "both" || scope === dailyViewMetric;
-    });
-  }, [filteredEvents, dailyViewMetric]);
+      if (startMatches) return true;
+
+      const isStillActive =
+        ev.status === "Active" ||
+        ev.status === "active" ||
+        ev.end_time === "-" ||
+        ev.end_time?.toLowerCase().includes("ongoing") ||
+        ev.end_time?.toLowerCase().includes("present");
+
+      if (isStillActive) {
+        const st = new Date(trimmed.replace(" ", "T"));
+        const now = new Date();
+        if (!isNaN(st.getTime())) {
+          return st.getTime() <= dEnd.getTime() && now.getTime() >= dStart.getTime();
+        }
+      } else if (ev.end_time && ev.end_time !== "-") {
+        const st = new Date(trimmed.replace(" ", "T"));
+        const et = new Date(ev.end_time.trim().replace(" ", "T"));
+        if (!isNaN(st.getTime()) && !isNaN(et.getTime())) {
+          return st.getTime() < dEnd.getTime() && et.getTime() > dStart.getTime();
+        }
+      }
+      return false;
+    },
+    [periodInfo.monthStr, periodInfo.yearStr]
+  );
+
+  // 3. Extract distinct date options for trouble event filter dropdown
+  const uniqueDateOptions = useMemo(() => {
+    const list: { day: number; label: string; count: number }[] = [];
+    for (let d = periodInfo.endDay; d >= periodInfo.startDay; d--) {
+      const dayNumStr = d < 10 ? `0${d}` : `${d}`;
+      const label = `${dayNumStr} ${periodInfo.monthStr} ${periodInfo.yearStr}`;
+      const count = metricMatchedEvents.filter((ev) => isEventOnDay(ev, d)).length;
+      if (count > 0 || d === selectedBarDay) {
+        list.push({ day: d, label, count });
+      }
+    }
+    return list;
+  }, [metricMatchedEvents, isEventOnDay, periodInfo.startDay, periodInfo.endDay, periodInfo.monthStr, periodInfo.yearStr, selectedBarDay]);
+
+  // 4. Filter trouble events by selected date (timeline bar click or dropdown selection)
+  const filteredEvents = useMemo(() => {
+    if (selectedBarDay !== null) {
+      return metricMatchedEvents.filter((ev) => isEventOnDay(ev, selectedBarDay));
+    }
+    return metricMatchedEvents;
+  }, [metricMatchedEvents, selectedBarDay, isEventOnDay]);
 
   // 5. Strictly sort descending: Active first on top, followed by newest resolved events
   const sortedEvents = useMemo(() => {
-    return [...subsystemFilteredEvents].sort((a, b) => {
+    return [...filteredEvents].sort((a, b) => {
       const aIsActive =
         a.status === "Active" ||
         a.status === "active" ||
@@ -399,7 +502,7 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
       const bTime = b.epoch || (b.start_time ? new Date(b.start_time.replace(" ", "T")).getTime() : 0);
       return bTime - aTime;
     });
-  }, [subsystemFilteredEvents]);
+  }, [filteredEvents]);
 
   // Filter Rincian SLA to only show active days between minActiveDay and effectiveDays
   const activeDailyBreakdown = useMemo(() => {
@@ -484,9 +587,9 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
       recUptimePct: `${avgRecSr.toFixed(1)}%`,
       recOffline: data?.rec_tidak_merekam || `${Math.floor(totalRecDownMin / 60)}h ${Math.round(totalRecDownMin % 60)}m`,
       recOfflinePct: `${(100.0 - avgRecSr).toFixed(1)}%`,
-      eventsCount: rangeFilteredEvents.length,
+      eventsCount: metricMatchedEvents.length,
     };
-  }, [selectedBarDay, activeDailyBreakdown, filteredEvents, rangeFilteredEvents.length, data, periodInfo.effectivePeriodStr]);
+  }, [selectedBarDay, activeDailyBreakdown, filteredEvents, metricMatchedEvents.length, data, periodInfo.effectivePeriodStr]);
 
   // When a day bar is clicked, filter Rincian SLA to only that day; otherwise show all active days up to today
   const displayedBreakdown = useMemo(() => {
@@ -548,31 +651,64 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
       // Real observation duration from actual telemetry (never hardcoded 1440m)
       const dayObsMin = row.observation_min ?? ((row.uptime_min ?? 0) + (row.downtime_min ?? 0));
       // Durasi online komunikasi DVR pada hari tersebut (durasi DVR aktif dapat merekam)
-      const dvrUpMin = Math.min(dayObsMin, Math.max(0, row.cpu_dvr_uptime_min ?? row.uptime_min ?? dayObsMin));
-      const dvrDownMin = Math.max(0, dayObsMin - dvrUpMin);
+      const dvrDownMin = Math.min(
+        dayObsMin,
+        Math.max(
+          0,
+          row.rec_downtime_min ??
+            row.cpu_dvr_downtime_min ??
+            row.downtime_min ??
+            0
+        )
+      );
+      const dvrUpMin = Math.max(0, dayObsMin - dvrDownMin);
       const dvrRate = dayObsMin > 0 ? (dvrUpMin / dayObsMin) * 100.0 : 0.0;
+
+      // Status historis hari tersebut: jika downtime 0, maka seluruh kamera online merekam (RECORD)
+      const isDayHealthy = dvrDownMin === 0 && dvrRate >= 98.0;
+      const isDayFullyDown = dvrUpMin === 0 || dvrRate === 0.0;
 
       const cams = baseCams.map((c: any, idx: number) => {
         const camId = c.id || String(idx + 1);
         const camName = c.name || `Camera 0${camId}`;
         const resolution = c.resolution || c.resolution_raw || "1080P";
-        const isOnline = c.is_online !== false;
-        const rawStatus = String(c.recording_status || (isOnline ? "RECORD" : "NOT_RECORD")).toUpperCase();
+        const isCamOnline = c.is_online !== false;
 
-        const isRecording = (rawStatus === "RECORD" || rawStatus.includes("REC")) && isOnline;
-
+        let isRecording = false;
         let uptimeMin = 0;
-        let downtimeMin = dayObsMin;
+        let downtimeMin = 0;
         let successRate = 0.0;
 
-        if (isRecording) {
-          uptimeMin = dvrUpMin;
-          downtimeMin = dvrDownMin;
-          successRate = dvrRate;
-        } else {
+        if (isDayHealthy) {
+          if (isCamOnline) {
+            isRecording = true;
+            uptimeMin = dayObsMin;
+            downtimeMin = 0;
+            successRate = 100.0;
+          } else {
+            isRecording = false;
+            uptimeMin = 0;
+            downtimeMin = dayObsMin;
+            successRate = 0.0;
+          }
+        } else if (isDayFullyDown) {
+          isRecording = false;
           uptimeMin = 0;
           downtimeMin = dayObsMin;
           successRate = 0.0;
+        } else {
+          // Hari dengan gangguan parsial
+          if (isCamOnline) {
+            uptimeMin = dvrUpMin;
+            downtimeMin = dvrDownMin;
+            successRate = dvrRate;
+            isRecording = dvrRate >= 98.0;
+          } else {
+            uptimeMin = 0;
+            downtimeMin = dayObsMin;
+            successRate = 0.0;
+            isRecording = false;
+          }
         }
 
         const isSuccess = successRate >= 98.0;
@@ -583,8 +719,12 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
           channel: `Ch ${camId}`,
           name: camName,
           resolution,
-          isOnline,
-          recordingStatus: isRecording ? "RECORD" : (!isOnline ? "OFFLINE" : "NOT_RECORD"),
+          isOnline: isCamOnline,
+          recordingStatus: isRecording
+            ? "RECORD"
+            : !isCamOnline
+            ? "NO VIDEO"
+            : "NOT RECORD",
           observationMin: dayObsMin,
           uptimeMin,
           downtimeMin,
@@ -756,6 +896,23 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
         </div>
       </div>
 
+      {/* CPU - NVR Disconnected Notice Banner */}
+      {((d as any).cpu_dvr_status === "Not Connected" || (d as any).is_last_known) && (
+        <div className="p-3 rounded-xl bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs text-amber-800 dark:text-amber-200 animate-in fade-in duration-200">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="size-4 shrink-0 text-amber-600 dark:text-amber-400" />
+            <span>
+              <strong>CPU to NVR Disconnected</strong> (Port 80 ISAPI timeout / unreachable). Storage, HDD capacity, and camera channels represent the <strong>last known recorded state</strong> prior to disconnection.
+            </span>
+          </div>
+          {(d as any).last_connected_at && (
+            <span className="font-mono text-[11px] text-amber-700 dark:text-amber-300 shrink-0">
+              Last connected: {(d as any).last_connected_at}
+            </span>
+          )}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-3.5 items-stretch">
         <div className="xl:col-span-4 bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 flex flex-col sm:flex-row xl:flex-row gap-4 items-center sm:items-start xl:items-start justify-between shadow-xs">
           <div className="flex flex-col items-center justify-center shrink-0 pt-1">
@@ -787,7 +944,14 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
               </div>
               <div className="grid grid-cols-[100px_1fr] items-center">
                 <span className="text-slate-500 dark:text-slate-400 text-[11px]">HDD Capacity</span>
-                <span className="text-slate-800 dark:text-slate-200 text-[11px] font-medium">: {d.storage_capacity}</span>
+                <span className="text-slate-800 dark:text-slate-200 text-[11px] font-medium">
+                  : {d.storage_capacity}
+                  {(d as any).is_last_known && (
+                    <span className="ml-1 text-[10px] font-normal text-slate-400 font-sans">
+                      (Last)
+                    </span>
+                  )}
+                </span>
               </div>
             </div>
           </div>
@@ -952,6 +1116,11 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
             <div className="mt-2.5">
               <div className="text-sm font-bold text-slate-900 dark:text-white leading-tight">
                 {d.storage_capacity}
+                {(d as any).is_last_known && (
+                  <span className="ml-1 text-[10px] font-normal text-slate-400 font-sans">
+                    (Last)
+                  </span>
+                )}
               </div>
               <div className="flex items-center gap-2 mt-1.5">
                 <div className="flex-1 h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
@@ -1222,7 +1391,7 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
                       key={item.day}
                       onClick={() => {
                         if (item.isFuture) return;
-                        handleSelectDay(item.day, item.dateKey);
+                        handleSelectDay(item.day);
                       }}
                       onMouseEnter={() => !item.isFuture && setHoveredDay(item)}
                       onMouseLeave={() => setHoveredDay(null)}
@@ -1391,7 +1560,7 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
                       return (
                         <tr
                           key={row.day}
-                          onClick={() => handleSelectDay(row.day, `${row.day < 10 ? `0${row.day}` : row.day} ${periodInfo.monthStr}`)}
+                          onClick={() => handleSelectDay(row.day)}
                           className={`transition-colors cursor-pointer ${
                             isSelected
                               ? "bg-blue-500/10 dark:bg-blue-500/20 font-medium"
@@ -1483,24 +1652,21 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
               <div className="flex items-center gap-1.5">
                 <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Filter Date:</span>
                 <select
-                  value={selectedEventDate}
-                  onChange={(e) => setSelectedEventDate(e.target.value)}
+                  value={selectedBarDay !== null ? String(selectedBarDay) : "ALL"}
+                  onChange={(e) => handleDropdownDateChange(e.target.value)}
                   className="text-xs font-medium bg-white dark:bg-[#070e1d] border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer shadow-xs"
                 >
-                  <option value="ALL">All Dates ({rangeFilteredEvents.length})</option>
-                  {uniqueDates.map((dateStr) => {
-                    const count = rangeFilteredEvents.filter((e) => e.start_time.startsWith(dateStr)).length;
-                    return (
-                      <option key={dateStr} value={dateStr}>
-                        {dateStr} ({count} events)
-                      </option>
-                    );
-                  })}
+                  <option value="ALL">All Dates</option>
+                  {uniqueDateOptions.map((opt) => (
+                    <option key={opt.day} value={String(opt.day)}>
+                      {opt.label}
+                    </option>
+                  ))}
                 </select>
-                {selectedEventDate !== "ALL" && (
+                {selectedBarDay !== null && (
                   <button
                     type="button"
-                    onClick={() => setSelectedEventDate("ALL")}
+                    onClick={() => handleSelectDay(null)}
                     className="text-xs text-blue-500 hover:underline font-medium cursor-pointer ml-1"
                   >
                     Reset Filter
@@ -1529,6 +1695,29 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
                       event.end_time === "-" ||
                       event.end_time?.toLowerCase().includes("ongoing") ||
                       event.end_time?.toLowerCase().includes("present");
+
+                    const timeInfo = formatIncidentTime(event.start_time, event.end_time);
+
+                    const isCpuDvrOutage =
+                      (event.metric === "cpu_dvr" ||
+                        (event.description &&
+                          event.description.toLowerCase().includes("cpu to nvr")) ||
+                        (event.title &&
+                          event.title.toLowerCase().includes("cpu to nvr")) ||
+                        (event.description &&
+                          event.description.toLowerCase().includes("nvr-cpu"))) &&
+                      !event.description?.toLowerCase().includes("gateway offline") &&
+                      !event.title?.toLowerCase().includes("gateway offline");
+
+                    let incidentText = cleanIncidentTitle(
+                      event.title || event.description || event.cause || "Incident"
+                    );
+
+                    if (dailyViewMetric === "recording" && isCpuDvrOutage) {
+                      incidentText =
+                        "CCTV Video Recording Halted (Gateway CPU to NVR Communication Lost - [NVR-CPU: TERPUTUS])";
+                    }
+
                     return (
                       <tr
                         key={event.no || idx}
@@ -1539,13 +1728,15 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
                           {idx + 1}
                         </td>
                         <td className={`py-2.5 px-3 text-slate-700 dark:text-slate-300 font-mono whitespace-nowrap align-middle ${sortedEvents.length === 1 ? "py-4" : ""}`}>
-                          <div>{event.start_time}</div>
-                          <div className="text-[10px] text-slate-500 dark:text-slate-400">
-                            to {isStillActive ? "Present" : event.end_time}
+                          <div className="font-semibold text-slate-900 dark:text-white font-sans text-xs">
+                            {timeInfo.dateStr}
+                          </div>
+                          <div className="text-[11px] text-slate-500 dark:text-slate-400 font-mono mt-0.5">
+                            {timeInfo.timeStr}
                           </div>
                         </td>
                         <td className={`py-2.5 px-3 font-semibold text-slate-900 dark:text-slate-100 align-middle ${sortedEvents.length === 1 ? "py-4" : ""}`}>
-                          {formatIncidentEn(event.title || event.description || event.cause)}
+                          {incidentText}
                         </td>
                         <td className={`py-2.5 px-3 text-center whitespace-nowrap align-middle ${sortedEvents.length === 1 ? "py-4" : ""}`}>
                           <span className="inline-flex items-center px-2 py-0.5 rounded-md font-bold text-xs bg-amber-500/10 dark:bg-amber-500/20 text-[#f59e0b] border border-amber-500/30">
@@ -1570,10 +1761,10 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
                     <tr className="h-full" style={{ height: "100%" }}>
                       <td colSpan={5} className="py-8 text-center text-slate-500 dark:text-slate-400 text-xs align-middle h-full">
                         No incident history found for {dailyViewMetric === "cpu_dvr" ? "CPU – DVR" : "CCTV / Recording"} on the selected date.
-                        {selectedEventDate !== "ALL" && (
+                        {selectedBarDay !== null && (
                           <button
                             type="button"
-                            onClick={() => setSelectedEventDate("ALL")}
+                            onClick={() => handleSelectDay(null)}
                             className="block mx-auto mt-1.5 text-blue-500 hover:underline font-semibold cursor-pointer"
                           >
                             Show All Incident History
@@ -1634,12 +1825,23 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
             )}
 
             {/* Overall Camera Status Badge */}
-            {dailyRecordingGroups.length > 0 && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-600 dark:text-[#00c875] border border-emerald-500/30">
-                <span className="size-1.5 rounded-full bg-[#00c875] animate-pulse" />
-                {dailyRecordingGroups[dailyRecordingGroups.length - 1].recordingCount} / {dailyRecordingGroups[dailyRecordingGroups.length - 1].totalCams} Cams Active (Latest)
-              </span>
-            )}
+            {dailyRecordingGroups.length > 0 && (() => {
+              const latestGrp = dailyRecordingGroups[dailyRecordingGroups.length - 1];
+              const isAll = latestGrp.recordingCount === latestGrp.totalCams && latestGrp.totalCams > 0;
+              const isSome = latestGrp.recordingCount > 0;
+              return (
+                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                  isAll
+                    ? "bg-emerald-500/15 text-emerald-600 dark:text-[#00c875] border-emerald-500/30"
+                    : isSome
+                    ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30"
+                    : "bg-rose-500/15 text-rose-600 dark:text-[#e2445c] border-rose-500/30"
+                }`}>
+                  <span className={`size-1.5 rounded-full ${isAll ? "bg-[#00c875] animate-pulse" : isSome ? "bg-amber-500" : "bg-[#e2445c]"}`} />
+                  {latestGrp.recordingCount} / {latestGrp.totalCams} Cams Active (Latest)
+                </span>
+              );
+            })()}
           </div>
         </div>
 
@@ -1695,21 +1897,40 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
                         </div>
                       </td>
                       <td className="py-2.5 px-3 text-center whitespace-nowrap">
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-600 dark:text-[#00c875] border border-emerald-500/30">
-                          <span className="size-1.5 rounded-full bg-[#00c875] animate-pulse" />
-                          {group.recordingCount} / {group.totalCams} Cams Active Recording
+                        <span
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                            group.recordingCount === group.totalCams &&
+                            group.totalCams > 0
+                              ? "bg-emerald-500/15 text-emerald-600 dark:text-[#00c875] border-emerald-500/30"
+                              : group.recordingCount > 0
+                              ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30"
+                              : "bg-rose-500/15 text-rose-600 dark:text-[#e2445c] border-rose-500/30"
+                          }`}
+                        >
+                          <span
+                            className={`size-1.5 rounded-full ${
+                              group.recordingCount === group.totalCams &&
+                              group.totalCams > 0
+                                ? "bg-[#00c875] animate-pulse"
+                                : group.recordingCount > 0
+                                ? "bg-amber-500"
+                                : "bg-[#e2445c]"
+                            }`}
+                          />
+                          {group.recordingCount} / {group.totalCams} Cams Active
+                          Recording
                         </span>
                       </td>
                       <td className="py-2.5 px-3 text-right font-mono text-slate-600 dark:text-slate-300">
-                        {formatMins(group.totalObsMin)}
+                        {formatMins(group.dayObsMin)}
                       </td>
                       <td className="py-2.5 px-3 text-right font-mono text-emerald-600 dark:text-emerald-400 font-semibold">
-                        {formatMins(group.totalUpMin)}
+                        {formatMins(group.avgUpMin)}
                       </td>
                       <td className="py-2.5 px-3 text-right font-mono font-semibold">
-                        {group.totalDownMin > 0 ? (
+                        {group.avgDownMin > 0 ? (
                           <span className="text-rose-600 dark:text-rose-400">
-                            {formatMins(group.totalDownMin)}
+                            {formatMins(group.avgDownMin)}
                           </span>
                         ) : (
                           <span className="text-slate-400">0</span>
@@ -1735,7 +1956,10 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
                     {isExpanded &&
                       group.cams.map((cam) => {
                         const isRec = cam.recordingStatus === "RECORD";
-                        const isOffline = cam.recordingStatus === "OFFLINE";
+                        const isOffline =
+                          cam.recordingStatus === "OFFLINE" ||
+                          cam.recordingStatus === "NO VIDEO" ||
+                          !cam.isOnline;
 
                         return (
                           <tr
@@ -1824,7 +2048,7 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
                   </td>
                   <td className="py-2.5 px-3 text-center">
                     <span className="text-slate-500 dark:text-slate-400 font-normal">
-                      Akumulasi Semua Channel
+                      Channel-Aggregated Total
                     </span>
                   </td>
                   <td className="py-2.5 px-3 text-right font-mono text-slate-700 dark:text-slate-300">

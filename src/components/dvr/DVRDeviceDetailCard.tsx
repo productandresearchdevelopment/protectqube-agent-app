@@ -518,6 +518,7 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
     isOffline ||
     d.cpu_dvr.status === "Not Connected" ||
     d.cpu_dvr.status === "No Response";
+  const isDvrDisconnected = isOffline || isCpuNotConnected || Boolean((d as any).is_last_known);
   const cpuStatusColor = isCpuConnected
     ? "text-emerald-400"
     : isCpuNotConnected
@@ -565,8 +566,9 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
     const onlineCams = d.camera_status?.online ?? 0;
     const totalCams = d.camera_status?.total ?? 0;
 
-    if (!isConn || status === "Critical" || d.cpu_dvr?.status === "Not Connected" || d.cpu_dvr?.status === "No Response") {
-      return "Critical: CPU - NVR communication lost (ISAPI Port 80 timeout / host unreachable). Gateway CPU cannot reach NVR service.";
+    if (!isConn || status === "Critical" || isCpuNotConnected || (d as any).is_last_known) {
+      const lastAt = (d as any).last_connected_at ? ` (Last connected: ${(d as any).last_connected_at})` : "";
+      return `Critical: CPU - NVR communication lost (ISAPI Port 80 timeout / host unreachable). Displaying last known hardware telemetry prior to disconnect${lastAt}.`;
     }
 
     if (status === "Warning" || isNotRecording || badSec > 0 || isHddError) {
@@ -719,6 +721,23 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
         </div>
       )}
 
+      {/* CPU - NVR Disconnected Notice Banner */}
+      {!isOffline && isDvrDisconnected && (
+        <div className="mx-4 sm:mx-5 mt-4 p-3 rounded-xl bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs text-amber-800 dark:text-amber-200 animate-in fade-in duration-200">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="size-4 shrink-0 text-amber-600 dark:text-amber-400" />
+            <span>
+              <strong>CPU to NVR Disconnected</strong> (Port 80 ISAPI timeout / unreachable). Storage, HDD health, and camera previews represent the <strong>last known recorded state</strong> prior to disconnection.
+            </span>
+          </div>
+          {(d as any).last_connected_at && (
+            <span className="font-mono text-[11px] text-amber-700 dark:text-amber-300 shrink-0">
+              Last connected: {(d as any).last_connected_at}
+            </span>
+          )}
+        </div>
+      )}
+
       <div className="p-4 sm:p-5 space-y-4">
         {activeTab === "Overview" && (
           <div className="space-y-4 animate-in fade-in duration-200">
@@ -779,18 +798,18 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                           : isNotRecording
                             ? "Communication between CPU and NVR is established, but CCTV video recording is inactive (0 channels writing to disk). Caused by storage drive failure, continuous recording schedule disabled, or disk storage full."
                             : hasNoVideo || hasOfflineCam
-                              ? `Communication between CPU and NVR and recording engine are operational, but ${d.camera_status.no_video} camera(s) have lost video signal (${troubledCamNames}). Check coaxial/PoE cabling or camera power adapters.`
+                              ? `Communication between CPU and NVR and recording engine are operational, but ${troubledCameras.length || (d.camera_status.no_video || 0) + (d.camera_status.offline || 0)} camera(s) have lost video signal (${troubledCamNames}). Check coaxial/PoE cabling or camera power adapters.`
                               : `Storage drive degradation detected (${badSec} bad sectors, status: ${d.dvr_health.hdd_status}). Potential risk of video write failure.`}
                     </span>
                   </div>
 
                   {/* Numbered Evidence Rows */}
                   <div className="mt-3 space-y-2 text-xs font-mono">
-                    {/* 1. CPU-DVR */}
+                    {/* 1. CPU – DVR Status */}
                     <div className="flex flex-wrap items-center justify-between gap-2 p-2 rounded-lg bg-white/70 dark:bg-[#070e1d]/70 border border-slate-200/70 dark:border-slate-800/70">
                       <div className="flex items-center gap-2">
                         <span className="font-bold text-slate-700 dark:text-slate-300">
-                          1. CPU-DVR :
+                          1. CPU – DVR Status :
                         </span>
                         <span
                           className={`px-2 py-0.5 rounded text-[11px] font-bold ${
@@ -1071,14 +1090,14 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                 <div className="flex items-center justify-around gap-3 my-3">
                   <CircularGauge
                     percent={d.camera_status.percent}
-                    strokeColor={isOffline ? "#64748b" : "#00c875"}
+                    strokeColor={isDvrDisconnected ? "#64748b" : "#00c875"}
                     centerContent={
                       <div className="text-center">
                         <span className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
                           {`${d.camera_status.online}/${d.camera_status.total}`}
                         </span>
                         <div className="text-[8px] text-slate-500 dark:text-slate-400 font-mono -mt-0.5">
-                          {isOffline ? "LAST STATE" : "ONLINE"}
+                          {isDvrDisconnected ? "LAST STATE" : "ONLINE"}
                         </div>
                       </div>
                     }
@@ -1086,14 +1105,14 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
 
                   <div className="text-xs space-y-1.5 font-medium text-slate-700 dark:text-slate-300">
                     <div className="flex items-center gap-2">
-                      <span className={`size-2 rounded-full ${isOffline ? "bg-slate-400" : "bg-emerald-500"}`} />
+                      <span className={`size-2 rounded-full ${isDvrDisconnected ? "bg-slate-400" : "bg-emerald-500"}`} />
                       <span className="text-slate-800 dark:text-slate-200 font-semibold">
                         {`${d.camera_status.online} Online`}
-                        {isOffline && <span className="ml-1 text-[9px] font-normal text-slate-400 font-mono">(Last)</span>}
+                        {isDvrDisconnected && <span className="ml-1 text-[9px] font-normal text-slate-400 font-mono">(Last)</span>}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className={`size-2 rounded-full ${isOffline ? "bg-slate-400" : "bg-amber-500"}`} />
+                      <span className={`size-2 rounded-full ${isDvrDisconnected ? "bg-slate-400" : "bg-amber-500"}`} />
                       <span className="text-slate-700 dark:text-slate-300">
                         {`${d.camera_status.no_video} No Video`}
                       </span>
@@ -1127,14 +1146,14 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                 <div className="flex items-center justify-around gap-3 my-3">
                   <CircularGauge
                     percent={d.recording_storage.percent}
-                    strokeColor={isOffline ? "#64748b" : "#0073ea"}
+                    strokeColor={isDvrDisconnected ? "#64748b" : "#0073ea"}
                     centerContent={
                       <div className="text-center">
                         <span className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">
                           {`${d.recording_storage.percent}%`}
                         </span>
                         <div className="text-[8px] text-slate-500 dark:text-slate-400 font-mono -mt-0.5">
-                          {isOffline ? "LAST STATE" : "STORAGE"}
+                          {isDvrDisconnected ? "LAST STATE" : "STORAGE"}
                         </div>
                       </div>
                     }
@@ -1147,15 +1166,15 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                       </span>
                       <span
                         className={`font-semibold font-sans text-[11px] px-2 py-0.5 rounded-full ${
-                          isOffline
+                          isDvrDisconnected
                             ? "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-300 dark:border-slate-700"
-                            : !isOffline && d.recording_storage.status?.includes("Recording") && !d.recording_storage.status?.startsWith("0/")
+                            : !isDvrDisconnected && d.recording_storage.status?.includes("Recording") && !d.recording_storage.status?.startsWith("0/")
                             ? "bg-emerald-500/15 text-[#00a862] dark:text-emerald-400 border border-emerald-500/30"
                             : "bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30"
                         }`}
                       >
                         {d.recording_storage.status === "Normal" ? "Recording" : d.recording_storage.status}
-                        {isOffline && " (Last)"}
+                        {isDvrDisconnected && " (Last)"}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
@@ -1164,6 +1183,11 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                       </span>
                       <span className="text-slate-800 dark:text-slate-200">
                         {`${d.recording_storage.used_tb} TB / ${d.recording_storage.total_tb} TB`}
+                        {isDvrDisconnected && (
+                          <span className="ml-1 text-[10px] font-normal text-slate-400 font-sans">
+                            (Last)
+                          </span>
+                        )}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
@@ -1220,7 +1244,7 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                     </span>
                     <span
                       className={`font-semibold ${
-                        isOffline
+                        isDvrDisconnected
                           ? "text-slate-500 dark:text-slate-400 font-mono"
                           : d.dvr_health.hdd_status.toLowerCase().includes("error") || d.dvr_health.hdd_status.toLowerCase().includes("fail") || d.dvr_health.hdd_status.toLowerCase().includes("danger")
                           ? "text-rose-500"
@@ -1230,7 +1254,7 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                       }`}
                     >
                       {d.dvr_health.hdd_status.replace(/SMART\s*/gi, "") || "Healthy"}
-                      {isOffline && <span className="ml-1 text-[10px] font-normal text-slate-400 font-sans">(Last)</span>}
+                      {isDvrDisconnected && <span className="ml-1 text-[10px] font-normal text-slate-400 font-sans">(Last)</span>}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
@@ -1239,7 +1263,7 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                     </span>
                     <span className="font-mono text-slate-800 dark:text-slate-200">
                       {d.dvr_health.temperature || "36°C"}
-                      {isOffline && <span className="ml-1 text-[10px] font-normal text-slate-400 font-sans">(Last)</span>}
+                      {isDvrDisconnected && <span className="ml-1 text-[10px] font-normal text-slate-400 font-sans">(Last)</span>}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
@@ -1248,14 +1272,14 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                     </span>
                     <span className="text-slate-800 dark:text-slate-200">
                       {d.dvr_health.fan_status || "Normal"}
-                      {isOffline && <span className="ml-1 text-[10px] font-normal text-slate-400 font-sans">(Last)</span>}
+                      {isDvrDisconnected && <span className="ml-1 text-[10px] font-normal text-slate-400 font-sans">(Last)</span>}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-slate-500 dark:text-slate-400">
                       Bad Sector:
                     </span>
-                    <span className={`font-mono ${!isOffline && d.dvr_health.bad_sector > 0 ? "text-amber-500 font-bold" : "text-slate-800 dark:text-slate-200"}`}>
+                    <span className={`font-mono ${!isDvrDisconnected && d.dvr_health.bad_sector > 0 ? "text-amber-500 font-bold" : "text-slate-800 dark:text-slate-200"}`}>
                       {d.dvr_health.bad_sector ?? 0}
                     </span>
                   </div>
@@ -1546,6 +1570,11 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                 <p className="text-xs text-slate-500">
                   {d.camera_status.online} Online • {d.camera_status.no_video}{" "}
                   No Video • {d.camera_status.offline} Offline
+                  {isOffline && (
+                    <span className="ml-2 font-mono text-[11px] text-amber-600 dark:text-amber-400">
+                      (Last Recorded Snapshot)
+                    </span>
+                  )}
                 </p>
               </div>
               <button
@@ -1553,7 +1582,7 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                 className="px-3 py-1.5 rounded-lg bg-[#0073ea] hover:bg-blue-600 text-xs text-white font-medium flex items-center gap-1.5 cursor-pointer shadow-xs"
               >
                 <Maximize2 className="size-3.5" />
-                <span>Open Live Playback Center</span>
+                <span>{isOffline ? "Open Recorded Playback Center" : "Open Live Playback Center"}</span>
               </button>
             </div>
 

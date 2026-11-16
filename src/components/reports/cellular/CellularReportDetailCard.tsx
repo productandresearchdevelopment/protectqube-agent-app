@@ -2162,17 +2162,11 @@ export const CellularReportDetailCard: React.FC<
                   onChange={(e) => handleDropdownDateChange(e.target.value)}
                   className="text-xs font-medium bg-white dark:bg-[#070e1d] border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer shadow-xs"
                 >
-                  <option value="ALL">
-                    All Dates ({metricMatchedEvents.length})
-                  </option>
+                  <option value="ALL">All Dates</option>
                   {uniqueDates.map((dateStr) => {
-                    const count = metricMatchedEvents.filter((e) =>
-                      e.start_time.startsWith(dateStr),
-                    ).length;
                     return (
                       <option key={dateStr} value={dateStr}>
-                        {dateStr} ({count}{" "}
-                        {count === 1 ? "incident" : "incidents"})
+                        {dateStr}
                       </option>
                     );
                   })}

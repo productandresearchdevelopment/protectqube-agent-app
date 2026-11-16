@@ -300,11 +300,37 @@ export default function CellularConnectivityPage() {
       id: "provider",
       header: "Provider",
       align: "center",
-      cell: (item) => (
-        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/10 text-[#0073ea] border border-blue-500/20">
-          {item.provider}
-        </span>
-      ),
+      cell: (item) => {
+        const isModemDown =
+          item.cpu_modem === "Not Connected" ||
+          item.cpu_modem === "No Response";
+        const rawSim = (item.sim_status || "").toLowerCase();
+        const isSimNotDetected =
+          rawSim.includes("not detected") ||
+          rawSim.includes("no sim") ||
+          rawSim === "not detected";
+
+        if (
+          isModemDown ||
+          isSimNotDetected ||
+          !item.provider ||
+          item.provider === "-" ||
+          item.provider === "No SIM" ||
+          item.provider === "N/A"
+        ) {
+          return (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-500/10 text-slate-400 dark:text-slate-400 border border-slate-500/20">
+              No SIM
+            </span>
+          );
+        }
+
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/10 text-[#0073ea] border border-blue-500/20">
+            {item.provider}
+          </span>
+        );
+      },
     },
     {
       id: "sim_status",
@@ -327,11 +353,7 @@ export default function CellularConnectivityPage() {
         const displayLabel = isNoQuota
           ? "No Quota"
           : isReady
-          ? isOffline
-            ? "Ready (Last)"
-            : "Ready"
-          : isOffline
-          ? "Not Detected (Last)"
+          ? "Ready"
           : "Not Detected";
         return (
           <span

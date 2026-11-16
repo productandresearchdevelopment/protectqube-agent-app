@@ -313,28 +313,36 @@ export default function DVRRecordingPage() {
       defaultSortOrder: "asc",
       cell: (item) => {
         const isOffline = item.status === "Offline";
-        if (typeof item.kamera_online !== "number") {
-          return <span className="font-mono text-slate-400 font-bold text-[11px]">-</span>;
-        }
-        if (isOffline) {
+        const isCpuDvrDown =
+          item.cpu_dvr === "Not Connected" || item.cpu_dvr === "No Response";
+
+        if (isOffline || typeof item.kamera_online !== "number") {
           return (
-            <div className="flex items-center justify-center gap-1.5" title="Last recorded camera count prior to disconnection">
-              <span className="font-mono text-slate-500 dark:text-slate-400 font-semibold text-[11px]">
-                {item.kamera_online} / {item.total_kamera} Online
-              </span>
-              <span className="text-[9px] font-sans px-1.5 py-0.5 rounded bg-slate-200/80 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-medium">
-                Last
-              </span>
-            </div>
+            <span className="font-mono text-slate-400 font-bold text-[11px]">
+              -
+            </span>
           );
         }
-        const isConnected = item.cpu_dvr === "Connected";
-        const isAllUp = isConnected && item.kamera_online === item.total_kamera && item.total_kamera > 0;
-        const isZero = item.kamera_online === 0 || !isConnected;
+
+        if (isCpuDvrDown) {
+          return (
+            <span className="font-mono font-bold text-[11px] text-[#e2445c]">
+              0 / {item.total_kamera || 4} Online
+            </span>
+          );
+        }
+
+        const isAllUp =
+          item.kamera_online === item.total_kamera && item.total_kamera > 0;
+        const isZero = item.kamera_online === 0;
         return (
           <span
             className={`font-mono font-bold text-[11px] ${
-              isAllUp ? "text-[#00c875]" : isZero ? "text-[#e2445c]" : "text-[#fdab3d]"
+              isAllUp
+                ? "text-[#00c875]"
+                : isZero
+                ? "text-[#e2445c]"
+                : "text-[#fdab3d]"
             }`}
           >
             {item.kamera_online} / {item.total_kamera} Online
@@ -350,29 +358,44 @@ export default function DVRRecordingPage() {
       defaultSortOrder: "asc",
       cell: (item) => {
         const isOffline = item.status === "Offline";
-        const recStr = item.recording_status || "Not Recording";
-        const match = recStr.match(/(\d+)\s*\/\s*(\d+)/);
-        const recCount = match ? parseInt(match[1], 10) : (recStr.toLowerCase().includes("recording") && !recStr.toLowerCase().includes("not") ? (typeof item.kamera_online === "number" ? item.kamera_online : 0) : 0);
-        const totalCount = match ? parseInt(match[2], 10) : item.total_kamera;
+        const isCpuDvrDown =
+          item.cpu_dvr === "Not Connected" || item.cpu_dvr === "No Response";
 
         if (isOffline) {
-          const displayLabel = recStr !== "Not Recording" ? recStr : `${recCount || 0}/${totalCount || 4} Recording`;
           return (
-            <div className="flex items-center justify-center gap-1.5" title="Last recording status prior to gateway disconnection">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold font-mono border bg-slate-100 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 border-slate-300 dark:border-slate-700">
-                <span className="size-1.5 rounded-full bg-slate-400" />
-                <span>{displayLabel}</span>
-              </span>
-              <span className="text-[9px] font-sans px-1.5 py-0.5 rounded bg-slate-200/80 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-medium">
-                Last
-              </span>
-            </div>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold font-mono border bg-slate-500/10 text-slate-400 dark:text-slate-400 border-slate-500/20">
+              <span className="size-1.5 rounded-full bg-slate-400" />
+              <span>Not Recording</span>
+            </span>
           );
         }
-        const isConnected = item.cpu_dvr === "Connected";
-        const isFull = isConnected && recCount === totalCount && totalCount > 0;
-        const isPartial = isConnected && recCount > 0 && recCount < totalCount;
 
+        if (isCpuDvrDown) {
+          return (
+            <span
+              className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold font-mono border bg-rose-50 dark:bg-rose-500/15 text-[#e2445c] border-rose-200/60 dark:border-rose-500/25"
+              title="CPU to NVR communication lost - recording halted"
+            >
+              <span className="size-1.5 rounded-full bg-[#e2445c]" />
+              <span>Not Recording</span>
+            </span>
+          );
+        }
+
+        const recStr = item.recording_status || "Not Recording";
+        const match = recStr.match(/(\d+)\s*\/\s*(\d+)/);
+        const totalCount = match ? parseInt(match[2], 10) : item.total_kamera;
+        const recCount = match
+          ? parseInt(match[1], 10)
+          : recStr.toLowerCase().includes("recording") &&
+            !recStr.toLowerCase().includes("not")
+          ? typeof item.kamera_online === "number"
+            ? item.kamera_online
+            : 0
+          : 0;
+
+        const isFull = recCount === totalCount && totalCount > 0;
+        const isPartial = recCount > 0 && recCount < totalCount;
         const displayLabel = recStr;
 
         return (
@@ -407,19 +430,17 @@ export default function DVRRecordingPage() {
       defaultSortOrder: "desc",
       cell: (item) => {
         const isOffline = item.status === "Offline";
-        if (typeof item.storage_usage_percent !== "number") {
-          return <span className="font-mono text-slate-400 font-bold text-[11px]">-</span>;
-        }
-        if (isOffline) {
+        const isCpuDvrDown =
+          item.cpu_dvr === "Not Connected" || item.cpu_dvr === "No Response";
+        if (
+          isOffline ||
+          isCpuDvrDown ||
+          typeof item.storage_usage_percent !== "number"
+        ) {
           return (
-            <div className="flex items-center justify-center gap-1.5" title="Last recorded storage usage prior to disconnection">
-              <div className="opacity-75">
-                <LoadProgressBar percent={item.storage_usage_percent} />
-              </div>
-              <span className="text-[9px] font-sans px-1.5 py-0.5 rounded bg-slate-200/80 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-medium">
-                Last
-              </span>
-            </div>
+            <span className="font-mono text-slate-400 font-bold text-[11px]">
+              -
+            </span>
           );
         }
         return <LoadProgressBar percent={item.storage_usage_percent} />;

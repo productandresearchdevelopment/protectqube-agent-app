@@ -210,14 +210,28 @@ export default function ReportCellularPage() {
         id: "provider",
         header: "Provider",
         className: "bg-amber-500/[0.025] dark:bg-amber-500/[0.04] w-[110px] max-w-[110px]",
-        cell: (gw) => (
-          <span
-            className="text-slate-800 dark:text-slate-200 font-medium truncate block max-w-[100px]"
-            title={gw.provider}
-          >
-            {gw.provider}
-          </span>
-        ),
+        cell: (gw) => {
+          const isNoSim =
+            !gw.provider ||
+            gw.provider === "-" ||
+            gw.provider === "No SIM" ||
+            gw.provider === "N/A";
+          if (isNoSim) {
+            return (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-500/10 text-slate-400 dark:text-slate-400 border border-slate-500/20">
+                No SIM
+              </span>
+            );
+          }
+          return (
+            <span
+              className="text-slate-800 dark:text-slate-200 font-medium truncate block max-w-[100px]"
+              title={gw.provider}
+            >
+              {gw.provider}
+            </span>
+          );
+        },
       },
       {
         id: "sim_number",

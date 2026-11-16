@@ -1002,11 +1002,11 @@ export const CellularDeviceDetailCard: React.FC<
 
                 {/* Numbered Evidence Rows */}
                 <div className="mt-3 space-y-2 text-xs font-mono">
-                  {/* 1. USB Physical Port Status */}
+                  {/* 1. CPU – Modem Status */}
                   <div className="flex flex-wrap items-center justify-between gap-2 p-2 rounded-lg bg-white/70 dark:bg-[#070e1d]/70 border border-slate-200/70 dark:border-slate-800/70">
                     <div className="flex items-center gap-2">
                       <span className="font-bold text-slate-700 dark:text-slate-300">
-                        1. USB Physical Port Status :
+                        1. CPU – Modem Status :
                       </span>
                       <span
                         className={`px-2 py-0.5 rounded text-[11px] font-bold ${
@@ -2130,7 +2130,7 @@ export const CellularDeviceDetailCard: React.FC<
                           </span>
                         </div>
                         <span className="text-[10px] text-slate-500 dark:text-slate-400">
-                          Last Connected: {lastConnectedTimeStr}
+                          Last Data Connected : {lastConnectedTimeStr}
                         </span>
                       </div>
                     ) : (
@@ -2193,7 +2193,7 @@ export const CellularDeviceDetailCard: React.FC<
                       </div>
                       {isPreDisconnect && (
                         <span className="text-[10px] text-slate-500 dark:text-slate-400">
-                          Last Connected: {lastConnectedTimeStr}
+                          Last Data Connected : {lastConnectedTimeStr}
                         </span>
                       )}
                     </div>

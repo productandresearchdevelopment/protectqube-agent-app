@@ -82,6 +82,58 @@ const formatIncidentEn = (text?: string) => {
     .trim();
 };
 
+const formatIncidentTime = (startStr?: string, endStr?: string) => {
+  if (!startStr) return { dateStr: "-", timeStr: "-" };
+
+  const sClean = startStr.trim();
+  const sParts = sClean.split(" ");
+  const sDate = sParts[0]; // e.g. "2026-11-15" or "15"
+  const sTime = sParts[1] ? sParts[1].slice(0, 5) : ""; // "23:00"
+
+  let startDateLabel = sDate;
+  if (sDate.includes("-")) {
+    const [y, m, d] = sDate.split("-");
+    const mIdx = parseInt(m, 10) - 1;
+    const monthName = MONTH_NAMES[mIdx] || m;
+    startDateLabel = `${parseInt(d, 10)} ${monthName} ${y}`;
+  }
+
+  if (
+    !endStr ||
+    endStr === "-" ||
+    endStr.toLowerCase().includes("present") ||
+    endStr.toLowerCase().includes("now") ||
+    endStr.toLowerCase().includes("ongoing") ||
+    endStr.toLowerCase().includes("active") ||
+    endStr.toLowerCase().includes("sekarang")
+  ) {
+    return {
+      dateStr: startDateLabel,
+      timeStr: sTime ? `${sTime} — Present` : "Present",
+    };
+  }
+
+  const eClean = endStr.trim();
+  const eParts = eClean.split(" ");
+  const eTime = eParts[1] ? eParts[1].slice(0, 5) : "";
+  return {
+    dateStr: startDateLabel,
+    timeStr: sTime ? `${sTime} — ${eTime || eClean}` : eClean,
+  };
+};
+
+const isSystemIncident = (ev: any) => {
+  const text = `${ev.metric || ""} ${ev.category || ""} ${ev.title || ""} ${ev.description || ""} ${ev.cause || ""}`.toLowerCase();
+  if (
+    ["camera", "kamera", "nvr", "dvr", "cctv", "recording", "merekam", "modem", "cellular", "seluler", "sim:", "signal", "rsrp", "csq"].some((k) =>
+      text.includes(k)
+    )
+  ) {
+    return false;
+  }
+  return true;
+};
+
 interface HealthReportDetailCardProps {
   gatewayId: string | null;
   dateRange?: string;
@@ -142,7 +194,10 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
     }
   };
 
-  const rawEvents = data?.events || [];
+  const rawEvents = useMemo(
+    () => (data?.events || []).filter(isSystemIncident),
+    [data?.events],
+  );
 
   const periodInfo = useMemo(() => {
     return parseReportPeriod(data?.period || dateRange);
@@ -788,6 +843,10 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
 
   const d = data;
   const isWhite = (d.type || "").includes("Putih");
+  const isOffline =
+    (d.status || "").toLowerCase() === "offline" ||
+    Boolean((d as any).is_offline) ||
+    Boolean((d as any).is_last_known);
 
   // Dynamic Period Calculation
   const periodHoursStr = slaCalc.periodHoursStr;
@@ -811,8 +870,14 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
           <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white tracking-tight">
             Detail Device &ndash; {d.location || d.id}
           </h2>
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#00c875]/20 text-[#00a862] dark:text-[#00c875] border border-[#00c875]/30">
-            {d.status}
+          <span
+            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+              isOffline
+                ? "bg-rose-500/15 text-[#e2445c] border border-rose-500/30"
+                : "bg-[#00c875]/20 text-[#00a862] dark:text-[#00c875] border border-[#00c875]/30"
+            }`}
+          >
+            {isOffline ? "Offline" : d.status}
           </span>
         </div>
 
@@ -847,6 +912,23 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
           )}
         </div>
       </div>
+
+      {/* Offline Notice Banner */}
+      {isOffline && (
+        <div className="p-3 rounded-xl bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs text-amber-800 dark:text-amber-200 animate-in fade-in duration-200">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="size-4 shrink-0 text-amber-600 dark:text-amber-400" />
+            <span>
+              <strong>Gateway Device is Offline</strong> (Disconnected / Unreachable). SBC hardware performance metrics (CPU, RAM, Storage, Temperature) represent the <strong>last recorded state</strong> prior to disconnection.
+            </span>
+          </div>
+          {(d as any).last_update && (
+            <span className="font-mono text-[11px] text-amber-700 dark:text-amber-300 shrink-0">
+              Last telemetry: {(d as any).last_update}
+            </span>
+          )}
+        </div>
+      )}
 
       {/* 2. Top Section: Device Profile & 7 Metric Cards + 3 Line Charts */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-3.5 items-stretch">
@@ -927,9 +1009,9 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
 
         {/* Right Column (xl:col-span-9): 7 KPI Cards & 3 Realtime Trend Charts */}
         <div className="xl:col-span-9 space-y-3 flex flex-col justify-between">
-          {/* Top Sub-row: 5 Hardware Health KPI Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
-            {/* Card 1: Periode & Total Waktu */}
+          {/* Top Sub-row: 8 Executive Scorecard Cards in 4 Columns x 2 Rows */}
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-2.5">
+            {/* Row 1, Card 1: Period */}
             <div className="bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-2.5 flex flex-col justify-between shadow-xs">
               <div className="flex items-center gap-1.5">
                 <div className="size-5 rounded bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-slate-700 dark:text-slate-300">
@@ -951,7 +1033,73 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
               </div>
             </div>
 
-            {/* Card 2: Average CPU */}
+            {/* Row 1, Card 2: Device Uptime */}
+            <div className="bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-2.5 flex flex-col justify-between shadow-xs">
+              <div className="flex items-center gap-1.5">
+                <div className="size-5 rounded bg-emerald-500/15 flex items-center justify-center text-[#00a862] dark:text-[#00c875]">
+                  <Activity className="size-3" />
+                </div>
+                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate">
+                  Device Uptime
+                </span>
+              </div>
+              <div className="mt-2">
+                <div className="text-xs font-bold text-[#00a862] dark:text-[#00c875] leading-tight">
+                  {displayedSummary
+                    ? `${Math.floor(displayedSummary.totalUptime / 60)}h ${Math.round(displayedSummary.totalUptime % 60).toString().padStart(2, "0")}m`
+                    : (d.uptime_duration || "0h 00m")}
+                </div>
+                <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                  Target {d.sla_target_hours || "99.5%"}
+                </div>
+              </div>
+            </div>
+
+            {/* Row 1, Card 3: Device Downtime */}
+            <div className="bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-2.5 flex flex-col justify-between shadow-xs">
+              <div className="flex items-center gap-1.5">
+                <div className="size-5 rounded bg-rose-500/15 flex items-center justify-center text-[#e2445c]">
+                  <Clock className="size-3" />
+                </div>
+                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate">
+                  Device Downtime
+                </span>
+              </div>
+              <div className="mt-2">
+                <div className="text-xs font-bold text-[#e2445c] leading-tight">
+                  {displayedSummary
+                    ? `${Math.floor(displayedSummary.totalDowntime / 60)}h ${Math.round(displayedSummary.totalDowntime % 60).toString().padStart(2, "0")}m`
+                    : (d.downtime_duration || "0m")}
+                </div>
+                <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                  Allowed {d.sla_downtime_allowed || "3h 43m"}
+                </div>
+              </div>
+            </div>
+
+            {/* Row 1, Card 4: Device Success Rate */}
+            <div className="bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-2.5 flex flex-col justify-between shadow-xs">
+              <div className="flex items-center gap-1.5">
+                <div className="size-5 rounded bg-blue-500/15 flex items-center justify-center text-[#0073ea] dark:text-[#00d2ff]">
+                  <CheckCircle2 className="size-3" />
+                </div>
+                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate">
+                  Device Success Rate
+                </span>
+              </div>
+              <div className="mt-2">
+                <div className="text-xs font-bold text-[#0073ea] dark:text-[#00d2ff] leading-tight">
+                  {displayedSummary
+                    ? `${displayedSummary.avgSuccessRate}%`
+                    : (d.uptime_pct || "100%")}
+                </div>
+                <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                  {(displayedSummary ? displayedSummary.avgSuccessRate >= 98.0 : d.sla_status === "Met") ? "SLA Met" : "SLA Breach"} (Target {d.sla_target || 99.5}%)
+                </div>
+              </div>
+            </div>
+
+            {/* Row 2, Card 5: Average CPU */}
             <div className="bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-2.5 flex flex-col justify-between shadow-xs">
               <div className="flex items-center gap-1.5">
                 <div className="size-5 rounded bg-rose-500/15 flex items-center justify-center text-[#e2445c]">
@@ -963,15 +1111,16 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
               </div>
               <div className="mt-2">
                 <div className="text-xs font-bold text-[#e2445c] leading-tight">
-                  {d.cpu_avg}%
+                  {dayStats?.isDaySelected ? `${dayStats.cpuAvg}%` : `${d.cpu_avg}%`}
+                  {isOffline && <span className="ml-1 text-[9px] font-normal text-slate-400 font-mono">(Last)</span>}
                 </div>
                 <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
-                  Max {d.cpu_max}%
+                  Max {dayStats?.isDaySelected ? dayStats.cpuMax : d.cpu_max}%
                 </div>
               </div>
             </div>
 
-            {/* Card 3: Average RAM */}
+            {/* Row 2, Card 6: Average RAM */}
             <div className="bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-2.5 flex flex-col justify-between shadow-xs">
               <div className="flex items-center gap-1.5">
                 <div className="size-5 rounded bg-emerald-500/15 flex items-center justify-center text-[#00a862] dark:text-[#00c875]">
@@ -983,15 +1132,16 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
               </div>
               <div className="mt-2">
                 <div className="text-xs font-bold text-[#00a862] dark:text-[#00c875] leading-tight">
-                  {d.ram_avg}%
+                  {dayStats?.isDaySelected ? `${dayStats.ramAvg}%` : `${d.ram_avg}%`}
+                  {isOffline && <span className="ml-1 text-[9px] font-normal text-slate-400 font-mono">(Last)</span>}
                 </div>
                 <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
-                  Max {d.ram_max}%
+                  Max {dayStats?.isDaySelected ? dayStats.ramMax : d.ram_max}%
                 </div>
               </div>
             </div>
 
-            {/* Card 4: Storage Usage */}
+            {/* Row 2, Card 7: Storage Usage */}
             <div className="bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-2.5 flex flex-col justify-between shadow-xs">
               <div className="flex items-center gap-1.5">
                 <div className="size-5 rounded bg-amber-500/15 flex items-center justify-center text-amber-600 dark:text-[#f59e0b]">
@@ -1003,15 +1153,16 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
               </div>
               <div className="mt-2">
                 <div className="text-xs font-bold text-amber-600 dark:text-[#f59e0b] leading-tight">
-                  {d.sd_avg}%
+                  {dayStats?.isDaySelected ? `${dayStats.sdAvg}%` : `${d.sd_avg}%`}
+                  {isOffline && <span className="ml-1 text-[9px] font-normal text-slate-400 font-mono">(Last)</span>}
                 </div>
                 <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
-                  Peak {d.sd_max}%
+                  Peak {dayStats?.isDaySelected ? dayStats.sdMax : d.sd_max}%
                 </div>
               </div>
             </div>
 
-            {/* Card 5: Storage Health & Temp */}
+            {/* Row 2, Card 8: Storage Health & Temp */}
             <div className="bg-slate-50/70 dark:bg-[#0a1224] border border-slate-200 dark:border-slate-800/80 rounded-xl p-2.5 flex flex-col justify-between shadow-xs">
               <div className="flex items-center gap-1.5">
                 <div className="size-5 rounded bg-blue-500/15 flex items-center justify-center text-blue-600 dark:text-[#00d2ff]">
@@ -1036,6 +1187,7 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
                     ? "Warning"
                     : d.sd_health_status}{" "}
                   ({d.sd_life_pct}%)
+                  {isOffline && <span className="ml-1 text-[9px] font-normal text-slate-400 font-mono">(Last)</span>}
                 </div>
                 <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
                   {d.temp_avg}°C (Peak {d.temp_max}°C)
@@ -1454,7 +1606,7 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
                   <tr className="text-[11px] text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800/60 font-semibold h-8">
                     <th className="py-2 px-2 text-center w-8">No.</th>
                     <th className="py-2 px-3">Incident Time</th>
-                    <th className="py-2 px-3">Incident / Disturbance</th>
+                    <th className="py-2 px-3">Incident / Issue</th>
                     <th className="py-2 px-3 text-center">Duration</th>
                     <th className="py-2 px-3 text-center">Status</th>
                   </tr>
@@ -1462,9 +1614,17 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
                 <tbody className="divide-y divide-slate-200 dark:divide-slate-800/40 text-[11px]">
                   {filteredEvents.map((event: any, idx: number) => {
                     const isStillActive =
+                      event.status === "Active" ||
+                      event.status === "active" ||
                       event.end_time === "-" ||
                       event.end_time?.toLowerCase().includes("sekarang") ||
-                      event.end_time?.toLowerCase().includes("now");
+                      event.end_time?.toLowerCase().includes("now") ||
+                      event.end_time?.toLowerCase().includes("ongoing") ||
+                      event.end_time?.toLowerCase().includes("present");
+                    const timeInfo = formatIncidentTime(
+                      event.start_time,
+                      event.end_time,
+                    );
                     return (
                       <tr
                         key={event.no || idx}
@@ -1474,9 +1634,11 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
                           {idx + 1}
                         </td>
                         <td className="py-2 px-3 text-slate-700 dark:text-slate-300 font-mono whitespace-nowrap align-middle">
-                          <div>{event.start_time}</div>
-                          <div className="text-[10px] text-slate-500 dark:text-slate-400">
-                            to {event.end_time}
+                          <div className="font-semibold text-slate-900 dark:text-white font-sans text-xs">
+                            {timeInfo.dateStr}
+                          </div>
+                          <div className="text-[11px] text-slate-500 dark:text-slate-400 font-mono mt-0.5">
+                            {timeInfo.timeStr}
                           </div>
                         </td>
                         <td className="py-2 px-3 font-semibold text-slate-900 dark:text-slate-100 align-middle">
@@ -1491,11 +1653,11 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
                         </td>
                         <td className="py-2 px-3 text-center whitespace-nowrap align-middle">
                           {isStillActive ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/15 text-[#e2445c] border border-rose-500/30 animate-pulse">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/15 text-[#e2445c] border border-rose-500/30">
                               Active
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-[#00c875] border border-emerald-500/30">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-[#00c875] border border-emerald-500/30">
                               Resolved
                             </span>
                           )}
