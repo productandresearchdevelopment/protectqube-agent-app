@@ -1899,26 +1899,43 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
                       <td className="py-2.5 px-3 text-center whitespace-nowrap">
                         <span
                           className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
-                            group.recordingCount === group.totalCams &&
-                            group.totalCams > 0
+                            group.isToday
+                              ? group.recordingCount === group.totalCams && group.totalCams > 0
+                                ? "bg-emerald-500/15 text-emerald-600 dark:text-[#00c875] border-emerald-500/30"
+                                : group.recordingCount > 0
+                                ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30"
+                                : "bg-rose-500/15 text-rose-600 dark:text-[#e2445c] border-rose-500/30"
+                              : group.avgDownMin === 0 || group.avgRate >= 98.0
                               ? "bg-emerald-500/15 text-emerald-600 dark:text-[#00c875] border-emerald-500/30"
-                              : group.recordingCount > 0
+                              : group.avgUpMin > 0
                               ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30"
                               : "bg-rose-500/15 text-rose-600 dark:text-[#e2445c] border-rose-500/30"
                           }`}
                         >
                           <span
                             className={`size-1.5 rounded-full ${
-                              group.recordingCount === group.totalCams &&
-                              group.totalCams > 0
-                                ? "bg-[#00c875] animate-pulse"
-                                : group.recordingCount > 0
+                              group.isToday
+                                ? group.recordingCount === group.totalCams && group.totalCams > 0
+                                  ? "bg-[#00c875] animate-pulse"
+                                  : group.recordingCount > 0
+                                  ? "bg-amber-500"
+                                  : "bg-[#e2445c]"
+                                : group.avgDownMin === 0 || group.avgRate >= 98.0
+                                ? "bg-[#00c875]"
+                                : group.avgUpMin > 0
                                 ? "bg-amber-500"
                                 : "bg-[#e2445c]"
                             }`}
                           />
-                          {group.recordingCount} / {group.totalCams} Cams Active
-                          Recording
+                          {group.isToday
+                            ? group.recordingCount === 0
+                              ? `0 / ${group.totalCams} Cams Active (Recording Stopped)`
+                              : `${group.recordingCount} / ${group.totalCams} Cams Active Recording`
+                            : group.avgDownMin === 0 || group.avgRate >= 98.0
+                            ? `All ${group.totalCams} Cams Normal Recording`
+                            : group.avgUpMin > 0
+                            ? `Recording Interrupted (${formatMins(group.avgDownMin)} Downtime)`
+                            : `All ${group.totalCams} Cams Not Recorded`}
                         </span>
                       </td>
                       <td className="py-2.5 px-3 text-right font-mono text-slate-600 dark:text-slate-300">
@@ -1981,20 +1998,25 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
                               </div>
                             </td>
                             <td className="py-2 px-3 text-center whitespace-nowrap">
-                              {isRec ? (
+                              {cam.downtimeMin === 0 || cam.successRate >= 98.0 ? (
                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-600 dark:text-[#00c875] border border-emerald-500/30">
                                   <span className="size-1.5 rounded-full bg-[#00c875] animate-pulse" />
-                                  <span>RECORD</span>
+                                  <span>RECORD (NORMAL)</span>
                                 </span>
-                              ) : isOffline ? (
+                              ) : cam.uptimeMin > 0 ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/15 text-amber-600 dark:text-[#fdab3d] border border-amber-500/30">
+                                  <span className="size-1.5 rounded-full bg-[#fdab3d]" />
+                                  <span>PARTIAL ({cam.successRate.toFixed(1)}%)</span>
+                                </span>
+                              ) : !cam.isOnline ? (
                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/15 text-rose-600 dark:text-[#e2445c] border border-rose-500/30">
                                   <span className="size-1.5 rounded-full bg-[#e2445c]" />
                                   <span>NO VIDEO</span>
                                 </span>
                               ) : (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/15 text-amber-600 dark:text-[#fdab3d] border border-amber-500/30">
-                                  <span className="size-1.5 rounded-full bg-[#fdab3d]" />
-                                  <span>NOT RECORD</span>
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/15 text-rose-600 dark:text-[#e2445c] border border-rose-500/30">
+                                  <span className="size-1.5 rounded-full bg-[#e2445c]" />
+                                  <span>NOT RECORD (OUTAGE)</span>
                                 </span>
                               )}
                             </td>
