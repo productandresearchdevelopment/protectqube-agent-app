@@ -20,6 +20,13 @@ import {
   RefreshCw,
   Zap,
   TrendingUp,
+  Calendar,
+  Search,
+  Download,
+  Copy,
+  Check,
+  FileText,
+  Filter,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -34,6 +41,9 @@ import {
 import {
   useCellularGatewayDetail,
   ICellularGatewayDetailData,
+  useGatewaySystemLogs,
+  downloadGatewaySystemLogsUrl,
+  downloadReportFile,
 } from "@/store/api/monitoring";
 import { formatToWIB } from "@/utils/common";
 import { MONTH_NAMES } from "@/lib/reportPeriodUtils";
@@ -426,6 +436,7 @@ export const CellularDeviceDetailCard: React.FC<
     | "Modem & SIM"
     | "Signal & Network"
     | "Event Log"
+    | "System Logs"
   >("Overview");
 
   // Fetch telemetry detail for selected gateway from FastAPI
@@ -434,6 +445,47 @@ export const CellularDeviceDetailCard: React.FC<
   const [eventFilter, setEventFilter] = useState<"all" | "today" | "week">(
     "all",
   );
+
+  // System Logs Tab State
+  const [logDate, setLogDate] = useState<string>(() => {
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, "0");
+    const dd = String(now.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  });
+  const [logSearch, setLogSearch] = useState<string>("");
+  const [logLevel, setLogLevel] = useState<string>("ALL");
+  const [isDownloadingLog, setIsDownloadingLog] = useState<boolean>(false);
+  const [copiedLog, setCopiedLog] = useState<boolean>(false);
+
+  const { data: systemLogsData, isLoading: isLogsLoading } = useGatewaySystemLogs(
+    gatewayId,
+    logDate,
+    logSearch,
+    logLevel,
+  );
+
+  const handleDownloadLog = async () => {
+    if (!gatewayId) return;
+    try {
+      setIsDownloadingLog(true);
+      const url = downloadGatewaySystemLogsUrl(gatewayId, logDate, logSearch, logLevel);
+      const filename = `SystemLog_${gatewayId}_${logDate}.log`;
+      await downloadReportFile(url, filename);
+    } catch (err) {
+      console.error("Failed to download system log:", err);
+    } finally {
+      setIsDownloadingLog(false);
+    }
+  };
+
+  const handleCopyLogs = () => {
+    if (!systemLogsData?.raw_text) return;
+    navigator.clipboard.writeText(systemLogsData.raw_text);
+    setCopiedLog(true);
+    setTimeout(() => setCopiedLog(false), 2000);
+  };
 
   useEffect(() => {
     setSelectedSignalDate("");
@@ -773,12 +825,14 @@ export const CellularDeviceDetailCard: React.FC<
     | "Modem & SIM"
     | "Signal & Network"
     | "Event Log"
+    | "System Logs"
   > = [
     "Overview",
     "CPU – Modem",
     "Modem & SIM",
     "Signal & Network",
     "Event Log",
+    "System Logs",
   ];
 
   const isWhiteDevice = d.type.includes("Putih");
@@ -2604,6 +2658,230 @@ export const CellularDeviceDetailCard: React.FC<
                 ) : (
                   <div className="py-4 text-center text-slate-400 text-xs">
                     No telemetry activity history recorded for this gateway yet.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================= */}
+        {/* TAB 6: SYSTEM LOGS (MINUTE-BY-MINUTE TELEMETRY LOGS) */}
+        {/* ========================================================= */}
+        {activeTab === "System Logs" && (
+          <div className="space-y-4 animate-in fade-in duration-200">
+            <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-3.5">
+              {/* Header Controls: Date Picker, Quick Buttons, Search, Level Filter, Actions */}
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-3 border-b border-slate-200/80 dark:border-slate-800/80">
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex items-center gap-1.5 font-bold text-xs text-slate-900 dark:text-white mr-1">
+                    <Terminal className="size-4 text-[#0073ea] shrink-0" />
+                    <span>Per-Minute System Logs</span>
+                  </div>
+
+                  {/* Setting Harinya (Date Picker) */}
+                  <div className="flex items-center gap-1.5 bg-white dark:bg-[#070e1d] border border-slate-300 dark:border-slate-700/80 rounded-lg px-2.5 py-1 shadow-2xs">
+                    <Calendar className="size-3.5 text-blue-500 shrink-0" />
+                    <input
+                      type="date"
+                      value={logDate}
+                      onChange={(e) => setLogDate(e.target.value)}
+                      className="bg-transparent text-xs font-semibold text-slate-800 dark:text-slate-100 outline-none cursor-pointer"
+                      title="Pilih tanggal log sistem"
+                    />
+                  </div>
+
+                  {/* Quick Date Switchers */}
+                  <div className="flex items-center gap-1 bg-slate-200/70 dark:bg-slate-800/80 p-0.5 rounded-lg text-xs font-medium">
+                    <button
+                      onClick={() => {
+                        const now = new Date();
+                        const yyyy = now.getFullYear();
+                        const mm = String(now.getMonth() + 1).padStart(2, "0");
+                        const dd = String(now.getDate()).padStart(2, "0");
+                        setLogDate(`${yyyy}-${mm}-${dd}`);
+                      }}
+                      className={`px-2.5 py-1 rounded-md text-[11px] transition-all ${
+                        logDate === new Date().toISOString().split("T")[0]
+                          ? "bg-white dark:bg-[#070e1d] text-blue-600 dark:text-blue-400 font-bold shadow-2xs"
+                          : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                      }`}
+                    >
+                      Today
+                    </button>
+                    <button
+                      onClick={() => {
+                        const yesterday = new Date();
+                        yesterday.setDate(yesterday.getDate() - 1);
+                        const yyyy = yesterday.getFullYear();
+                        const mm = String(yesterday.getMonth() + 1).padStart(2, "0");
+                        const dd = String(yesterday.getDate()).padStart(2, "0");
+                        setLogDate(`${yyyy}-${mm}-${dd}`);
+                      }}
+                      className="px-2.5 py-1 rounded-md text-[11px] text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all"
+                    >
+                      Yesterday
+                    </button>
+                  </div>
+                </div>
+
+                {/* Right Controls: Search, Level Filter, Download, Copy */}
+                <div className="flex flex-wrap items-center gap-2">
+                  {/* Search Filter */}
+                  <div className="relative min-w-[200px] max-w-[280px]">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Filter keyword (MODEM, SIM, ALERT)..."
+                      value={logSearch}
+                      onChange={(e) => setLogSearch(e.target.value)}
+                      className="w-full pl-7.5 pr-2.5 py-1 text-xs rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#070e1d] text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                    {logSearch && (
+                      <button
+                        onClick={() => setLogSearch("")}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-[10px]"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Level Filter */}
+                  <div className="flex items-center gap-1 bg-slate-200/70 dark:bg-slate-800/80 p-0.5 rounded-lg text-xs font-medium">
+                    {["ALL", "INFO", "WARN"].map((lvl) => (
+                      <button
+                        key={lvl}
+                        onClick={() => setLogLevel(lvl)}
+                        className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-all ${
+                          logLevel === lvl
+                            ? "bg-white dark:bg-[#070e1d] text-blue-600 dark:text-blue-400 shadow-2xs"
+                            : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                        }`}
+                      >
+                        {lvl}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Copy Button */}
+                  <button
+                    onClick={handleCopyLogs}
+                    disabled={!systemLogsData?.logs?.length}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-40 transition-colors shadow-2xs cursor-pointer"
+                    title="Salin seluruh log ke clipboard"
+                  >
+                    {copiedLog ? (
+                      <>
+                        <Check className="size-3.5 text-emerald-500" />
+                        <span className="text-emerald-500 text-[11px]">Copied</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="size-3.5" />
+                        <span className="text-[11px]">Copy All</span>
+                      </>
+                    )}
+                  </button>
+
+                  {/* Download Button */}
+                  <button
+                    onClick={handleDownloadLog}
+                    disabled={isDownloadingLog || !systemLogsData?.logs?.length}
+                    className="flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-semibold bg-[#0073ea] hover:bg-[#0060c0] text-white disabled:opacity-50 transition-colors shadow-2xs cursor-pointer"
+                    title="Download file .log mentah harian"
+                  >
+                    <Download className="size-3.5" />
+                    <span className="text-[11px]">
+                      {isDownloadingLog ? "Downloading..." : "Download .log"}
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Status Header Meta */}
+              <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 px-1">
+                <div className="flex items-center gap-2">
+                  <span>
+                    Gateway: <strong className="text-slate-900 dark:text-white font-mono">{gatewayId}</strong>
+                  </span>
+                  <span>•</span>
+                  <span>
+                    Tanggal: <strong className="text-slate-900 dark:text-white font-mono">{logDate}</strong>
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {isLogsLoading ? (
+                    <span className="text-blue-500 flex items-center gap-1 font-mono text-[11px]">
+                      <RefreshCw className="size-3 animate-spin" /> Memuat data log...
+                    </span>
+                  ) : (
+                    <span className="font-mono text-[11px]">
+                      Total: <strong className="text-slate-900 dark:text-white">{systemLogsData?.total_logs ?? 0}</strong> baris log
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Terminal Console Log Viewer */}
+              <div className="relative rounded-xl border border-slate-800 bg-[#060c18] p-3.5 shadow-inner">
+                {isLogsLoading ? (
+                  <div className="py-12 flex flex-col items-center justify-center gap-2 text-slate-400">
+                    <RefreshCw className="size-5 animate-spin text-blue-500" />
+                    <span className="text-xs font-mono">Mengambil data telemetri dari database...</span>
+                  </div>
+                ) : systemLogsData && systemLogsData.logs && systemLogsData.logs.length > 0 ? (
+                  <div className="max-h-[480px] overflow-y-auto space-y-1 font-mono text-[11px] leading-relaxed pr-2 select-text">
+                    {systemLogsData.logs.map((item, idx) => {
+                      const isWarn = item.level === "WARN" || item.level === "WARNING" || item.is_alert;
+                      const isError = item.level === "ERROR" || item.level === "CRITICAL";
+
+                      return (
+                        <div
+                          key={idx}
+                          className={`flex items-start gap-2.5 py-1 px-2 rounded hover:bg-slate-800/40 transition-colors ${
+                            isError
+                              ? "bg-rose-500/10 text-rose-300 border-l-2 border-rose-500"
+                              : isWarn
+                              ? "bg-amber-500/10 text-amber-200 border-l-2 border-amber-500"
+                              : "text-slate-300 border-l-2 border-transparent"
+                          }`}
+                        >
+                          {/* Line number */}
+                          <span className="w-8 shrink-0 text-slate-600 select-none text-[10px] text-right font-mono">
+                            {idx + 1}
+                          </span>
+
+                          {/* Level badge */}
+                          <span
+                            className={`px-1.5 py-0.2 rounded text-[9px] font-bold shrink-0 tracking-wider uppercase ${
+                              isError
+                                ? "bg-rose-500 text-white"
+                                : isWarn
+                                ? "bg-amber-500 text-slate-950 font-black"
+                                : "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                            }`}
+                          >
+                            {item.level || "INFO"}
+                          </span>
+
+                          {/* Raw Log Message */}
+                          <span className="flex-1 break-all whitespace-pre-wrap font-mono">
+                            {item.message}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="py-12 text-center text-slate-400 space-y-2">
+                    <FileText className="size-8 mx-auto text-slate-600" />
+                    <p className="text-xs">
+                      Tidak ada rekaman log sistem untuk tanggal <strong className="text-slate-200 font-mono">{logDate}</strong> pada gateway ini.
+                    </p>
+                    <p className="text-[11px] text-slate-500">
+                      Coba ganti pilihan tanggal ke hari saat gateway aktif (misal tanggal hari ini atau sebelumnya).
+                    </p>
                   </div>
                 )}
               </div>

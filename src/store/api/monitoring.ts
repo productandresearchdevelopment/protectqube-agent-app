@@ -1612,6 +1612,78 @@ export const useCellularGatewayDetail = (gatewayId: string | null) => {
   });
 };
 
+export interface IGatewaySystemLogItem {
+  timestamp: string;
+  level: "INFO" | "WARN" | "ERROR" | string;
+  message: string;
+  is_alert: boolean;
+}
+
+export interface IGatewaySystemLogsData {
+  gateway_id: string;
+  device_uuid?: string;
+  location?: string;
+  date: string;
+  total_logs: number;
+  logs: IGatewaySystemLogItem[];
+  raw_text: string;
+}
+
+export const fetchGatewaySystemLogs = async (
+  gatewayId: string,
+  date?: string,
+  search?: string,
+  level?: string,
+): Promise<IGatewaySystemLogsData> => {
+  const token = getToken();
+  const headers: HeadersInit = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const params = new URLSearchParams();
+  if (date) params.append("date", date);
+  if (search) params.append("search", search);
+  if (level && level !== "ALL") params.append("level", level);
+
+  const url = `${API_BASE_URL}/monitoring/cellular/gateway/${encodeURIComponent(gatewayId)}/system-logs?${params.toString()}`;
+  const response = await fetch(url, { headers, cache: "no-store" });
+  if (!response.ok) {
+    await handleFetchError(response);
+  }
+  const json = await response.json();
+  return json.data;
+};
+
+export const useGatewaySystemLogs = (
+  gatewayId: string | null,
+  date?: string,
+  search?: string,
+  level?: string,
+) => {
+  return useQuery({
+    queryKey: ["gatewaySystemLogs", gatewayId, date, search, level],
+    queryFn: () =>
+      gatewayId
+        ? fetchGatewaySystemLogs(gatewayId, date, search, level)
+        : null,
+    enabled: Boolean(gatewayId),
+    refetchInterval: 15000,
+  });
+};
+
+export const downloadGatewaySystemLogsUrl = (
+  gatewayId: string,
+  date?: string,
+  search?: string,
+  level?: string,
+): string => {
+  const params = new URLSearchParams();
+  if (date) params.append("date", date);
+  if (search) params.append("search", search);
+  if (level && level !== "ALL") params.append("level", level);
+  params.append("download", "true");
+  return `${API_BASE_URL}/monitoring/cellular/gateway/${encodeURIComponent(gatewayId)}/system-logs?${params.toString()}`;
+};
+
 export interface ICPUDVRDetail {
   status: string;
   message: string;
