@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useCellularDashboard, ICellularGatewayItem } from "@/store/api/monitoring";
 import { formatToWIB } from "@/utils/common";
@@ -14,6 +14,7 @@ import {
   DeviceTypeBadge,
   IFilterConfig,
   TypeFilterDropdown,
+  ClientFilterDropdown,
 } from "@/components/ui";
 import { CellularDeviceDetailCard } from "@/components/cellular/CellularDeviceDetailCard";
 import {
@@ -140,6 +141,7 @@ function getSignalQuality(rsrpStr: string): {
 export default function CellularConnectivityPage() {
   const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState("");
+  const [clientFilter, setClientFilter] = useState("All Clients");
   const [typeFilter, setTypeFilter] = useState("All Types");
   const [statusFilter, setStatusFilter] = useState("All Statuses");
   const [currentPage, setCurrentPage] = useState(1);
@@ -171,6 +173,25 @@ export default function CellularConnectivityPage() {
   const gateways = dashboard?.gateways || [];
   const pagination = dashboard?.pagination;
 
+  const clientOptions = useMemo(() => {
+    return Array.from(
+      new Set(
+        gateways
+          .map((g) => g.customer || g.client_name)
+          .filter((c): c is string => Boolean(c && c !== "-"))
+      )
+    );
+  }, [gateways]);
+
+  const displayedGateways = useMemo(() => {
+    if (!clientFilter || clientFilter === "All Clients") return gateways;
+    return gateways.filter(
+      (g) =>
+        (g.customer || "").toLowerCase() === clientFilter.toLowerCase() ||
+        (g.client_name || "").toLowerCase() === clientFilter.toLowerCase()
+    );
+  }, [gateways, clientFilter]);
+
   const toggleSelectAll = () => {
     if (selectedGateways.length === gateways.length) {
       setSelectedGateways([]);
@@ -200,6 +221,23 @@ export default function CellularConnectivityPage() {
       setStatusFilter("All Statuses");
     } else {
       setStatusFilter(statusVal);
+    }
+    setCurrentPage(1);
+  };
+
+  const handleTypeCardFilter = (typeVal: string) => {
+    const isCurrent =
+      (typeVal === "SmartBox Hitam" &&
+        (typeFilter.toLowerCase().includes("hitam") ||
+          typeFilter.toLowerCase().includes("black"))) ||
+      (typeVal === "SmartBox Putih" &&
+        (typeFilter.toLowerCase().includes("putih") ||
+          typeFilter.toLowerCase().includes("white")));
+
+    if (isCurrent) {
+      setTypeFilter("All Types");
+    } else {
+      setTypeFilter(typeVal);
     }
     setCurrentPage(1);
   };
@@ -520,13 +558,23 @@ export default function CellularConnectivityPage() {
           }}
           searchPlaceholder="Search Gateway ID or Location..."
           actions={
-            <TypeFilterDropdown
-              value={typeFilter}
-              onChange={(val) => {
-                setTypeFilter(val);
-                setCurrentPage(1);
-              }}
-            />
+            <div className="flex items-center gap-2">
+              <ClientFilterDropdown
+                value={clientFilter}
+                onChange={(val) => {
+                  setClientFilter(val);
+                  setCurrentPage(1);
+                }}
+                options={clientOptions}
+              />
+              <TypeFilterDropdown
+                value={typeFilter}
+                onChange={(val) => {
+                  setTypeFilter(val);
+                  setCurrentPage(1);
+                }}
+              />
+            </div>
           }
         />
       }
@@ -567,6 +615,11 @@ export default function CellularConnectivityPage() {
             value={hitamTotal}
             deviceType="hitam"
             color="slate"
+            onClick={() => handleTypeCardFilter("SmartBox Hitam")}
+            active={
+              typeFilter.toLowerCase().includes("hitam") ||
+              typeFilter.toLowerCase().includes("black")
+            }
             breakdown={{
               healthy: hitamOnline,
               warning: hitamWarning,
@@ -579,6 +632,11 @@ export default function CellularConnectivityPage() {
             value={putihTotal}
             deviceType="putih"
             color="slate"
+            onClick={() => handleTypeCardFilter("SmartBox Putih")}
+            active={
+              typeFilter.toLowerCase().includes("putih") ||
+              typeFilter.toLowerCase().includes("white")
+            }
             breakdown={{
               healthy: putihOnline,
               warning: putihWarning,
@@ -589,7 +647,7 @@ export default function CellularConnectivityPage() {
 
         {/* 3. Filterable & Paginated Daftar Gateway Table (Full Viewport Height) */}
         <DataTable
-          data={gateways}
+          data={displayedGateways}
           columns={columns}
           keyField="id"
           enableSelection

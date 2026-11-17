@@ -399,6 +399,7 @@ export interface IDVRGatewayItem {
   location: string;
   type: string;
   dvr_model: string;
+  has_dvr?: boolean;
   status?: string;
   is_offline?: boolean;
   cpu_dvr: string;
@@ -407,7 +408,7 @@ export interface IDVRGatewayItem {
   kamera_no_video: number | string;
   kamera_offline: number | string;
   recording_status: string;
-  storage_usage_percent: number | string;
+  storage_usage_percent: number | string | null;
   dvr_health: string;
   last_update: string;
 }
@@ -416,6 +417,7 @@ export interface IDVRDashboardData {
   summary: IDVRSummary;
   charts: IDVRCharts;
   gateways: IDVRGatewayItem[];
+  client_options?: string[];
   pagination: {
     total_items: number;
     total_pages: number;
@@ -430,6 +432,7 @@ export interface IDVRFilters {
   search?: string;
   type?: string;
   status?: string;
+  client?: string;
   page?: number;
   pageSize?: number;
   sortBy?: string | null;
@@ -457,6 +460,12 @@ export const fetchDVRDashboard = async (
     !filters.status.startsWith("All")
   )
     params.append("status", filters.status);
+  if (
+    filters?.client &&
+    !filters.client.startsWith("Semua") &&
+    !filters.client.startsWith("All")
+  )
+    params.append("client", filters.client);
   if (filters?.page) params.append("page", String(filters.page));
   if (filters?.pageSize) params.append("page_size", String(filters.pageSize));
   if (filters?.sortBy) params.append("sort_by", filters.sortBy);
@@ -1629,6 +1638,7 @@ export interface IDVRGatewayDetailData {
   type: string;
   model: string;
   dvr_model: string;
+  has_dvr?: boolean;
   ip_address: string;
   last_update: string;
   status?: string;

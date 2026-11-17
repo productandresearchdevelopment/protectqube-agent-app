@@ -513,30 +513,42 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
   const isWhiteDevice = d.type.includes("Putih");
   const isOffline = (d.status || "").toLowerCase() === "offline" || (d.service_status || "").toLowerCase() === "stopped" || Boolean((d as any).is_offline);
 
-  const isCpuConnected = !isOffline && d.cpu_dvr.status === "Connected";
+  const isNoDvr = d.has_dvr === false || d.cpu_dvr?.status === "Not Installed" || d.dvr_model === "Not Installed";
+
+  const isCpuConnected = !isOffline && !isNoDvr && d.cpu_dvr.status === "Connected";
   const isCpuNotConnected =
-    isOffline ||
-    d.cpu_dvr.status === "Not Connected" ||
-    d.cpu_dvr.status === "No Response";
-  const isDvrDisconnected = isOffline || isCpuNotConnected || Boolean((d as any).is_last_known);
-  const cpuStatusColor = isCpuConnected
+    !isNoDvr && (
+      isOffline ||
+      d.cpu_dvr.status === "Not Connected" ||
+      d.cpu_dvr.status === "No Response"
+    );
+  const isDvrDisconnected = !isNoDvr && (isOffline || isCpuNotConnected || Boolean((d as any).is_last_known));
+  const cpuStatusColor = isNoDvr
+    ? "text-slate-400 dark:text-slate-500"
+    : isCpuConnected
     ? "text-emerald-400"
     : isCpuNotConnected
       ? "text-rose-500"
       : "text-amber-400";
-  const CpuIcon = isCpuConnected
+  const CpuIcon = isNoDvr
+    ? Server
+    : isCpuConnected
     ? CheckCircle2
     : isCpuNotConnected
       ? AlertTriangle
       : AlertCircle;
 
-  const isHealthGood = !isOffline && d.dvr_health.status === "Good";
-  const healthColor = isHealthGood
+  const isHealthGood = !isOffline && !isNoDvr && d.dvr_health.status === "Good";
+  const healthColor = isNoDvr
+    ? "text-slate-400 dark:text-slate-500"
+    : isHealthGood
     ? "text-emerald-400"
     : (!isOffline && d.dvr_health.status === "Warning")
       ? "text-amber-400"
       : "text-rose-500";
-  const HealthIcon = isHealthGood
+  const HealthIcon = isNoDvr
+    ? ShieldCheck
+    : isHealthGood
     ? CheckCircle2
     : (!isOffline && d.dvr_health.status === "Warning")
       ? AlertTriangle
@@ -553,6 +565,9 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
   });
 
   const getHealthExplanation = () => {
+    if (isNoDvr) {
+      return "Standalone Gateway: No DVR/NVR unit installed. Device operates normally in standalone telemetry mode.";
+    }
     if (isOffline) {
       return "Offline Notice: Gateway is disconnected (> 1 hour without telemetry). Displaying the last recorded NVR telemetry, cameras, and recording condition prior to outage.";
     }
@@ -721,8 +736,23 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
         </div>
       )}
 
+      {/* Standalone Gateway / No DVR Banner */}
+      {isNoDvr && (
+        <div className="mx-4 sm:mx-5 mt-4 p-3.5 rounded-xl bg-slate-100/80 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 flex items-center justify-between gap-2.5 text-xs text-slate-700 dark:text-slate-300 animate-in fade-in duration-200">
+          <div className="flex items-center gap-2.5">
+            <Info className="size-4 shrink-0 text-slate-500 dark:text-slate-400" />
+            <span>
+              <strong>Standalone Gateway (No DVR Installed)</strong>: This device operates without a surveillance DVR/NVR unit installed. Gateway connectivity and telemetry operate normally without video recording requirements.
+            </span>
+          </div>
+          <span className="px-2.5 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 shrink-0">
+            NOT INSTALLED
+          </span>
+        </div>
+      )}
+
       {/* CPU - NVR Disconnected Notice Banner */}
-      {!isOffline && isDvrDisconnected && (
+      {!isOffline && !isNoDvr && isDvrDisconnected && (
         <div className="mx-4 sm:mx-5 mt-4 p-3 rounded-xl bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs text-amber-800 dark:text-amber-200 animate-in fade-in duration-200">
           <div className="flex items-center gap-2">
             <AlertTriangle className="size-4 shrink-0 text-amber-600 dark:text-amber-400" />
@@ -746,16 +776,20 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
               const recStatus = d.recording_storage?.status || "";
               const isNotRecording = recStatus === "Not Recording" || recStatus.startsWith("0/") || recStatus.includes("Stopped") || recStatus.includes("Inactive") || (d as any).recording_info?.is_recording === false;
               const badSec = Number(d.dvr_health?.bad_sector || 0);
-              const hasNoVideo = (d.camera_status?.no_video ?? 0) > 0;
-              const hasOfflineCam = (d.camera_status?.offline ?? 0) > 0;
+
+              // Strictly limit cameras to configured channels so dummy uninstalled ports (e.g. Ch 3, 4 on a 2-cam DVR) don't trigger false alarms
+              const configuredTotal = d.camera_status?.total || (d as any).total_kamera || d.cameras?.length || 0;
+              const activeCameras = d.cameras ? d.cameras.slice(0, configuredTotal) : [];
+
+              const noVideoCameras = activeCameras.filter((c) => c.status === "No Video" || (c.status === "Offline" && isCpuConnected));
+              const noVideoCamNames = noVideoCameras.map((c) => c.name || `CH${c.channel}`).join(", ");
+              const notRecordingCameras = activeCameras.filter((c) => !c.is_recording);
+              const hasNoVideo = noVideoCameras.length > 0;
               const hddSmart = (d.dvr_health?.hdd_status || "").toLowerCase();
               const isHddAlert = hddSmart.includes("error") || hddSmart.includes("fail") || hddSmart.includes("danger") || badSec > 0;
-              const hasTrouble = isOffline || isCpuNotConnected || isNotRecording || hasNoVideo || hasOfflineCam || isHddAlert;
+              const hasTrouble = isOffline || isCpuNotConnected || isNotRecording || hasNoVideo || isHddAlert;
 
-              if (!hasTrouble) return null;
-
-              const troubledCameras = d.cameras?.filter((c) => c.status === "No Video" || c.status === "Offline" || !c.is_recording) || [];
-              const troubledCamNames = troubledCameras.map((c) => c.name || `CH${c.channel}`).join(", ");
+              if (isNoDvr || !hasTrouble) return null;
 
               return (
                 <div className="p-4 rounded-xl border shadow-xs transition-all bg-rose-500/5 border-rose-500/30 dark:bg-rose-950/20">
@@ -780,7 +814,7 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                             ? "[ STATUS: CPU – DVR DISCONNECTED ]"
                             : isNotRecording
                               ? "[ STATUS: NOT RECORDING ]"
-                              : hasNoVideo || hasOfflineCam
+                              : hasNoVideo
                                 ? "[ STATUS: CAMERA NO VIDEO ]"
                                 : "[ STATUS: STORAGE HDD DEGRADED ]"}
                       </span>
@@ -797,8 +831,8 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                           ? "Gateway CPU online & operating normally, but physical / IP link to NVR is disconnected (Host unreachable / Port 80 ISAPI timeout). Verify RJ45 LAN cable between Gateway CPU and NVR, or ensure NVR power adapter is active."
                           : isNotRecording
                             ? "Communication between CPU and NVR is established, but CCTV video recording is inactive (0 channels writing to disk). Caused by storage drive failure, continuous recording schedule disabled, or disk storage full."
-                            : hasNoVideo || hasOfflineCam
-                              ? `Communication between CPU and NVR and recording engine are operational, but ${troubledCameras.length || (d.camera_status.no_video || 0) + (d.camera_status.offline || 0)} camera(s) have lost video signal (${troubledCamNames}). Check coaxial/PoE cabling or camera power adapters.`
+                            : hasNoVideo
+                              ? `Communication between CPU and NVR and recording engine are operational, but ${noVideoCameras.length} camera(s) have lost video signal (${noVideoCamNames}). Check coaxial/PoE cabling or camera power adapters.`
                               : `Storage drive degradation detected (${badSec} bad sectors, status: ${d.dvr_health.hdd_status}). Potential risk of video write failure.`}
                     </span>
                   </div>
@@ -843,7 +877,7 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                         </span>
                       </div>
                       <span className="text-[11px] text-slate-500 dark:text-slate-400 font-sans">
-                        (Status: {d.recording_storage.status} • Active Writing: {d.camera_status.online}/{d.camera_status.total} Channels • Mode: Continuous 24/7 CMR)
+                        (Status: {d.recording_storage.status} • Active Writing: {isNotRecording ? 0 : (activeCameras.length - notRecordingCameras.length)}/{activeCameras.length || d.camera_status.total} Channels • Mode: Continuous 24/7 CMR)
                       </span>
                     </div>
 
@@ -855,20 +889,20 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                         </span>
                         <span
                           className={`px-2 py-0.5 rounded text-[11px] font-bold ${
-                            d.camera_status.no_video === 0 && d.camera_status.offline === 0
+                            noVideoCameras.length === 0
                               ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
                               : "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30"
                           }`}
                         >
-                          {d.camera_status.no_video === 0 && d.camera_status.offline === 0
-                            ? `[ All ${d.camera_status.total} Channels Online ]`
-                            : `[ ${d.camera_status.online} Online • ${d.camera_status.no_video} No Video${d.camera_status.offline > 0 ? ` • ${d.camera_status.offline} Offline` : ""} ]`}
+                          {noVideoCameras.length === 0
+                            ? `[ All ${activeCameras.length || d.camera_status?.total || 0} Channels Online ]`
+                            : `[ ${activeCameras.length - noVideoCameras.length} Online • ${noVideoCameras.length} No Video ]`}
                         </span>
                       </div>
                       <span className="text-[11px] text-slate-500 dark:text-slate-400 font-sans">
-                        {troubledCameras.length > 0
-                          ? `(Impacted: ${troubledCamNames})`
-                          : `(All ${d.camera_status.total} video stream RTSP feeds normal)`}
+                        {noVideoCameras.length > 0
+                          ? `(Impacted: ${noVideoCamNames})`
+                          : `(All ${activeCameras.length || d.camera_status?.total || 0} video stream RTSP feeds normal)`}
                       </span>
                     </div>
 
@@ -1378,15 +1412,27 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 animate-in fade-in duration-200">
-                {currentCameras.map((cam) => (
-                  <CCTVViewport
-                    key={cam.channel}
-                    camera={cam}
-                    onExpand={(c) => setActiveCamModal(c)}
-                  />
-                ))}
-              </div>
+              {isNoDvr || d.cameras.length === 0 ? (
+                <div className="py-12 flex flex-col items-center justify-center text-center text-slate-400 dark:text-slate-500">
+                  <Video className="size-10 mb-2 opacity-35" />
+                  <span className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                    No Camera Channels Configured
+                  </span>
+                  <span className="text-xs text-slate-400 mt-1 max-w-sm">
+                    This device operates in standalone mode without a DVR/NVR surveillance unit installed.
+                  </span>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 animate-in fade-in duration-200">
+                  {currentCameras.map((cam) => (
+                    <CCTVViewport
+                      key={cam.channel}
+                      camera={cam}
+                      onExpand={(c) => setActiveCamModal(c)}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -1560,12 +1606,15 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
           </div>
         )}
 
-        {activeTab === "Cameras" && (
+        {activeTab === "Cameras" && (() => {
+          const cfgTot = d.camera_status?.total || (d as any).total_kamera || d.cameras?.length || 0;
+          const visibleCams = d.cameras ? d.cameras.slice(0, cfgTot) : [];
+          return (
           <div className="space-y-4 animate-in fade-in duration-200">
             <div className="flex items-center justify-between">
               <div>
                 <h4 className="text-sm font-bold text-slate-900 dark:text-white">
-                  All NVR Camera Channels ({d.cameras.length} Channels)
+                  All NVR Camera Channels ({visibleCams.length} Channels)
                 </h4>
                 <p className="text-xs text-slate-500">
                   {d.camera_status.online} Online • {d.camera_status.no_video}{" "}
@@ -1578,7 +1627,7 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                 </p>
               </div>
               <button
-                onClick={() => setActiveCamModal(d.cameras[0])}
+                onClick={() => setActiveCamModal(visibleCams[0] || d.cameras[0])}
                 className="px-3 py-1.5 rounded-lg bg-[#0073ea] hover:bg-blue-600 text-xs text-white font-medium flex items-center gap-1.5 cursor-pointer shadow-xs"
               >
                 <Maximize2 className="size-3.5" />
@@ -1587,7 +1636,7 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-              {d.cameras.map((cam) => (
+              {visibleCams.map((cam) => (
                 <CCTVViewport
                   key={cam.channel}
                   camera={cam}
@@ -1596,7 +1645,8 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
               ))}
             </div>
           </div>
-        )}
+          );
+        })()}
 
         {activeTab === "Recording & Storage" && (
           <div className="space-y-4 animate-in fade-in duration-200">

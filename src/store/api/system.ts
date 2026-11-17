@@ -651,6 +651,7 @@ export interface IConfigDevice {
   is_active: boolean;
   client_id?: string | null;
   client_name?: string | null;
+  has_dvr?: boolean;
   property: Record<string, any>;
   total_cameras?: number | null;
   selected_cameras?: string[] | null;
@@ -736,6 +737,7 @@ export const useUpdateConfigDevice = () => {
         operational_start?: string | null;
         operational_end?: string | null;
         is_active?: boolean;
+        has_dvr?: boolean;
         property?: Record<string, any>;
         total_cameras?: number;
         selected_cameras?: string[];

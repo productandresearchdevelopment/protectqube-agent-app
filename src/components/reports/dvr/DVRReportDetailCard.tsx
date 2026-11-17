@@ -505,15 +505,35 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
   }, [filteredEvents]);
 
   // Filter Rincian SLA to only show active days between minActiveDay and effectiveDays
+  const isNoDvr = (data as any)?.has_dvr === false || data?.dvr_model === "Not Installed" || (data as any)?.kamera_channels === 0;
+
   const activeDailyBreakdown = useMemo(() => {
+    if (isNoDvr) return [];
     const allRows = data?.daily_breakdown || [];
     const minDay = minActiveDay;
     const maxDay = periodInfo.effectiveDays;
     return allRows.filter((row) => row.day >= minDay && row.day <= maxDay);
-  }, [data?.daily_breakdown, minActiveDay, periodInfo.effectiveDays]);
+  }, [data?.daily_breakdown, minActiveDay, periodInfo.effectiveDays, isNoDvr]);
 
   // Dynamic top cards metrics responding to timeline selection / active observation period
   const dvrMetrics = useMemo(() => {
+    if (isNoDvr) {
+      return {
+        periodStr: periodInfo.periodLabel || "Period",
+        periodHoursStr: "Standalone Device",
+        cpuDvrUptime: "N/A",
+        cpuDvrUptimePct: "N/A",
+        cpuDvrOffline: "N/A",
+        cpuDvrOfflinePct: "N/A",
+        successRate: "N/A",
+        successRateChecks: "-",
+        recUptime: "N/A",
+        recUptimePct: "N/A",
+        recOffline: "N/A",
+        recOfflinePct: "N/A",
+        eventsCount: 0,
+      };
+    }
     if (selectedBarDay !== null) {
       const dayRow = activeDailyBreakdown.find((r) => r.day === selectedBarDay);
       const dayEvents = filteredEvents;
@@ -1092,7 +1112,9 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
             <div className="mt-2.5">
               <div
                 className={`text-sm font-bold leading-tight ${
-                  parseFloat(dvrMetrics.recUptimePct || "0") >= 98.0
+                  isNoDvr
+                    ? "text-slate-400 dark:text-slate-500"
+                    : parseFloat(dvrMetrics.recUptimePct || "0") >= 98.0
                     ? "text-[#00c875]"
                     : "text-[#e2445c]"
                 }`}
@@ -1100,7 +1122,7 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
                 {dvrMetrics.recUptimePct}
               </div>
               <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">
-                Target SLA: 98.0%
+                {isNoDvr ? "Target SLA: N/A" : "Target SLA: 98.0%"}
               </div>
             </div>
           </div>
@@ -1115,24 +1137,26 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
             </div>
             <div className="mt-2.5">
               <div className="text-sm font-bold text-slate-900 dark:text-white leading-tight">
-                {d.storage_capacity}
-                {(d as any).is_last_known && (
+                {isNoDvr ? "N/A" : d.storage_capacity}
+                {!isNoDvr && (d as any).is_last_known && (
                   <span className="ml-1 text-[10px] font-normal text-slate-400 font-sans">
                     (Last)
                   </span>
                 )}
               </div>
-              <div className="flex items-center gap-2 mt-1.5">
-                <div className="flex-1 h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
-                  <div
-                    style={{ width: `${d.storage_used_pct}%` }}
-                    className="h-full bg-[#00c875] rounded-full"
-                  />
+              {!isNoDvr && (
+                <div className="flex items-center gap-2 mt-1.5">
+                  <div className="flex-1 h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                    <div
+                      style={{ width: `${d.storage_used_pct}%` }}
+                      className="h-full bg-[#00c875] rounded-full"
+                    />
+                  </div>
+                  <span className="text-[10px] font-mono text-slate-700 dark:text-slate-300 font-bold shrink-0">
+                    {d.storage_used_pct}%
+                  </span>
                 </div>
-                <span className="text-[10px] font-mono text-slate-700 dark:text-slate-300 font-bold shrink-0">
-                  {d.storage_used_pct}%
-                </span>
-              </div>
+              )}
             </div>
           </div>
 
@@ -1146,28 +1170,34 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
             </div>
             <div className="mt-2">
               <div className="text-sm font-bold text-slate-900 dark:text-white leading-tight">
-                {d.kamera_total} Channels
+                {isNoDvr ? "No Camera" : `${d.kamera_total} Channels`}
               </div>
-              <div className="flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-slate-400 mt-1 flex-wrap">
-                <span className="flex items-center gap-1 font-medium">
-                  <span className="size-1.5 rounded-full bg-[#00c875]" />
-                  {d.kamera_online} Online
-                </span>
-                <span>•</span>
-                <span className="flex items-center gap-1 font-medium">
-                  <span className="size-1.5 rounded-full bg-[#f59e0b]" />
-                  {d.kamera_no_video} No Video
-                </span>
-                {d.kamera_offline > 0 && (
-                  <>
-                    <span>•</span>
-                    <span className="flex items-center gap-1 font-medium">
-                      <span className="size-1.5 rounded-full bg-[#e2445c]" />
-                      {d.kamera_offline} Offline
-                    </span>
-                  </>
-                )}
-              </div>
+              {isNoDvr ? (
+                <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">
+                  Not Installed
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-slate-400 mt-1 flex-wrap">
+                  <span className="flex items-center gap-1 font-medium">
+                    <span className="size-1.5 rounded-full bg-[#00c875]" />
+                    {d.kamera_online} Online
+                  </span>
+                  <span>•</span>
+                  <span className="flex items-center gap-1 font-medium">
+                    <span className="size-1.5 rounded-full bg-[#f59e0b]" />
+                    {d.kamera_no_video} No Video
+                  </span>
+                  {d.kamera_offline > 0 && (
+                    <>
+                      <span>•</span>
+                      <span className="flex items-center gap-1 font-medium">
+                        <span className="size-1.5 rounded-full bg-[#e2445c]" />
+                        {d.kamera_offline} Offline
+                      </span>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -2006,7 +2036,7 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
                               ) : cam.uptimeMin > 0 ? (
                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/15 text-amber-600 dark:text-[#fdab3d] border border-amber-500/30">
                                   <span className="size-1.5 rounded-full bg-[#fdab3d]" />
-                                  <span>PARTIAL ({cam.successRate.toFixed(1)}%)</span>
+                                  <span>PARTIAL ({cam.successRate.toFixed(1)}%{group.isToday && !isRec ? " • Inactive Now" : ""})</span>
                                 </span>
                               ) : !cam.isOnline ? (
                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/15 text-rose-600 dark:text-[#e2445c] border border-rose-500/30">

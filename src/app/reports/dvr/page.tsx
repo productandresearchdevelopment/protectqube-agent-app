@@ -15,6 +15,7 @@ import {
   FilterHeader,
   IFilterConfig,
   TypeFilterDropdown,
+  ClientFilterDropdown,
 } from "@/components/ui";
 import { DVRReportDetailCard } from "@/components/reports/dvr/DVRReportDetailCard";
 import { MoreHorizontal, Video } from "lucide-react";
@@ -30,6 +31,7 @@ export default function ReportDVRPage() {
     pageSize: 50,
   });
 
+  const [clientFilter, setClientFilter] = useState("All Clients");
   const [selectedGateways, setSelectedGateways] = useState<string[]>([]);
   const [selectedGatewayId, setSelectedGatewayId] = useState<string | null>(
     null,
@@ -42,6 +44,25 @@ export default function ReportDVRPage() {
 
   const gateways = reportData?.gateways || [];
   const pagination = reportData?.pagination;
+
+  const clientOptions = useMemo(() => {
+    return Array.from(
+      new Set(
+        gateways
+          .map((g) => (g as any).customer || (g as any).client_name)
+          .filter((c): c is string => Boolean(c && c !== "-"))
+      )
+    );
+  }, [gateways]);
+
+  const displayedGateways = useMemo(() => {
+    if (!clientFilter || clientFilter === "All Clients") return gateways;
+    return gateways.filter(
+      (g) =>
+        ((g as any).customer || "").toLowerCase() === clientFilter.toLowerCase() ||
+        ((g as any).client_name || "").toLowerCase() === clientFilter.toLowerCase()
+    );
+  }, [gateways, clientFilter]);
 
   const handleFilterChange = (key: keyof IDVRReportFilters, value: any) => {
     setFilters((prev) => ({
@@ -546,10 +567,17 @@ export default function ReportDVRPage() {
           onSearchChange={(val) => handleFilterChange("search", val)}
           searchPlaceholder="Search Gateway ID / Location..."
           actions={
-            <TypeFilterDropdown
-              value={filters.type || "All Types"}
-              onChange={(val) => handleFilterChange("type", val)}
-            />
+            <div className="flex items-center gap-2">
+              <ClientFilterDropdown
+                value={clientFilter}
+                onChange={(val) => setClientFilter(val)}
+                options={clientOptions}
+              />
+              <TypeFilterDropdown
+                value={filters.type || "All Types"}
+                onChange={(val) => handleFilterChange("type", val)}
+              />
+            </div>
           }
           timeframe={filters.date_range || getCurrentMonthPeriodStr()}
           onDateRangeChange={(range) => handleFilterChange("date_range", range)}
@@ -561,7 +589,7 @@ export default function ReportDVRPage() {
       <div className="w-full flex-1 flex flex-col min-h-0 font-sans transition-colors pb-2">
         {/* 2. Global DataTable with Grouped Multi-Level Telemetry Header */}
         <DataTable
-          data={gateways}
+          data={displayedGateways}
           columns={columns}
           keyField="id"
           enableSelection

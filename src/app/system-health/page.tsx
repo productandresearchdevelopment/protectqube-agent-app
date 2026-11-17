@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useSystemHealthDashboard, IGatewayItem } from "@/store/api/monitoring";
 import { formatToWIB } from "@/utils/common";
@@ -15,6 +15,7 @@ import {
   LoadProgressBar,
   IFilterConfig,
   TypeFilterDropdown,
+  ClientFilterDropdown,
 } from "@/components/ui";
 import { DeviceDetailCard } from "@/components/system-health/DeviceDetailCard";
 import {
@@ -63,6 +64,7 @@ const CustomMetricTooltip = ({ active, payload, label, unit, color }: any) => {
 export default function SystemHealthPage() {
   const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState("");
+  const [clientFilter, setClientFilter] = useState("All Clients");
   const [typeFilter, setTypeFilter] = useState("All Types");
   const [statusFilter, setStatusFilter] = useState("All Statuses");
   const [currentPage, setCurrentPage] = useState(1);
@@ -93,6 +95,25 @@ export default function SystemHealthPage() {
   const charts = dashboard?.charts;
   const gateways = dashboard?.gateways || [];
   const pagination = dashboard?.pagination;
+
+  const clientOptions = useMemo(() => {
+    return Array.from(
+      new Set(
+        gateways
+          .map((g) => g.customer || g.client_name)
+          .filter((c): c is string => Boolean(c && c !== "-"))
+      )
+    );
+  }, [gateways]);
+
+  const displayedGateways = useMemo(() => {
+    if (!clientFilter || clientFilter === "All Clients") return gateways;
+    return gateways.filter(
+      (g) =>
+        (g.customer || "").toLowerCase() === clientFilter.toLowerCase() ||
+        (g.client_name || "").toLowerCase() === clientFilter.toLowerCase()
+    );
+  }, [gateways, clientFilter]);
 
   const toggleSelectAll = () => {
     if (selectedGateways.length === gateways.length) {
@@ -402,13 +423,23 @@ export default function SystemHealthPage() {
           }}
           searchPlaceholder="Search Gateway ID or Location..."
           actions={
-            <TypeFilterDropdown
-              value={typeFilter}
-              onChange={(val) => {
-                setTypeFilter(val);
-                setCurrentPage(1);
-              }}
-            />
+            <div className="flex items-center gap-2">
+              <ClientFilterDropdown
+                value={clientFilter}
+                onChange={(val) => {
+                  setClientFilter(val);
+                  setCurrentPage(1);
+                }}
+                options={clientOptions}
+              />
+              <TypeFilterDropdown
+                value={typeFilter}
+                onChange={(val) => {
+                  setTypeFilter(val);
+                  setCurrentPage(1);
+                }}
+              />
+            </div>
           }
         />
       }
@@ -505,7 +536,7 @@ export default function SystemHealthPage() {
 
         {/* 3. Filterable & Paginated Daftar Gateway Table (Full Viewport Height) */}
         <DataTable
-          data={gateways}
+          data={displayedGateways}
           columns={columns}
           keyField="id"
           enableSelection

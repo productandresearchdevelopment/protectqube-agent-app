@@ -38,7 +38,7 @@ export const DeviceEditModal: React.FC<DeviceEditModalProps> = ({ isOpen, onClos
 	// Fetch fresh device detail to get detected MQTT cameras
 	const { data: deviceDetailResponse, isLoading: loadingDetail } = useConfigDevice(isOpen ? device?.id : null);
 	const freshDevice = deviceDetailResponse?.data || device;
-	const detectedCameras: IDetectedCamera[] = freshDevice?.detected_cameras || [];
+	const detectedCameras: IDetectedCamera[] = freshDevice?.detected_cameras || (device as any)?.detected_cameras || [];
 
 	const [formData, setFormData] = useState({
 		client_id: '',
@@ -49,6 +49,7 @@ export const DeviceEditModal: React.FC<DeviceEditModalProps> = ({ isOpen, onClos
 		total_cameras: 0,
 		selected_cameras: [] as string[],
 		is_active: true,
+		has_dvr: true,
 	});
 
 	useEffect(() => {
@@ -56,6 +57,7 @@ export const DeviceEditModal: React.FC<DeviceEditModalProps> = ({ isOpen, onClos
 			const prop = freshDevice.property || {};
 			const savedSelected = freshDevice.selected_cameras || prop.selected_cameras;
 			const initialTotal = freshDevice.total_cameras ?? prop.total_cameras ?? 0;
+			const rawHasDvr = freshDevice.has_dvr ?? prop.has_dvr;
 
 			let initialSelected: string[] = [];
 			if (Array.isArray(savedSelected) && savedSelected.length > 0) {
@@ -64,6 +66,8 @@ export const DeviceEditModal: React.FC<DeviceEditModalProps> = ({ isOpen, onClos
 				const onlineOnly = detectedCameras.filter((c) => c.is_online).map((c) => String(c.id));
 				initialSelected = onlineOnly.length > 0 ? onlineOnly : detectedCameras.map((c) => String(c.id));
 			}
+
+			const initialHasDvr = rawHasDvr !== undefined ? Boolean(rawHasDvr) : (Number(initialTotal) > 0 || initialSelected.length > 0 || detectedCameras.length > 0);
 
 			setFormData({
 				client_id: freshDevice.client_id || '',
@@ -74,6 +78,7 @@ export const DeviceEditModal: React.FC<DeviceEditModalProps> = ({ isOpen, onClos
 				total_cameras: initialSelected.length > 0 ? initialSelected.length : Number(initialTotal) || 0,
 				selected_cameras: initialSelected,
 				is_active: freshDevice.is_active ?? true,
+				has_dvr: initialHasDvr,
 			});
 		}
 	}, [isOpen, freshDevice?.id, detectedCameras.length]);
@@ -126,8 +131,9 @@ export const DeviceEditModal: React.FC<DeviceEditModalProps> = ({ isOpen, onClos
 					hardware_model: formData.hardware_model.trim() || undefined,
 					operational_start: formData.operational_start.trim() ? formData.operational_start.trim() : null,
 					operational_end: formData.operational_end.trim() ? formData.operational_end.trim() : null,
-					selected_cameras: formData.selected_cameras,
-					total_cameras: formData.selected_cameras.length > 0 ? formData.selected_cameras.length : formData.total_cameras,
+					has_dvr: formData.has_dvr,
+					selected_cameras: formData.has_dvr ? formData.selected_cameras : [],
+					total_cameras: formData.has_dvr ? (formData.selected_cameras.length > 0 ? formData.selected_cameras.length : formData.total_cameras) : 0,
 					is_active: formData.is_active,
 				},
 			});
@@ -269,116 +275,170 @@ export const DeviceEditModal: React.FC<DeviceEditModalProps> = ({ isOpen, onClos
 						</div>
 					</div>
 
-					{/* Camera DVR Selection */}
-					<div className="space-y-2.5">
-						<div className="flex items-center justify-between">
-							<label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
-								<Video className="size-3.5 text-[#0073ea]" />
-								Camera DVR
-							</label>
-							{detectedCameras.length > 0 && (
-								<div className="flex items-center gap-2">
-									<button
-										type="button"
-										onClick={selectAllCameras}
-										className="text-[11px] font-medium text-[#0073ea] hover:underline cursor-pointer"
-									>
-										Pilih Semua ({detectedCameras.length})
-									</button>
-									<span className="text-slate-300 dark:text-slate-700">•</span>
-									<button
-										type="button"
-										onClick={clearAllCameras}
-										className="text-[11px] font-medium text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
-									>
-										Reset
-									</button>
-									<span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-[#0073ea]/10 text-[#0073ea] dark:text-[#3894ff] border border-[#0073ea]/20 ml-1">
-										{formData.selected_cameras.length} Dipilih
-									</span>
+					{/* DVR / Surveillance Unit Status: Installed vs Not Installed */}
+					<div className="flex items-center justify-between p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/60">
+						<div>
+							<div className="flex items-center gap-2">
+								<span className="text-xs font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+									<Video className="size-3.5 text-[#0073ea]" />
+									DVR / Surveillance Unit
+								</span>
+								<span
+									className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
+										formData.has_dvr
+											? 'bg-blue-50 text-[#0073ea] dark:bg-blue-500/15 dark:text-[#3894ff] border border-blue-500/30'
+											: 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border border-slate-300 dark:border-slate-700'
+									}`}
+								>
+									{formData.has_dvr ? 'Installed (With DVR)' : 'Not Installed (No DVR)'}
+								</span>
+							</div>
+							<p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+								{formData.has_dvr
+									? 'Perangkat terhubung dengan NVR/DVR. Status rekaman & kanal kamera akan dimonitor.'
+									: 'Perangkat standalone tanpa DVR. Status DVR akan ditandai Not Installed / N/A tanpa memicu alarm.'}
+							</p>
+						</div>
+
+						<label className="relative inline-flex items-center cursor-pointer">
+							<input
+								type="checkbox"
+								checked={formData.has_dvr}
+								onChange={(e) => {
+									const checked = e.target.checked;
+									setFormData((prev) => ({
+										...prev,
+										has_dvr: checked,
+										selected_cameras: checked ? prev.selected_cameras : [],
+										total_cameras: checked ? prev.total_cameras : 0,
+									}));
+								}}
+								disabled={isPending}
+								className="sr-only peer"
+							/>
+							<div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-[#0073ea]"></div>
+						</label>
+					</div>
+
+					{/* Camera DVR Selection (Only if has_dvr is true) */}
+					{!formData.has_dvr ? (
+						<div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100/50 dark:bg-slate-900/30 text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2.5">
+							<AlertCircle className="size-4 shrink-0 text-slate-400" />
+							<span>
+								Mode <strong>No DVR (Not Installed)</strong> aktif. Perangkat ini tidak akan dihitung dalam gangguan koneksi DVR, channel kamera, atau penalti SLA rekaman.
+							</span>
+						</div>
+					) : (
+						<div className="space-y-2.5">
+							<div className="flex items-center justify-between">
+								<label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
+									<Video className="size-3.5 text-[#0073ea]" />
+									Camera DVR
+								</label>
+								{detectedCameras.length > 0 && (
+									<div className="flex items-center gap-2">
+										<button
+											type="button"
+											onClick={selectAllCameras}
+											className="text-[11px] font-medium text-[#0073ea] hover:underline cursor-pointer"
+										>
+											Pilih Semua ({detectedCameras.length})
+										</button>
+										<span className="text-slate-300 dark:text-slate-700">•</span>
+										<button
+											type="button"
+											onClick={clearAllCameras}
+											className="text-[11px] font-medium text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+										>
+											Reset
+										</button>
+										<span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-[#0073ea]/10 text-[#0073ea] dark:text-[#3894ff] border border-[#0073ea]/20 ml-1">
+											{formData.selected_cameras.length} Dipilih
+										</span>
+									</div>
+								)}
+							</div>
+
+							{/* Detected Cameras Grid */}
+							{loadingDetail && detectedCameras.length === 0 ? (
+								<div className="py-4 flex items-center justify-center gap-2 text-slate-400 text-xs">
+									<Loader2 className="size-4 animate-spin text-[#0073ea]" />
+									<span>Membaca data kanal kamera dari MQTT telemetri...</span>
+								</div>
+							) : detectedCameras.length > 0 ? (
+								<div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+									{detectedCameras.map((cam) => {
+										const isSelected = formData.selected_cameras.includes(String(cam.id));
+										return (
+											<div
+												key={cam.id}
+												onClick={() => toggleCamera(cam.id)}
+												className={`flex items-center justify-between p-3 rounded-xl border text-xs cursor-pointer transition-all ${
+													isSelected
+														? 'bg-[#0073ea]/10 border-[#0073ea]/40 text-[#0073ea] dark:text-[#3894ff] shadow-xs'
+														: 'bg-slate-50/50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-700'
+												}`}
+											>
+												<div className="flex items-center gap-2.5 min-w-0">
+													<div className="shrink-0 text-[#0073ea] dark:text-[#3894ff]">
+														{isSelected ? (
+															<CheckSquare className="size-4.5" />
+														) : (
+															<Square className="size-4.5 text-slate-400" />
+														)}
+													</div>
+													<div className="min-w-0">
+														<div className="font-bold truncate text-[12px] text-slate-900 dark:text-white">
+															Ch {cam.channel}: {cam.name}
+														</div>
+														<div className="text-[10px] text-slate-400 truncate">
+															Resolusi: {cam.resolution || '1080P'}
+														</div>
+													</div>
+												</div>
+												<div className="shrink-0 ml-2">
+													{cam.is_online ? (
+														<span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">
+															<CheckCircle2 className="size-3" />
+															Online
+														</span>
+													) : (
+														<span className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
+															No Video
+														</span>
+													)}
+												</div>
+											</div>
+										);
+									})}
+								</div>
+							) : (
+								/* Fallback if no detected cameras yet */
+								<div className="space-y-2">
+									<div className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400 bg-amber-500/10 px-3 py-2 rounded-lg">
+										<AlertCircle className="size-4 shrink-0" />
+										<span>Belum ada telemetri NVR yang terdeteksi via MQTT. Anda dapat mengisi total kamera secara manual:</span>
+									</div>
+									<div className="flex items-center gap-3">
+										<input
+											type="number"
+											min="0"
+											max="64"
+											value={formData.total_cameras}
+											onChange={(e) =>
+												setFormData({
+													...formData,
+													total_cameras: parseInt(e.target.value) || 0,
+												})
+											}
+											className="w-28 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-bold text-sm"
+										/>
+										<span className="text-xs text-slate-500 dark:text-slate-400">Total kamera terpasang</span>
+									</div>
 								</div>
 							)}
 						</div>
-
-						{/* Detected Cameras Grid */}
-						{loadingDetail ? (
-							<div className="py-4 flex items-center justify-center gap-2 text-slate-400 text-xs">
-								<Loader2 className="size-4 animate-spin text-[#0073ea]" />
-								<span>Membaca data kanal kamera dari MQTT telemetri...</span>
-							</div>
-						) : detectedCameras.length > 0 ? (
-							<div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-								{detectedCameras.map((cam) => {
-									const isSelected = formData.selected_cameras.includes(String(cam.id));
-									return (
-										<div
-											key={cam.id}
-											onClick={() => toggleCamera(cam.id)}
-											className={`flex items-center justify-between p-3 rounded-xl border text-xs cursor-pointer transition-all ${
-												isSelected
-													? 'bg-[#0073ea]/10 border-[#0073ea]/40 text-[#0073ea] dark:text-[#3894ff] shadow-xs'
-													: 'bg-slate-50/50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-700'
-											}`}
-										>
-											<div className="flex items-center gap-2.5 min-w-0">
-												<div className="shrink-0 text-[#0073ea] dark:text-[#3894ff]">
-													{isSelected ? (
-														<CheckSquare className="size-4.5" />
-													) : (
-														<Square className="size-4.5 text-slate-400" />
-													)}
-												</div>
-												<div className="min-w-0">
-													<div className="font-bold truncate text-[12px] text-slate-900 dark:text-white">
-														Ch {cam.channel}: {cam.name}
-													</div>
-													<div className="text-[10px] text-slate-400 truncate">
-														Resolusi: {cam.resolution || '1080P'}
-													</div>
-												</div>
-											</div>
-											<div className="shrink-0 ml-2">
-												{cam.is_online ? (
-													<span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">
-														<CheckCircle2 className="size-3" />
-														Online
-													</span>
-												) : (
-													<span className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
-														No Video
-													</span>
-												)}
-											</div>
-										</div>
-									);
-								})}
-							</div>
-						) : (
-							/* Fallback if no detected cameras yet */
-							<div className="space-y-2">
-								<div className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400 bg-amber-500/10 px-3 py-2 rounded-lg">
-									<AlertCircle className="size-4 shrink-0" />
-									<span>Belum ada telemetri NVR yang terdeteksi via MQTT. Anda dapat mengisi total kamera secara manual:</span>
-								</div>
-								<div className="flex items-center gap-3">
-									<input
-										type="number"
-										min="0"
-										max="64"
-										value={formData.total_cameras}
-										onChange={(e) =>
-											setFormData({
-												...formData,
-												total_cameras: parseInt(e.target.value) || 0,
-											})
-										}
-										className="w-28 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-bold text-sm"
-									/>
-									<span className="text-xs text-slate-500 dark:text-slate-400">Total kamera terpasang</span>
-								</div>
-							</div>
-						)}
-					</div>
+					)}
 
 					{/* Operational Hours */}
 					<div className="grid grid-cols-2 gap-4">

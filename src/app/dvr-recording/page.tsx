@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useDVRDashboard, IDVRGatewayItem } from "@/store/api/monitoring";
 import { formatToWIB } from "@/utils/common";
@@ -15,6 +15,7 @@ import {
   LoadProgressBar,
   IFilterConfig,
   TypeFilterDropdown,
+  ClientFilterDropdown,
 } from "@/components/ui";
 import { DVRDeviceDetailCard } from "@/components/dvr/DVRDeviceDetailCard";
 import {
@@ -86,6 +87,7 @@ const CustomAreaTooltip = ({ active, payload, label }: any) => {
 export default function DVRRecordingPage() {
   const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState("");
+  const [clientFilter, setClientFilter] = useState("All Clients");
   const [typeFilter, setTypeFilter] = useState("All Types");
   const [statusFilter, setStatusFilter] = useState("All Statuses");
   const [currentPage, setCurrentPage] = useState(1);
@@ -106,6 +108,7 @@ export default function DVRRecordingPage() {
     search,
     type: typeFilter,
     status: statusFilter,
+    client: clientFilter,
     page: currentPage,
     pageSize,
     sortBy,
@@ -116,6 +119,23 @@ export default function DVRRecordingPage() {
   const charts = dashboard?.charts;
   const gateways = dashboard?.gateways || [];
   const pagination = dashboard?.pagination;
+
+  const clientOptions = useMemo(() => {
+    if (dashboard?.client_options && dashboard.client_options.length > 0) {
+      return dashboard.client_options;
+    }
+    const fromGateways = Array.from(
+      new Set(
+        gateways
+          .map((g) => g.customer || g.client_name)
+          .filter((c): c is string => Boolean(c && c !== "-"))
+      )
+    );
+    if (fromGateways.length > 0) return fromGateways;
+    return ["BCA", "DANAMON"];
+  }, [dashboard?.client_options, gateways]);
+
+  const displayedGateways = gateways;
 
   const toggleSelectAll = () => {
     if (selectedGateways.length === gateways.length) {
@@ -250,11 +270,20 @@ export default function DVRRecordingPage() {
       id: "dvr_model",
       header: "DVR Model",
       accessorKey: "dvr_model",
-      cell: (item) => (
-        <span className="font-mono text-slate-700 dark:text-slate-300 text-[11px]">
-          {item.dvr_model}
-        </span>
-      ),
+      cell: (item) => {
+        if (item.has_dvr === false || item.dvr_model === "Not Installed") {
+          return (
+            <span className="font-mono text-slate-400 dark:text-slate-500 text-[11px] italic">
+              Not Installed
+            </span>
+          );
+        }
+        return (
+          <span className="font-mono text-slate-700 dark:text-slate-300 text-[11px]">
+            {item.dvr_model}
+          </span>
+        );
+      },
     },
     {
       id: "status",
@@ -279,6 +308,14 @@ export default function DVRRecordingPage() {
       sortable: true,
       defaultSortOrder: "asc",
       cell: (item) => {
+        if (item.has_dvr === false || item.cpu_dvr === "Not Installed") {
+          return (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border bg-slate-100 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700">
+              <span className="size-1.5 rounded-full bg-slate-400" />
+              <span>Not Installed</span>
+            </span>
+          );
+        }
         const isOffline = item.status === "Offline";
         const isConnected = !isOffline && item.cpu_dvr === "Connected";
         const isDegraded = !isOffline && item.cpu_dvr === "Degraded";
@@ -312,6 +349,13 @@ export default function DVRRecordingPage() {
       sortable: true,
       defaultSortOrder: "asc",
       cell: (item) => {
+        if (item.has_dvr === false || item.cpu_dvr === "Not Installed") {
+          return (
+            <span className="font-mono font-bold text-[11px] text-slate-400 dark:text-slate-500">
+              No Camera
+            </span>
+          );
+        }
         const isOffline = item.status === "Offline";
         const isCpuDvrDown =
           item.cpu_dvr === "Not Connected" || item.cpu_dvr === "No Response";
@@ -357,6 +401,13 @@ export default function DVRRecordingPage() {
       sortable: true,
       defaultSortOrder: "asc",
       cell: (item) => {
+        if (item.has_dvr === false || item.cpu_dvr === "Not Installed" || item.recording_status === "N/A") {
+          return (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold font-mono border bg-slate-100 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700">
+              <span>N/A</span>
+            </span>
+          );
+        }
         const isOffline = item.status === "Offline";
         const isCpuDvrDown =
           item.cpu_dvr === "Not Connected" || item.cpu_dvr === "No Response";
@@ -429,6 +480,13 @@ export default function DVRRecordingPage() {
       sortable: true,
       defaultSortOrder: "desc",
       cell: (item) => {
+        if (item.has_dvr === false || item.cpu_dvr === "Not Installed") {
+          return (
+            <span className="font-mono text-slate-400 dark:text-slate-500 font-bold text-[11px]">
+              N/A
+            </span>
+          );
+        }
         const isOffline = item.status === "Offline";
         const isCpuDvrDown =
           item.cpu_dvr === "Not Connected" || item.cpu_dvr === "No Response";
@@ -453,6 +511,13 @@ export default function DVRRecordingPage() {
       sortable: true,
       defaultSortOrder: "asc",
       cell: (item) => {
+        if (item.has_dvr === false || item.cpu_dvr === "Not Installed" || item.dvr_health === "N/A") {
+          return (
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold border bg-slate-100 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700">
+              N/A
+            </span>
+          );
+        }
         if (item.status === "Offline") {
           return <StatusBadge status="Offline" variant="offline" />;
         }
@@ -485,13 +550,23 @@ export default function DVRRecordingPage() {
           }}
           searchPlaceholder="Search Location, Gateway ID, Model, IP..."
           actions={
-            <TypeFilterDropdown
-              value={typeFilter}
-              onChange={(val) => {
-                setTypeFilter(val);
-                setCurrentPage(1);
-              }}
-            />
+            <div className="flex items-center gap-2">
+              <ClientFilterDropdown
+                value={clientFilter}
+                onChange={(val) => {
+                  setClientFilter(val);
+                  setCurrentPage(1);
+                }}
+                options={clientOptions}
+              />
+              <TypeFilterDropdown
+                value={typeFilter}
+                onChange={(val) => {
+                  setTypeFilter(val);
+                  setCurrentPage(1);
+                }}
+              />
+            </div>
           }
         />
       }
@@ -563,7 +638,7 @@ export default function DVRRecordingPage() {
 
         {/* 3. Filterable & Paginated Daftar Gateway Table (Full Viewport Height) */}
         <DataTable
-          data={gateways}
+          data={displayedGateways}
           columns={columns}
           keyField="id"
           enableSelection
