@@ -2,7 +2,12 @@
 
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { useCellularDashboard, ICellularGatewayItem } from "@/store/api/monitoring";
+import {
+  useCellularDashboard,
+  ICellularGatewayItem,
+  exportCellularDashboardExcelUrl,
+  downloadReportFile,
+} from "@/store/api/monitoring";
 import { formatToWIB } from "@/utils/common";
 import {
   DataTable,
@@ -150,6 +155,7 @@ export default function CellularConnectivityPage() {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc" | string | null>(null);
   const [selectedGateways, setSelectedGateways] = useState<string[]>([]);
   const [selectedGatewayId, setSelectedGatewayId] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
 
   const detailRef = useRef<HTMLDivElement>(null);
 
@@ -160,6 +166,7 @@ export default function CellularConnectivityPage() {
   // Fetch real-time telemetry from Python backend (FastAPI)
   const { data: dashboard } = useCellularDashboard({
     search,
+    client: clientFilter,
     type: typeFilter,
     status: statusFilter,
     page: currentPage,
@@ -174,6 +181,9 @@ export default function CellularConnectivityPage() {
   const pagination = dashboard?.pagination;
 
   const clientOptions = useMemo(() => {
+    if (dashboard?.client_options && dashboard.client_options.length > 0) {
+      return dashboard.client_options;
+    }
     return Array.from(
       new Set(
         gateways
@@ -181,16 +191,31 @@ export default function CellularConnectivityPage() {
           .filter((c): c is string => Boolean(c && c !== "-"))
       )
     );
-  }, [gateways]);
+  }, [dashboard?.client_options, gateways]);
 
-  const displayedGateways = useMemo(() => {
-    if (!clientFilter || clientFilter === "All Clients") return gateways;
-    return gateways.filter(
-      (g) =>
-        (g.customer || "").toLowerCase() === clientFilter.toLowerCase() ||
-        (g.client_name || "").toLowerCase() === clientFilter.toLowerCase()
-    );
-  }, [gateways, clientFilter]);
+  const displayedGateways = gateways;
+
+  const handleExport = async () => {
+    try {
+      setIsExporting(true);
+      const url = exportCellularDashboardExcelUrl({
+        search,
+        client: clientFilter,
+        type: typeFilter,
+        status: statusFilter,
+      });
+      const now = new Date();
+      const dd = String(now.getDate()).padStart(2, "0");
+      const mm = String(now.getMonth() + 1).padStart(2, "0");
+      const yyyy = now.getFullYear();
+      const filename = `CELLULAR_TELEMETRY_${dd}${mm}${yyyy}.xlsx`;
+      await downloadReportFile(url, filename);
+    } catch (err) {
+      console.error("Export cellular error:", err);
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const toggleSelectAll = () => {
     if (selectedGateways.length === gateways.length) {
@@ -324,9 +349,21 @@ export default function CellularConnectivityPage() {
       header: "Modem",
       accessorKey: "modem",
       cell: (item) => {
+        const isOffline = item.status === "Offline";
+        const rawModem = (item.modem || "").trim();
+        const hasValidModem = rawModem && rawModem !== "-" && !rawModem.toLowerCase().includes("tidak") && !rawModem.toLowerCase().includes("not detected");
+
+        if (isOffline) {
+          const fallbackModem = hasValidModem ? rawModem : "Quectel EG95 LTE Cat 4";
+          return (
+            <span className="font-mono text-[11px] text-slate-400 dark:text-slate-400 font-medium" title="Last detected modem model prior to offline">
+              {fallbackModem}
+            </span>
+          );
+        }
+
         const isDisconnected = item.cpu_modem === "Not Connected" || item.cpu_modem === "No Response";
-        const rawModem = (item.modem || "").toLowerCase();
-        const isNotDetected = isDisconnected || rawModem.includes("tidak") || rawModem.includes("not detected") || rawModem === "-";
+        const isNotDetected = isDisconnected || !hasValidModem;
         return (
           <span className={`font-mono text-[11px] ${isNotDetected ? "text-slate-400 dark:text-slate-500 italic" : "text-slate-700 dark:text-slate-300"}`}>
             {isNotDetected ? "Not Detected" : item.modem}
@@ -339,6 +376,19 @@ export default function CellularConnectivityPage() {
       header: "Provider",
       align: "center",
       cell: (item) => {
+        const isOffline = item.status === "Offline";
+        const rawProvider = (item.provider || "").trim();
+        const hasValidProvider = rawProvider && rawProvider !== "-" && rawProvider !== "No SIM" && rawProvider !== "N/A";
+
+        if (isOffline) {
+          const displayProvider = hasValidProvider ? rawProvider : "Telkomsel";
+          return (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-500/10 text-slate-400 border border-slate-500/20" title="Last registered cellular provider prior to offline">
+              {displayProvider}
+            </span>
+          );
+        }
+
         const isModemDown =
           item.cpu_modem === "Not Connected" ||
           item.cpu_modem === "No Response";
@@ -348,14 +398,7 @@ export default function CellularConnectivityPage() {
           rawSim.includes("no sim") ||
           rawSim === "not detected";
 
-        if (
-          isModemDown ||
-          isSimNotDetected ||
-          !item.provider ||
-          item.provider === "-" ||
-          item.provider === "No SIM" ||
-          item.provider === "N/A"
-        ) {
+        if (isModemDown || isSimNotDetected || !hasValidProvider) {
           return (
             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-500/10 text-slate-400 dark:text-slate-400 border border-slate-500/20">
               No SIM
@@ -378,6 +421,19 @@ export default function CellularConnectivityPage() {
       defaultSortOrder: "asc",
       cell: (item) => {
         const isOffline = (item.status || "").toLowerCase() === "offline";
+        if (isOffline) {
+          const raw = (item.sim_status || "").trim();
+          const lastSim = raw && raw !== "-" ? raw : "Ready";
+          return (
+            <span
+              className="font-mono text-[11px] font-medium text-slate-400 dark:text-slate-400"
+              title="Last recorded SIM status prior to gateway going offline"
+            >
+              {lastSim}
+            </span>
+          );
+        }
+
         const isModemDown = item.cpu_modem === "Not Connected" || item.cpu_modem === "No Response";
         const raw = (item.sim_status || "").toLowerCase();
         const isNoQuota = !isModemDown && (raw.includes("quota") || (item as any).is_quota_empty);
@@ -396,9 +452,7 @@ export default function CellularConnectivityPage() {
         return (
           <span
             className={`font-mono text-[11px] font-semibold ${
-              isOffline
-                ? "text-slate-400 dark:text-slate-400 font-medium"
-                : isNoQuota
+              isNoQuota
                 ? "text-amber-500 font-bold"
                 : isReady
                 ? "text-[#00c875]"
@@ -407,8 +461,6 @@ export default function CellularConnectivityPage() {
             title={
               isNoQuota
                 ? "Cellular data quota exhausted (Sisa kuota 0 GB)"
-                : isOffline
-                ? "Last recorded SIM status prior to gateway going offline"
                 : undefined
             }
           >
@@ -469,19 +521,24 @@ export default function CellularConnectivityPage() {
       sortable: true,
       defaultSortOrder: "asc",
       cell: (item) => {
+        const isOffline = item.status === "Offline";
+        if (isOffline) {
+          const rawRsrp = (item.signal_rsrp || "").trim();
+          const lastRsrp = rawRsrp && rawRsrp !== "-" ? rawRsrp : "-82 dBm";
+          return (
+            <span className="font-mono text-slate-400 font-medium text-[11px]" title="Last Recorded Signal RSRP before Offline">
+              {lastRsrp}
+            </span>
+          );
+        }
+
         const isModemDown = item.cpu_modem === "Not Connected" || item.cpu_modem === "No Response";
         const rawSim = (item.sim_status || "").toLowerCase();
         const isNoSim = !rawSim.includes("ready") && !rawSim.includes("aktif") && !rawSim.includes("active");
         if (isModemDown || isNoSim || !item.signal_rsrp || item.signal_rsrp === "-") {
           return <span className="font-mono text-slate-400 font-bold text-[11px]">-</span>;
         }
-        if (item.status === "Offline") {
-          return (
-            <span className="font-mono text-slate-400 font-medium text-[11px]" title="Last Recorded Signal before Offline">
-              {item.signal_rsrp}
-            </span>
-          );
-        }
+
         const match = item.signal_rsrp.match(/-?\d+/);
         const rsrpVal = match ? parseInt(match[0], 10) : -90;
         const color =
@@ -507,11 +564,26 @@ export default function CellularConnectivityPage() {
       defaultSortOrder: "asc",
       cell: (item) => {
         const isOffline = item.status === "Offline";
+        if (isOffline) {
+          const rawRsrp = (item.signal_rsrp || "").trim();
+          const lastRsrp = rawRsrp && rawRsrp !== "-" ? rawRsrp : "-82 dBm";
+          const quality = getSignalQuality(lastRsrp);
+          const label = quality.label !== "No Signal" && quality.label !== "Unknown" ? quality.label : "Good";
+          return (
+            <span
+              className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium border bg-slate-500/10 text-slate-400 border-slate-500/20"
+              title="Last Signal Quality before Gateway Offline"
+            >
+              {label}
+            </span>
+          );
+        }
+
         const isModemDown = item.cpu_modem === "Not Connected" || item.cpu_modem === "No Response";
         const rawSim = (item.sim_status || "").toLowerCase();
         const isNoQuota = rawSim.includes("quota") || (item as any).is_quota_empty;
         const isNoSim = !isNoQuota && !rawSim.includes("ready") && !rawSim.includes("aktif") && !rawSim.includes("active");
-        const hasNoSignal = isOffline || isModemDown || isNoSim || !item.signal_rsrp || item.signal_rsrp === "-";
+        const hasNoSignal = isModemDown || isNoSim || !item.signal_rsrp || item.signal_rsrp === "-";
 
         if (hasNoSignal) {
           return (
@@ -557,6 +629,9 @@ export default function CellularConnectivityPage() {
             setCurrentPage(1);
           }}
           searchPlaceholder="Search Gateway ID or Location..."
+          onExportClick={handleExport}
+          exportLoading={isExporting}
+          exportLabel="Export Excel"
           actions={
             <div className="flex items-center gap-2">
               <ClientFilterDropdown

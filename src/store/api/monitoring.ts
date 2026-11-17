@@ -286,6 +286,7 @@ export interface ICellularDashboardData {
     showing_start: number;
     showing_end: number;
   };
+  client_options?: string[];
 }
 
 export interface ICellularFilters {
@@ -294,6 +295,7 @@ export interface ICellularFilters {
   status?: string;
   provider?: string;
   cpu_modem?: string;
+  client?: string;
   page?: number;
   pageSize?: number;
   sortBy?: string | null;
@@ -333,6 +335,12 @@ export const fetchCellularDashboard = async (
     !filters.cpu_modem.startsWith("All")
   )
     params.append("cpu_modem", filters.cpu_modem);
+  if (
+    filters?.client &&
+    !filters.client.startsWith("Semua") &&
+    !filters.client.startsWith("All")
+  )
+    params.append("client", filters.client);
   if (filters?.page) params.append("page", String(filters.page));
   if (filters?.pageSize) params.append("page_size", String(filters.pageSize));
   if (filters?.sortBy) params.append("sort_by", filters.sortBy);
@@ -347,6 +355,45 @@ export const fetchCellularDashboard = async (
 
   const json = await response.json();
   return json.data;
+};
+
+export const exportCellularDashboardExcelUrl = (
+  filters?: ICellularFilters,
+): string => {
+  const params = new URLSearchParams();
+  if (filters?.search) params.append("search", filters.search);
+  if (
+    filters?.type &&
+    !filters.type.startsWith("Semua") &&
+    !filters.type.startsWith("All")
+  )
+    params.append("gateway_type", filters.type);
+  if (
+    filters?.status &&
+    !filters.status.startsWith("Semua") &&
+    !filters.status.startsWith("All")
+  )
+    params.append("status", filters.status);
+  if (
+    filters?.provider &&
+    !filters.provider.startsWith("Semua") &&
+    !filters.provider.startsWith("All")
+  )
+    params.append("provider", filters.provider);
+  if (
+    filters?.cpu_modem &&
+    !filters.cpu_modem.startsWith("Semua") &&
+    !filters.cpu_modem.startsWith("All")
+  )
+    params.append("cpu_modem", filters.cpu_modem);
+  if (
+    filters?.client &&
+    !filters.client.startsWith("Semua") &&
+    !filters.client.startsWith("All")
+  )
+    params.append("client", filters.client);
+
+  return `${API_BASE_URL}/monitoring/cellular/export-excel?${params.toString()}`;
 };
 
 export const useCellularDashboard = (filters?: ICellularFilters) => {
