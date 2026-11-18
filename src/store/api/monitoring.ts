@@ -271,6 +271,7 @@ export interface ICellularGatewayItem {
   signal_bars: number;
   modem_temp: string;
   status: string;
+  uptime?: string;
   last_update: string;
 }
 

@@ -615,6 +615,29 @@ export default function CellularConnectivityPage() {
         );
       },
     },
+    {
+      id: "uptime",
+      header: "Uptime",
+      align: "center",
+      sortable: true,
+      defaultSortOrder: "desc",
+      cell: (item) => {
+        const isOffline = (item.status || "").toLowerCase() === "offline";
+        const rawUptime = item.uptime && item.uptime !== "-" ? item.uptime : "-";
+        return (
+          <span
+            className={`font-mono text-[11px] font-semibold ${
+              isOffline
+                ? "text-slate-400 dark:text-slate-500 font-medium"
+                : "text-slate-700 dark:text-slate-200"
+            }`}
+            title={isOffline ? "Last Recorded System Uptime before Offline" : "Gateway System Uptime"}
+          >
+            {rawUptime}
+          </span>
+        );
+      },
+    },
   ];
 
   return (
