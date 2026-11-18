@@ -445,6 +445,9 @@ export const CellularDeviceDetailCard: React.FC<
   const [eventFilter, setEventFilter] = useState<"all" | "today" | "week">(
     "all",
   );
+  const [eventSection, setEventSection] = useState<"incidents" | "activity" | "all">(
+    "incidents",
+  );
 
   // System Logs Tab State
   const [logDate, setLogDate] = useState<string>(() => {
@@ -732,7 +735,7 @@ export const CellularDeviceDetailCard: React.FC<
     selectedSignalDate,
   ]);
 
-  const filteredEvents = useMemo(() => {
+  const { filteredEvents, incidentEvents, activityEvents } = useMemo(() => {
     const raw = data?.events ? [...data.events] : [];
     const now = new Date();
     const pad2 = (n: number) => String(n).padStart(2, "0");
@@ -755,7 +758,7 @@ export const CellularDeviceDetailCard: React.FC<
       "sensor",
     ];
 
-    return raw
+    const clean = raw
       .filter((evt) => {
         const titleLower = (evt.title || "").toLowerCase();
         if (NON_CELLULAR.some((bad) => titleLower.includes(bad))) {
@@ -794,6 +797,21 @@ export const CellularDeviceDetailCard: React.FC<
               : 0;
         return epochB - epochA;
       });
+
+    const isInc = (evt: any) =>
+      evt.event_type === "incident" ||
+      evt.type === "incident" ||
+      (evt.id && (evt.id.startsWith("trouble-") || evt.id === "evt-offline-active")) ||
+      (evt.duration && evt.duration !== "-" && evt.duration !== "0m" && evt.status === "error");
+
+    const incs = clean.filter((e) => isInc(e));
+    const acts = clean.filter((e) => !isInc(e));
+
+    return {
+      filteredEvents: clean,
+      incidentEvents: incs,
+      activityEvents: acts,
+    };
   }, [data?.events, eventFilter]);
 
   if (!gatewayId) return null;
@@ -890,7 +908,12 @@ export const CellularDeviceDetailCard: React.FC<
       ? CheckCircle2
       : AlertCircle;
 
-  const sortedEvents = filteredEvents;
+  const sortedEvents =
+    eventSection === "incidents"
+      ? incidentEvents
+      : eventSection === "activity"
+        ? activityEvents
+        : filteredEvents;
 
   return (
     <div className="bg-white dark:bg-[#070e1d] text-slate-800 dark:text-slate-100 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden transition-all duration-300">
@@ -2568,96 +2591,209 @@ export const CellularDeviceDetailCard: React.FC<
           })()}
 
         {/* ========================================================= */}
-        {/* TAB 5: EVENT LOG */}
+        {/* TAB 5: EVENT LOG (SEPARATED INCIDENT HISTORY & CELLULAR ACTIVITY) */}
         {/* ========================================================= */}
         {activeTab === "Event Log" && (
           <div className="space-y-4 animate-in fade-in duration-200">
+            {/* Top Sub-Navigation: Incident History vs Cellular Activity */}
+            <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-50/80 dark:bg-[#0a1224] p-3 rounded-xl border border-slate-200 dark:border-slate-800/80">
+              {/* Left: Section Selector */}
+              <div className="flex items-center gap-1.5 bg-slate-200/80 dark:bg-slate-800/90 p-1 rounded-lg">
+                <button
+                  type="button"
+                  onClick={() => setEventSection("incidents")}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                    eventSection === "incidents"
+                      ? "bg-rose-500 text-white shadow-xs"
+                      : "text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
+                  }`}
+                >
+                  <AlertTriangle className="size-3.5" />
+                  <span>Incident History</span>
+                  <span
+                    className={`ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+                      eventSection === "incidents"
+                        ? "bg-white/20 text-white"
+                        : "bg-rose-500/15 text-rose-500 dark:text-rose-400"
+                    }`}
+                  >
+                    {incidentEvents.length}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setEventSection("activity")}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                    eventSection === "activity"
+                      ? "bg-blue-600 text-white shadow-xs"
+                      : "text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
+                  }`}
+                >
+                  <Radio className="size-3.5" />
+                  <span>Cellular Activity</span>
+                  <span
+                    className={`ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+                      eventSection === "activity"
+                        ? "bg-white/20 text-white"
+                        : "bg-blue-500/15 text-blue-600 dark:text-blue-400"
+                    }`}
+                  >
+                    {activityEvents.length}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setEventSection("all")}
+                  className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+                    eventSection === "all"
+                      ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-xs"
+                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                  }`}
+                >
+                  <span>All ({filteredEvents.length})</span>
+                </button>
+              </div>
+
+              {/* Right: Date Filter Buttons */}
+              <div className="flex items-center gap-1 bg-slate-200/70 dark:bg-slate-800/80 p-0.5 rounded-lg text-xs font-medium">
+                <button
+                  type="button"
+                  onClick={() => setEventFilter("all")}
+                  className={`px-2.5 py-1 rounded-md text-[11px] transition-all ${
+                    eventFilter === "all"
+                      ? "bg-white dark:bg-[#070e1d] text-blue-600 dark:text-blue-400 font-bold shadow-2xs"
+                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                  }`}
+                >
+                  All History
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEventFilter("today")}
+                  className={`px-2.5 py-1 rounded-md text-[11px] transition-all ${
+                    eventFilter === "today"
+                      ? "bg-white dark:bg-[#070e1d] text-blue-600 dark:text-blue-400 font-bold shadow-2xs"
+                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                  }`}
+                >
+                  Today
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEventFilter("week")}
+                  className={`px-2.5 py-1 rounded-md text-[11px] transition-all ${
+                    eventFilter === "week"
+                      ? "bg-white dark:bg-[#070e1d] text-blue-600 dark:text-blue-400 font-bold shadow-2xs"
+                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                  }`}
+                >
+                  Last 7 Days
+                </button>
+              </div>
+            </div>
+
+            {/* Content Container */}
             <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-3">
-              <div className="flex flex-wrap items-center justify-between gap-2.5 pb-2 border-b border-slate-200/80 dark:border-slate-800/80">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-200/80 dark:border-slate-800/80">
                 <div className="flex items-center gap-2">
                   <div className="text-xs font-bold text-slate-900 dark:text-white">
-                    Cellular Activity & Incident History
+                    {eventSection === "incidents"
+                      ? "Cellular & CPU–Modem Incident History"
+                      : eventSection === "activity"
+                        ? "Cellular Telemetry Activity Logs"
+                        : "All Cellular Events & Incident History"}
                   </div>
-                  <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                    (Total {sortedEvents.length} Events)
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
+                    ({sortedEvents.length} event{sortedEvents.length !== 1 ? "s" : ""})
                   </span>
                 </div>
-                {/* Date Filter Buttons */}
-                <div className="flex items-center gap-1 bg-slate-200/70 dark:bg-slate-800/80 p-0.5 rounded-lg text-xs font-medium">
-                  <button
-                    onClick={() => setEventFilter("all")}
-                    className={`px-2.5 py-1 rounded-md text-[11px] transition-all ${
-                      eventFilter === "all"
-                        ? "bg-white dark:bg-[#070e1d] text-blue-600 dark:text-blue-400 font-bold shadow-2xs"
-                        : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-                    }`}
-                  >
-                    All History
-                  </button>
-                  <button
-                    onClick={() => setEventFilter("today")}
-                    className={`px-2.5 py-1 rounded-md text-[11px] transition-all ${
-                      eventFilter === "today"
-                        ? "bg-white dark:bg-[#070e1d] text-blue-600 dark:text-blue-400 font-bold shadow-2xs"
-                        : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-                    }`}
-                  >
-                    Today
-                  </button>
-                  <button
-                    onClick={() => setEventFilter("week")}
-                    className={`px-2.5 py-1 rounded-md text-[11px] transition-all ${
-                      eventFilter === "week"
-                        ? "bg-white dark:bg-[#070e1d] text-blue-600 dark:text-blue-400 font-bold shadow-2xs"
-                        : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-                    }`}
-                  >
-                    Last 7 Days
-                  </button>
-                </div>
+                <span className="text-[11px] text-slate-400">
+                  {eventSection === "incidents"
+                    ? "Downtime, disconnects & alerts"
+                    : eventSection === "activity"
+                      ? "Routine telemetry heartbeats"
+                      : "Combined timeline"}
+                </span>
               </div>
+
               <div className="divide-y divide-slate-200 dark:divide-slate-800/60 text-xs">
                 {sortedEvents.length > 0 ? (
-                  sortedEvents.map((evt, idx) => (
-                    <div
-                      key={evt.id || idx}
-                      className="py-2.5 flex items-center justify-between gap-4"
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span
-                          className={`size-2 rounded-full shrink-0 ${
-                            evt.status === "error"
-                              ? "bg-rose-500"
-                              : evt.status === "warning"
-                                ? "bg-amber-500"
-                                : evt.status === "info"
-                                  ? "bg-sky-500"
-                                  : "bg-emerald-500"
-                          }`}
-                        />
-                        <span className="text-slate-800 dark:text-slate-200 font-medium truncate">
-                          {formatIncidentEn(evt.title)}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        {evt.duration &&
-                          evt.duration !== "-" &&
-                          evt.duration !== "0m" && (
-                            <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-amber-500/10 text-amber-500 border border-amber-500/20">
-                              {formatDurationEn(evt.duration)}
+                  sortedEvents.map((evt, idx) => {
+                    const isInc =
+                      evt.event_type === "incident" ||
+                      evt.type === "incident" ||
+                      (evt.id && (evt.id.startsWith("trouble-") || evt.id === "evt-offline-active")) ||
+                      (evt.duration && evt.duration !== "-" && evt.duration !== "0m" && evt.status === "error");
+
+                    return (
+                      <div
+                        key={evt.id || idx}
+                        className="py-2.5 flex items-center justify-between gap-4 hover:bg-slate-100/50 dark:hover:bg-slate-800/30 px-2 rounded-lg transition-colors"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span
+                            className={`size-2 rounded-full shrink-0 ${
+                              evt.status === "error"
+                                ? "bg-rose-500"
+                                : evt.status === "warning"
+                                  ? "bg-amber-500"
+                                  : evt.status === "info"
+                                    ? "bg-sky-500"
+                                    : "bg-emerald-500"
+                            }`}
+                          />
+                          {isInc && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/25 shrink-0">
+                              Incident
                             </span>
                           )}
-                        <span className="text-slate-400 font-mono text-[11px] whitespace-nowrap">
-                          {evt.time && evt.time.includes("WIB")
-                            ? evt.time
-                            : `${evt.time} WIB`}
-                        </span>
+                          <span className="text-slate-800 dark:text-slate-200 font-medium truncate">
+                            {formatIncidentEn(evt.title)}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {evt.duration &&
+                            evt.duration !== "-" &&
+                            evt.duration !== "0m" && (
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/25">
+                                {formatDurationEn(evt.duration)}
+                              </span>
+                            )}
+                          <span className="text-slate-400 font-mono text-[11px] whitespace-nowrap">
+                            {evt.time && evt.time.includes("WIB")
+                              ? evt.time
+                              : `${evt.time} WIB`}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  ))
+                    );
+                  })
                 ) : (
-                  <div className="py-4 text-center text-slate-400 text-xs">
-                    No telemetry activity history recorded for this gateway yet.
+                  <div className="py-8 text-center text-slate-400 text-xs flex flex-col items-center justify-center gap-2">
+                    {eventSection === "incidents" ? (
+                      <>
+                        <div className="size-8 rounded-full bg-emerald-500/10 text-[#00c875] flex items-center justify-center border border-emerald-500/20">
+                          <CheckCircle2 className="size-4" />
+                        </div>
+                        <span className="font-semibold text-slate-700 dark:text-slate-300">
+                          No incidents recorded for this device.
+                        </span>
+                        <span className="text-[11px] text-slate-400">
+                          Cellular connectivity and CPU–modem communication have run without downtime.
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <div className="size-8 rounded-full bg-blue-500/10 text-blue-500 flex items-center justify-center border border-blue-500/20">
+                          <Radio className="size-4" />
+                        </div>
+                        <span className="font-semibold text-slate-700 dark:text-slate-300">
+                          No activity events recorded for the selected period.
+                        </span>
+                      </>
+                    )}
                   </div>
                 )}
               </div>

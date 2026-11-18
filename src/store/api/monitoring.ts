@@ -272,6 +272,8 @@ export interface ICellularGatewayItem {
   modem_temp: string;
   status: string;
   uptime?: string;
+  incident_count?: number;
+  trouble_events_count?: number;
   last_update: string;
 }
 
@@ -1531,6 +1533,8 @@ export interface ICellularEventItem {
   status?: "success" | "warning" | "error" | "info";
   duration?: string;
   category?: string;
+  event_type?: "incident" | "activity" | string;
+  type?: "incident" | "activity" | string;
   epoch?: number;
 }
 
@@ -1555,6 +1559,8 @@ export interface ICellularGatewayDetailData {
   network_sim: INetworkSIMDetail;
   modem_temperature: IModemTempDetail;
   events?: ICellularEventItem[];
+  incident_events?: ICellularEventItem[];
+  activity_events?: ICellularEventItem[];
   evidence?: Array<{
     num?: number;
     label: string;

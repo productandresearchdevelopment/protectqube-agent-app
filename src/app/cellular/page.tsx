@@ -638,6 +638,29 @@ export default function CellularConnectivityPage() {
         );
       },
     },
+    {
+      id: "incident_count",
+      header: "Incident History",
+      align: "center",
+      sortable: true,
+      defaultSortOrder: "desc",
+      cell: (item) => {
+        const count = item.incident_count ?? item.trouble_events_count ?? 0;
+        const hasIncidents = count > 0;
+        return (
+          <span
+            className={`font-mono text-[11px] font-semibold ${
+              hasIncidents
+                ? "text-[#e2445c] dark:text-[#ff6b81]"
+                : "text-slate-400 dark:text-slate-500 font-normal"
+            }`}
+            title={`Total Incidents: ${count} event${count !== 1 ? "s" : ""} (Cellular / Network & CPU–Modem)`}
+          >
+            {count} {count === 1 ? "event" : "events"}
+          </span>
+        );
+      },
+    },
   ];
 
   return (
