@@ -146,8 +146,11 @@ const formatMins = (val: number) => {
 };
 
 const getIncidentScope = (event: any): "cpu_dvr" | "recording" | "both" => {
-  const m = (
-    event.metric ||
+  const metric = (event.metric || "").toLowerCase().trim();
+  if (metric === "cpu_dvr") return "cpu_dvr";
+  if (metric === "recording") return "recording";
+
+  const raw = (
     event.category ||
     event.cause ||
     event.description ||
@@ -155,35 +158,30 @@ const getIncidentScope = (event: any): "cpu_dvr" | "recording" | "both" => {
     ""
   ).toLowerCase();
 
-  // Gateway total outage affects both subsystems
   if (
-    m.includes("gateway offline") ||
-    m.includes("telemetry disconnected") ||
-    m.includes("telemetry stopped") ||
-    m.includes("power") ||
-    m.includes("mati total") ||
-    m.includes("blackout") ||
-    m.includes("gateway")
+    raw.includes("cpu - dvr") ||
+    raw.includes("cpu–dvr") ||
+    raw.includes("cpu-dvr") ||
+    raw.includes("dvr communication") ||
+    raw.includes("port dvr") ||
+    raw.includes("isapi") ||
+    raw.includes("nvr-cpu")
   ) {
-    return "both";
+    return "cpu_dvr";
   }
 
-  // CPU – DVR hardware / link communication loss cascades to recording halt:
-  // When CPU cannot reach DVR over LAN/ISAPI, CCTV recording cannot be verified/written from CPU
-  // Therefore, CPU-DVR outages affect both subsystems simultaneously.
   if (
-    m === "cpu_dvr" ||
-    m.includes("cpu - dvr") ||
-    m.includes("cpu–dvr") ||
-    m.includes("cpu-dvr") ||
-    m.includes("dvr communication") ||
-    m.includes("port dvr") ||
-    m.includes("isapi") ||
-    m.includes("nvr-cpu")
+    raw.includes("kamera") ||
+    raw.includes("camera") ||
+    raw.includes("recording") ||
+    raw.includes("rekaman") ||
+    raw.includes("not recording") ||
+    raw.includes("no video")
   ) {
-    return "both";
+    return "recording";
   }
-  return "recording";
+
+  return "both";
 };
 
 interface DVRReportDetailCardProps {
@@ -389,7 +387,15 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
       (data?.camera_list || []).map((c: any) => String(c.id || c.channel || "").replace(/\D/g, ""))
     );
 
-    return rangeFilteredEvents.filter((ev) => {
+    const list = rangeFilteredEvents.filter((ev) => {
+      const metric = (ev.metric || "").toLowerCase().trim();
+      if (dailyViewMetric === "recording") {
+        if (metric === "cpu_dvr") return false;
+        if (metric === "recording") return true;
+      } else if (dailyViewMetric === "cpu_dvr") {
+        if (metric === "recording") return false;
+        if (metric === "cpu_dvr") return true;
+      }
       const scope = getIncidentScope(ev);
       if (scope !== "both" && scope !== dailyViewMetric) return false;
 
@@ -408,6 +414,15 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
           return false;
         }
       }
+      return true;
+    });
+
+    // Deduplicate by (start_time, end_time) to guarantee no duplicated rows
+    const seen = new Set<string>();
+    return list.filter((ev) => {
+      const timeKey = `${(ev.start_time || "").trim()}|${(ev.end_time || "").trim()}`;
+      if (seen.has(timeKey)) return false;
+      seen.add(timeKey);
       return true;
     });
   }, [rangeFilteredEvents, dailyViewMetric, data?.camera_list]);
@@ -868,6 +883,10 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
   const d = data;
 
   const isWhite = (d.type || "").includes("Putih");
+  const isOffline =
+    (d.status || "").toLowerCase() === "offline" ||
+    Boolean((d as any).is_offline) ||
+    Boolean((d as any).is_last_known);
 
   return (
     <div className="bg-white dark:bg-[#070e1d] text-slate-800 dark:text-slate-100 rounded-2xl border border-slate-200 dark:border-slate-800/90 shadow-xl p-4 sm:p-5 space-y-4 font-sans transition-all duration-300">
@@ -879,8 +898,14 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
           <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white tracking-tight">
             Detail Device &ndash; {d.location || d.id}
           </h2>
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#00c875]/15 dark:bg-[#00c875]/20 text-[#00c875] border border-[#00c875]/30">
-            {d.status}
+          <span
+            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+              isOffline
+                ? "bg-rose-500/15 text-[#e2445c] border border-rose-500/30"
+                : "bg-[#00c875]/20 text-[#00a862] dark:text-[#00c875] border border-[#00c875]/30"
+            }`}
+          >
+            {isOffline ? "Offline" : d.status || "Online"}
           </span>
         </div>
 

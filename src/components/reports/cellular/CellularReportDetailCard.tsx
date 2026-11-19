@@ -148,8 +148,11 @@ const formatIncidentTime = (startStr?: string, endStr?: string) => {
 };
 
 const getIncidentScope = (event: any): "cpu_modem" | "cellular" | "both" => {
-  const m = (
-    event.metric ||
+  const metric = (event.metric || "").toLowerCase().trim();
+  if (metric === "cpu_modem") return "cpu_modem";
+  if (metric === "cellular") return "cellular";
+
+  const raw = (
     event.category ||
     event.cause ||
     event.description ||
@@ -157,32 +160,29 @@ const getIncidentScope = (event: any): "cpu_modem" | "cellular" | "both" => {
     ""
   ).toLowerCase();
 
-  // Gateway total outage / telemetry stopped affects both subsystems simultaneously
   if (
-    m.includes("gateway offline") ||
-    m.includes("telemetry disconnected") ||
-    m.includes("telemetry stopped") ||
-    m.includes("power") ||
-    m.includes("blackout") ||
-    m.includes("mati total") ||
-    m.includes("gateway")
+    raw.includes("modem-cpu") ||
+    raw.includes("usb port") ||
+    raw.includes("serial") ||
+    raw.includes("modem")
   ) {
-    return "both";
+    return "cpu_modem";
   }
 
-  // Modem hardware connection loss cascades to cellular network disconnection:
-  // When modem USB communication is lost, the cellular network is also disconnected.
-  // Both subsystems experience downtime, so modem outages appear in both views.
   if (
-    m === "cpu_modem" ||
-    m.includes("modem-cpu") ||
-    m.includes("usb port") ||
-    m.includes("serial") ||
-    m.includes("terputus")
+    raw.includes("sim") ||
+    raw.includes("cellular") ||
+    raw.includes("seluler") ||
+    raw.includes("carrier") ||
+    raw.includes("sinyal") ||
+    raw.includes("csq") ||
+    raw.includes("rsrp")
   ) {
-    return "both";
+    return "cellular";
   }
-  return "cellular";
+
+  // Pure gateway-level outages with no specific metric affect both
+  return "both";
 };
 
 const parseIncidentEvidence = (event: any, gatewayData?: any) => {
@@ -870,11 +870,27 @@ export const CellularReportDetailCard: React.FC<
   ]);
 
   // 2. Filter events matching the active metric card (cpu_modem vs cellular)
-  // Gateway offline incidents affect both subsystems, so they appear in both views
   const metricMatchedEvents = useMemo(() => {
-    return rangeFilteredEvents.filter((ev) => {
+    const list = rangeFilteredEvents.filter((ev) => {
+      const metric = (ev.metric || "").toLowerCase().trim();
+      if (dailyViewMetric === "cellular") {
+        if (metric === "cpu_modem") return false;
+        if (metric === "cellular") return true;
+      } else if (dailyViewMetric === "cpu_modem") {
+        if (metric === "cellular") return false;
+        if (metric === "cpu_modem") return true;
+      }
       const scope = getIncidentScope(ev);
       return scope === "both" || scope === dailyViewMetric;
+    });
+
+    // Deduplicate by (start_time, end_time) to guarantee no duplicated rows
+    const seen = new Set<string>();
+    return list.filter((ev) => {
+      const timeKey = `${(ev.start_time || "").trim()}|${(ev.end_time || "").trim()}`;
+      if (seen.has(timeKey)) return false;
+      seen.add(timeKey);
+      return true;
     });
   }, [rangeFilteredEvents, dailyViewMetric]);
 

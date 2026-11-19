@@ -124,6 +124,26 @@ const formatIncidentTime = (startStr?: string, endStr?: string) => {
 
 const isSystemIncident = (ev: any) => {
   const text = `${ev.metric || ""} ${ev.category || ""} ${ev.title || ""} ${ev.description || ""} ${ev.cause || ""}`.toLowerCase();
+
+  // Gateway total outages or hardware/environment alerts ARE system incidents
+  if (
+    text.includes("gateway offline") ||
+    text.includes("telemetry disconnected") ||
+    text.includes("telemetry stopped") ||
+    text.includes("device offline") ||
+    text.includes("gateway") ||
+    text.includes("power") ||
+    text.includes("blackout") ||
+    text.includes("mati total") ||
+    text.includes("suhu") ||
+    text.includes("temp") ||
+    text.includes("storage") ||
+    text.includes("disk") ||
+    text.includes("lan")
+  ) {
+    return true;
+  }
+
   if (
     ["camera", "kamera", "nvr", "dvr", "cctv", "recording", "merekam", "modem", "cellular", "seluler", "sim:", "signal", "rsrp", "csq"].some((k) =>
       text.includes(k)
@@ -442,9 +462,11 @@ export const HealthReportDetailCard: React.FC<HealthReportDetailCardProps> = ({
 
   const filteredEvents = useMemo(() => {
     if (selectedBarDay !== null) {
-      const dayStr =
-        selectedBarDay < 10 ? `0${selectedBarDay}` : `${selectedBarDay}`;
       return rangeFilteredEvents.filter((e: any) => {
+        if (e.date_str) {
+          const dMatch = e.date_str.match(/^(\d{4})-(\d{2})-(\d{2})/);
+          if (dMatch && parseInt(dMatch[3], 10) === selectedBarDay) return true;
+        }
         const trimmed = (e.start_time || "").trim();
         const isoMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/);
         if (isoMatch) {
