@@ -43,6 +43,7 @@ export default function ReportSLAPage() {
   const [filters, setFilters] = useState<ISLAReportFilters>({
     search: "",
     type: "All Types",
+    client: "All Clients",
     date_range: getCurrentMonthPeriodStr(),
     page: 1,
     pageSize: 50,
@@ -63,6 +64,9 @@ export default function ReportSLAPage() {
   const pagination = reportData?.pagination;
 
   const clientOptions = useMemo(() => {
+    if (reportData?.client_options && reportData.client_options.length > 0) {
+      return reportData.client_options;
+    }
     return Array.from(
       new Set(
         gateways
@@ -70,16 +74,9 @@ export default function ReportSLAPage() {
           .filter((c): c is string => Boolean(c && c !== "-"))
       )
     );
-  }, [gateways]);
+  }, [reportData?.client_options, gateways]);
 
-  const displayedGateways = useMemo(() => {
-    if (!clientFilter || clientFilter === "All Clients") return gateways;
-    return gateways.filter(
-      (g) =>
-        ((g as any).customer || "").toLowerCase() === clientFilter.toLowerCase() ||
-        ((g as any).client_name || "").toLowerCase() === clientFilter.toLowerCase()
-    );
-  }, [gateways, clientFilter]);
+  const displayedGateways = gateways;
 
   const handleFilterChange = (key: keyof ISLAReportFilters, value: any) => {
     setFilters((prev) => ({
@@ -460,7 +457,10 @@ export default function ReportSLAPage() {
             <div className="flex items-center gap-2">
               <ClientFilterDropdown
                 value={clientFilter}
-                onChange={(val) => setClientFilter(val)}
+                onChange={(val) => {
+                  setClientFilter(val);
+                  handleFilterChange("client", val);
+                }}
                 options={clientOptions}
               />
               <TypeFilterDropdown

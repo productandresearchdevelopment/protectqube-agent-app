@@ -85,6 +85,7 @@ export default function SystemHealthPage() {
     search,
     type: typeFilter,
     status: statusFilter,
+    client: clientFilter,
     page: currentPage,
     pageSize,
     sortBy,
@@ -97,6 +98,9 @@ export default function SystemHealthPage() {
   const pagination = dashboard?.pagination;
 
   const clientOptions = useMemo(() => {
+    if (dashboard?.client_options && dashboard.client_options.length > 0) {
+      return dashboard.client_options;
+    }
     return Array.from(
       new Set(
         gateways
@@ -104,16 +108,9 @@ export default function SystemHealthPage() {
           .filter((c): c is string => Boolean(c && c !== "-"))
       )
     );
-  }, [gateways]);
+  }, [dashboard?.client_options, gateways]);
 
-  const displayedGateways = useMemo(() => {
-    if (!clientFilter || clientFilter === "All Clients") return gateways;
-    return gateways.filter(
-      (g) =>
-        (g.customer || "").toLowerCase() === clientFilter.toLowerCase() ||
-        (g.client_name || "").toLowerCase() === clientFilter.toLowerCase()
-    );
-  }, [gateways, clientFilter]);
+  const displayedGateways = gateways;
 
   const toggleSelectAll = () => {
     if (selectedGateways.length === gateways.length) {

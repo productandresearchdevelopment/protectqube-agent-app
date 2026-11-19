@@ -148,12 +148,14 @@ export interface ISystemHealthDashboardData {
     showing_start: number;
     showing_end: number;
   };
+  client_options?: string[];
 }
 
 export interface ISystemHealthFilters {
   search?: string;
   type?: string;
   status?: string;
+  client?: string;
   page?: number;
   pageSize?: number;
   sortBy?: string | null;
@@ -181,6 +183,12 @@ export const fetchSystemHealthDashboard = async (
     !filters.status.startsWith("All")
   )
     params.append("status", filters.status);
+  if (
+    filters?.client &&
+    !filters.client.startsWith("Semua") &&
+    !filters.client.startsWith("All")
+  )
+    params.append("client", filters.client);
   if (filters?.page) params.append("page", String(filters.page));
   if (filters?.pageSize) params.append("page_size", String(filters.pageSize));
   if (filters?.sortBy) params.append("sort_by", filters.sortBy);
@@ -1895,6 +1903,7 @@ export interface ISLAReportFilters {
   type?: string;
   sla_status?: string;
   date_range?: string;
+  client?: string;
   page?: number;
   pageSize?: number;
 }
@@ -1981,6 +1990,7 @@ export interface ISLAReportData {
     showing_start: number;
     showing_end: number;
   };
+  client_options?: string[];
 }
 
 export const fetchSLAReport = async (
@@ -2004,6 +2014,12 @@ export const fetchSLAReport = async (
     filters.sla_status !== "Semua SLA"
   )
     params.append("sla_status", filters.sla_status);
+  if (
+    filters?.client &&
+    filters.client !== "All Clients" &&
+    filters.client !== "Semua Client"
+  )
+    params.append("client", filters.client);
   if (filters?.date_range) params.append("date_range", filters.date_range);
   if (filters?.page) params.append("page", filters.page.toString());
   if (filters?.pageSize)
@@ -2042,6 +2058,12 @@ export const exportSLAReportExcelUrl = (filters?: ISLAReportFilters) => {
     filters.sla_status !== "Semua SLA"
   )
     params.append("sla_status", filters.sla_status);
+  if (
+    filters?.client &&
+    filters.client !== "All Clients" &&
+    filters.client !== "Semua Client"
+  )
+    params.append("client", filters.client);
   if (filters?.date_range) params.append("date_range", filters.date_range);
   return `${API_BASE_URL}/monitoring/reports/sla/export-excel?${params.toString()}`;
 };
