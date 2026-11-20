@@ -754,10 +754,18 @@ export const useUpdateConfigDevice = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["devices"] });
       queryClient.invalidateQueries({ queryKey: ["clients"] });
-      queryClient.invalidateQueries({ queryKey: ["slaReport"] });
+      queryClient.invalidateQueries({ queryKey: ["overviewSummary"] });
+      queryClient.invalidateQueries({ queryKey: ["cellularDashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["cellularReport"] });
+      queryClient.invalidateQueries({ queryKey: ["dvrDashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["dvrReport"] });
       queryClient.invalidateQueries({ queryKey: ["systemHealthDashboard"] });
-      queryClient.invalidateQueries({ queryKey: ["dvrFleet"] });
-      queryClient.invalidateQueries({ queryKey: ["dvrReports"] });
+      queryClient.invalidateQueries({ queryKey: ["healthReport"] });
+      queryClient.invalidateQueries({ queryKey: ["slaReport"] });
+      queryClient.invalidateQueries({ queryKey: ["gatewayHealth"] });
+      queryClient.invalidateQueries({ queryKey: ["gatewayDetail"] });
+      queryClient.invalidateQueries({ queryKey: ["cellularGatewayDetail"] });
+      queryClient.invalidateQueries({ queryKey: ["dvrGatewayDetail"] });
     },
   });
 };
