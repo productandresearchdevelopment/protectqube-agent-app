@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import {
   Server,
   Radio,
@@ -47,6 +47,7 @@ import {
 } from "@/store/api/monitoring";
 import { formatToWIB } from "@/utils/common";
 import { MONTH_NAMES } from "@/lib/reportPeriodUtils";
+import { useAuthUser } from "@/hooks/useAuthUser";
 
 const getSignalQuality = (rsrp: number) => {
   if (rsrp >= -85) {
@@ -430,14 +431,45 @@ const SmartBoxIllustration = ({ isWhite }: { isWhite?: boolean }) => {
 export const CellularDeviceDetailCard: React.FC<
   CellularDeviceDetailCardProps
 > = ({ gatewayId, onClose }) => {
-  const [activeTab, setActiveTab] = useState<
-    | "Overview"
-    | "CPU – Modem"
-    | "Modem & SIM"
-    | "Signal & Network"
-    | "Event Log"
-    | "System Logs"
-  >("Overview");
+  const { hasModule, isPrivileged } = useAuthUser();
+
+  const allTabs = useMemo(
+    () => [
+      { id: "Overview" as const, label: "Overview", moduleName: "Cellular - Overview" },
+      { id: "CPU – Modem" as const, label: "CPU – Modem", moduleName: "Cellular - CPU – Modem" },
+      { id: "Modem & SIM" as const, label: "Modem & SIM", moduleName: "Cellular - Modem & SIM" },
+      { id: "Signal & Network" as const, label: "Signal & Network", moduleName: "Cellular - Signal & Network" },
+      { id: "Event Log" as const, label: "Event Log", moduleName: "Cellular - Event Log" },
+      { id: "System Logs" as const, label: "System Logs", moduleName: "Cellular - System Logs" },
+    ],
+    []
+  );
+
+  type TabType = (typeof allTabs)[number]["id"];
+
+  const isTabAllowed = useCallback(
+    (tabId: TabType) => {
+      if (isPrivileged) return true;
+      const tabDef = allTabs.find((t) => t.id === tabId);
+      if (!tabDef) return false;
+      return hasModule(tabDef.moduleName) || hasModule(tabDef.id);
+    },
+    [isPrivileged, allTabs, hasModule]
+  );
+
+  const tabs = useMemo(
+    () => allTabs.filter((t) => isTabAllowed(t.id)),
+    [allTabs, isTabAllowed]
+  );
+
+  const [activeTab, setActiveTab] = useState<TabType>("Overview");
+
+  // Keep activeTab aligned with allowed tabs
+  useEffect(() => {
+    if (tabs.length > 0 && !tabs.some((t) => t.id === activeTab)) {
+      setActiveTab(tabs[0].id);
+    }
+  }, [tabs, activeTab]);
 
   // Fetch telemetry detail for selected gateway from FastAPI
   const { data, isLoading } = useCellularGatewayDetail(gatewayId);
@@ -837,22 +869,6 @@ export const CellularDeviceDetailCard: React.FC<
 
   const d = data;
 
-  const tabs: Array<
-    | "Overview"
-    | "CPU – Modem"
-    | "Modem & SIM"
-    | "Signal & Network"
-    | "Event Log"
-    | "System Logs"
-  > = [
-    "Overview",
-    "CPU – Modem",
-    "Modem & SIM",
-    "Signal & Network",
-    "Event Log",
-    "System Logs",
-  ];
-
   const isWhiteDevice = d.type.includes("Putih");
   const isDeviceOffline =
     (d.status || "").toLowerCase().includes("off") ||
@@ -954,18 +970,18 @@ export const CellularDeviceDetailCard: React.FC<
         {/* Center: Navigation Tabs */}
         <div className="flex flex-wrap items-center gap-1 bg-slate-100 dark:bg-[#070e1c] p-1 rounded-lg border border-slate-200 dark:border-slate-800/80">
           {tabs.map((tab) => {
-            const isActive = activeTab === tab;
+            const isActive = activeTab === tab.id;
             return (
               <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
                 className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all cursor-pointer ${
                   isActive
                     ? "bg-[#0073ea] text-white font-semibold shadow-xs"
                     : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white dark:hover:bg-slate-800/50"
                 }`}
               >
-                {tab}
+                {tab.label}
               </button>
             );
           })}
@@ -987,6 +1003,18 @@ export const CellularDeviceDetailCard: React.FC<
 
       {/* Main Body */}
       <div className="p-4 sm:p-5 space-y-4">
+        {tabs.length === 0 ? (
+          <div className="py-12 px-4 text-center bg-slate-50/50 dark:bg-slate-900/30 rounded-xl border border-slate-200 dark:border-slate-800">
+            <ShieldCheck className="size-8 mx-auto text-slate-400 mb-2" />
+            <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+              Akses Tab Tidak Tersedia
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              Role Anda belum memiliki izin untuk melihat tab pada detail Cellular ini. Silakan hubungi Administrator.
+            </p>
+          </div>
+        ) : (
+          <>
         {/* ========================================================= */}
         {/* TAB 1: RINGKASAN */}
         {/* ========================================================= */}
@@ -1485,15 +1513,21 @@ export const CellularDeviceDetailCard: React.FC<
 
                 return (
                   <div
-                    onClick={() => setActiveTab("Signal & Network")}
-                    className={`rounded-xl p-4 flex flex-col justify-between shadow-xs cursor-pointer transition-all group ${
+                    onClick={() => {
+                      if (isTabAllowed("Signal & Network")) {
+                        setActiveTab("Signal & Network");
+                      }
+                    }}
+                    className={`rounded-xl p-4 flex flex-col justify-between shadow-xs transition-all group ${
+                      isTabAllowed("Signal & Network") ? "cursor-pointer" : ""
+                    } ${
                       isDeviceOffline
                         ? "bg-rose-500/[0.03] border border-rose-500/40 dark:border-rose-500/30 hover:border-rose-500/70 hover:bg-rose-500/[0.05]"
                         : isCpuNotConnected || (!isSimReady && !isQuotaEmpty)
                           ? "bg-amber-500/[0.03] border border-amber-500/40 dark:border-amber-500/30 hover:border-amber-500/70 hover:bg-amber-500/[0.05]"
                           : "bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 hover:border-blue-500/50 hover:bg-slate-100/50 dark:hover:bg-[#0c1630]"
                     }`}
-                    title="Klik untuk membuka tab Signal & Network"
+                    title={isTabAllowed("Signal & Network") ? "Klik untuk membuka tab Signal & Network" : "Signal & Network"}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300 font-medium text-xs">
@@ -1597,13 +1631,19 @@ export const CellularDeviceDetailCard: React.FC<
 
               {/* Kolom 2 dari 2: Network & SIM - Clickable to Modem & SIM */}
               <div
-                onClick={() => setActiveTab("Modem & SIM")}
-                className={`rounded-xl p-4 flex flex-col justify-between shadow-xs cursor-pointer transition-all group ${
+                onClick={() => {
+                  if (isTabAllowed("Modem & SIM")) {
+                    setActiveTab("Modem & SIM");
+                  }
+                }}
+                className={`rounded-xl p-4 flex flex-col justify-between shadow-xs transition-all group ${
+                  isTabAllowed("Modem & SIM") ? "cursor-pointer" : ""
+                } ${
                   isDeviceOffline
                     ? "bg-rose-500/[0.03] border border-rose-500/40 dark:border-rose-500/30 hover:border-rose-500/70 hover:bg-rose-500/[0.05]"
                     : "bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 hover:border-blue-500/50 hover:bg-slate-100/50 dark:hover:bg-[#0c1630]"
                 }`}
-                title="Klik untuk membuka tab Modem & SIM"
+                title={isTabAllowed("Modem & SIM") ? "Klik untuk membuka tab Modem & SIM" : "Modem & SIM"}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300 font-medium text-xs">
@@ -3024,6 +3064,8 @@ export const CellularDeviceDetailCard: React.FC<
             </div>
           </div>
         )}
+        </>
+      )}
       </div>
     </div>
   );

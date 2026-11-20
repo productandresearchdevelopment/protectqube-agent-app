@@ -98,6 +98,25 @@ export function useAuthUser() {
 		[user, isPrivileged, permissions]
 	);
 
+	/**
+	 * hasModule checks whether the user's role explicitly has permission for a specific module name or route.
+	 * Super Admin / Developer always has permission.
+	 */
+	const hasModule = useCallback(
+		(nameOrRoute: string): boolean => {
+			if (!user) return false;
+			if (isPrivileged) return true;
+			if (!permissions || permissions.length === 0) return false;
+			if (permissions.includes('*')) return true;
+
+			if (!nameOrRoute) return false;
+			const normalize = (s: string) => s.trim().toLowerCase().replace(/[–—]/g, '-');
+			const targetNorm = normalize(nameOrRoute);
+			return permissions.some((p: string) => p && normalize(p) === targetNorm);
+		},
+		[user, isPrivileged, permissions]
+	);
+
 	return {
 		user: user as IUser | undefined,
 		roleId,
@@ -114,6 +133,7 @@ export function useAuthUser() {
 		isPrivilegedWithAdmin,
 		haveRoute,
 		canAccess: haveRoute,
+		hasModule,
 	};
 }
 

@@ -883,10 +883,6 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
   const d = data;
 
   const isWhite = (d.type || "").includes("Putih");
-  const isOffline =
-    (d.status || "").toLowerCase() === "offline" ||
-    Boolean((d as any).is_offline) ||
-    Boolean((d as any).is_last_known);
 
   return (
     <div className="bg-white dark:bg-[#070e1d] text-slate-800 dark:text-slate-100 rounded-2xl border border-slate-200 dark:border-slate-800/90 shadow-xl p-4 sm:p-5 space-y-4 font-sans transition-all duration-300">
@@ -898,14 +894,8 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
           <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white tracking-tight">
             Detail Device &ndash; {d.location || d.id}
           </h2>
-          <span
-            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-              isOffline
-                ? "bg-rose-500/15 text-[#e2445c] border border-rose-500/30"
-                : "bg-[#00c875]/20 text-[#00a862] dark:text-[#00c875] border border-[#00c875]/30"
-            }`}
-          >
-            {isOffline ? "Offline" : d.status || "Online"}
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#00c875]/15 dark:bg-[#00c875]/20 text-[#00c875] border border-[#00c875]/30">
+            {d.status}
           </span>
         </div>
 
