@@ -24,15 +24,20 @@ import {
   Disc,
   Info,
   RotateCcw,
+  Download,
+  Loader2,
 } from "lucide-react";
 import {
   useDVRGatewayDetail,
   useRebootDVRGateway,
   IDVRGatewayDetailData,
   ICameraChannelPreview,
+  exportRawMqttUrl,
+  downloadReportFile,
 } from "@/store/api/monitoring";
 import { formatToWIB } from "@/utils/common";
 import { getAIOpsBadgeClass } from "@/utils/aiopsBadge";
+import { useAuthUser } from "@/hooks/useAuthUser";
 
 const formatDurationEn = (dur?: string) => {
   if (!dur) return "-";
@@ -421,6 +426,23 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
   gatewayId,
   onClose,
 }) => {
+  const { hasModule } = useAuthUser();
+  const canExportRawMqtt = hasModule("/api/v1/monitoring/dvr/gateway/:id/export-raw-mqtt");
+  const [isExportingRawMqtt, setIsExportingRawMqtt] = useState(false);
+
+  const handleExportRawMqtt = async () => {
+    if (!gatewayId || isExportingRawMqtt) return;
+    try {
+      setIsExportingRawMqtt(true);
+      const url = exportRawMqttUrl("dvr", gatewayId);
+      await downloadReportFile(url, `RAW_MQTT_${gatewayId}_dvr.json`);
+    } catch (err) {
+      console.error("Failed to export raw MQTT:", err);
+    } finally {
+      setIsExportingRawMqtt(false);
+    }
+  };
+
   const [activeTab, setActiveTab] = useState<
     | "Overview"
     | "CPU – DVR"
@@ -667,6 +689,22 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
+          {canExportRawMqtt && (
+            <button
+              type="button"
+              onClick={handleExportRawMqtt}
+              disabled={isExportingRawMqtt}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 transition-all shadow-2xs cursor-pointer disabled:opacity-50"
+              title="Export seluruh data mentah MQTT (raw_payload + timestamp) dari pertama kali nyala"
+            >
+              {isExportingRawMqtt ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <Download className="size-3.5" />
+              )}
+              <span>{isExportingRawMqtt ? "Exporting..." : "Export Raw MQTT"}</span>
+            </button>
+          )}
           <button
             type="button"
             onClick={handleOpenRebootModal}

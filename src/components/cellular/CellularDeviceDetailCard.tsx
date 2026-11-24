@@ -45,6 +45,7 @@ import {
   useGatewaySystemLogs,
   downloadGatewaySystemLogsUrl,
   downloadReportFile,
+  exportRawMqttUrl,
 } from "@/store/api/monitoring";
 import { formatToWIB } from "@/utils/common";
 import { MONTH_NAMES } from "@/lib/reportPeriodUtils";
@@ -433,6 +434,21 @@ export const CellularDeviceDetailCard: React.FC<
   CellularDeviceDetailCardProps
 > = ({ gatewayId, onClose }) => {
   const { hasModule, isPrivileged } = useAuthUser();
+  const canExportRawMqtt = hasModule("/api/v1/monitoring/cellular/gateway/:id/export-raw-mqtt");
+  const [isExportingRawMqtt, setIsExportingRawMqtt] = useState(false);
+
+  const handleExportRawMqtt = async () => {
+    if (!gatewayId || isExportingRawMqtt) return;
+    try {
+      setIsExportingRawMqtt(true);
+      const url = exportRawMqttUrl("cellular", gatewayId);
+      await downloadReportFile(url, `RAW_MQTT_${gatewayId}_cellular.json`);
+    } catch (err) {
+      console.error("Failed to export raw MQTT:", err);
+    } finally {
+      setIsExportingRawMqtt(false);
+    }
+  };
 
   const allTabs = useMemo(
     () => [
@@ -988,8 +1004,24 @@ export const CellularDeviceDetailCard: React.FC<
           })}
         </div>
 
-        {/* Right: Close Button */}
+        {/* Right: Export Raw MQTT (RBAC) & Close Button */}
         <div className="flex items-center gap-2">
+          {canExportRawMqtt && (
+            <button
+              type="button"
+              onClick={handleExportRawMqtt}
+              disabled={isExportingRawMqtt}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 transition-all shadow-2xs cursor-pointer disabled:opacity-50"
+              title="Export seluruh data mentah MQTT (raw_payload + timestamp) dari pertama kali nyala"
+            >
+              {isExportingRawMqtt ? (
+                <RefreshCw className="size-3.5 animate-spin" />
+              ) : (
+                <Download className="size-3.5" />
+              )}
+              <span>{isExportingRawMqtt ? "Exporting..." : "Export Raw MQTT"}</span>
+            </button>
+          )}
           {onClose && (
             <button
               onClick={onClose}

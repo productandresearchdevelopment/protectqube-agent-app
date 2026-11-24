@@ -1877,6 +1877,13 @@ export const useRebootDVRGateway = () => {
   });
 };
 
+export const exportRawMqttUrl = (
+  scope: "system-health" | "cellular" | "dvr",
+  gatewayId: string,
+): string => {
+  return `${API_BASE_URL}/monitoring/${scope}/gateway/${encodeURIComponent(gatewayId)}/export-raw-mqtt`;
+};
+
 /**
  * Client-side file downloader that carries authorization token headers,
  * extracts filename from Content-Disposition if present, and triggers browser save.
