@@ -28,6 +28,7 @@ import {
   FileText,
   Filter,
 } from "lucide-react";
+import { getAIOpsBadgeClass } from "@/utils/aiopsBadge";
 import {
   ResponsiveContainer,
   LineChart,
@@ -1079,7 +1080,8 @@ export const CellularDeviceDetailCard: React.FC<
             {/* DATA PENDUKUNG PENYEBAB GANGGUAN (ROOT CAUSE EVIDENCE) - Muncul Saat Offline, CPU-Modem Terputus, Atau SIM Tidak Terdeteksi */}
             {(isDeviceOffline ||
               isCpuNotConnected ||
-              (!isSimReady && !isQuotaEmpty)) && (
+              (!isSimReady && !isQuotaEmpty) ||
+              Boolean(d.evidence?.badge && d.evidence.badge_color !== "emerald")) && (
               <div className="p-4 rounded-xl border shadow-xs transition-all bg-rose-500/5 border-rose-500/30 dark:bg-rose-950/20">
                 {/* Header Box */}
                 <div className="flex flex-wrap items-center justify-between gap-2.5 pb-2.5 border-b border-slate-200/80 dark:border-slate-800/80">
@@ -1095,15 +1097,59 @@ export const CellularDeviceDetailCard: React.FC<
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold border tracking-wide uppercase font-mono bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30">
-                      {isDeviceOffline
-                        ? "[ STATUS: DEVICE OFFLINE ]"
-                        : isCpuNotConnected
-                          ? "[ STATUS: CPU-MODEM DISCONNECTED ]"
-                          : "[ STATUS: SIM CARD NOT DETECTED ]"}
-                    </span>
+                    {d.evidence?.badge ? (
+                      <span
+                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border tracking-wide font-mono ${getAIOpsBadgeClass(
+                          d.evidence.badge_color
+                        )}`}
+                      >
+                        {d.evidence.badge}
+                      </span>
+                    ) : (
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold border tracking-wide uppercase font-mono bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30">
+                        {isDeviceOffline
+                          ? "[ STATUS: DEVICE OFFLINE ]"
+                          : isCpuNotConnected
+                            ? "[ STATUS: CPU-MODEM DISCONNECTED ]"
+                            : "[ STATUS: SIM CARD NOT DETECTED ]"}
+                      </span>
+                    )}
                   </div>
                 </div>
+
+                {/* Root Cause Diagnosis & Evidence Details */}
+                {(d.reason || d.reason_desc || d.evidence?.snippet) && (
+                  <div className="mt-3 p-3 rounded-lg bg-white/70 dark:bg-[#070e1d]/70 border border-slate-200/80 dark:border-slate-800/80 text-xs text-slate-700 dark:text-slate-300 space-y-1.5 font-sans">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 font-bold text-slate-900 dark:text-white text-xs">
+                        <span>Diagnosa:</span>
+                        <span className="text-rose-600 dark:text-rose-400">{d.reason || "Penyebab Gangguan Terdeteksi"}</span>
+                      </div>
+                      {d.evidence?.evidence_ts && (
+                        <span className="text-[10px] font-mono text-slate-400">
+                          Kejadian: {d.evidence.evidence_ts}
+                        </span>
+                      )}
+                    </div>
+                    {d.reason_desc && (
+                      <p className="leading-relaxed text-slate-600 dark:text-slate-300">
+                        {d.reason_desc}
+                      </p>
+                    )}
+                    {d.evidence?.metrics && (
+                      <div className="text-[11px] font-mono text-slate-500 dark:text-slate-400">
+                        <span className="font-semibold text-slate-600 dark:text-slate-300">Metrik Terakhir: </span>
+                        {d.evidence.metrics}
+                      </div>
+                    )}
+                    {d.evidence?.snippet && (
+                      <div className="mt-1.5 p-2 rounded bg-slate-100/80 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 font-mono text-[11px] text-slate-600 dark:text-slate-300">
+                        <span className="font-bold text-slate-500 dark:text-slate-400">Log Kejadian: </span>
+                        {d.evidence.snippet}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Numbered Evidence Rows */}
                 <div className="mt-3 space-y-2 text-xs font-mono">

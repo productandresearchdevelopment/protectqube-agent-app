@@ -9,6 +9,7 @@ import {
   downloadReportFile,
 } from "@/store/api/monitoring";
 import { formatToWIB } from "@/utils/common";
+import { getAIOpsBadgeClass } from "@/utils/aiopsBadge";
 import {
   DataTable,
   ColumnDef,

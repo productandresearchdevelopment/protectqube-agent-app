@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useSystemHealthDashboard, IGatewayItem } from "@/store/api/monitoring";
 import { formatToWIB } from "@/utils/common";
+import { getAIOpsBadgeClass } from "@/utils/aiopsBadge";
 import {
   DataTable,
   ColumnDef,
@@ -397,11 +398,34 @@ export default function SystemHealthPage() {
       defaultSortOrder: "asc",
       cell: (item) => {
         const isOnline = item.status === "Online" || item.status === "Healthy";
+        const evidence = item.evidence;
+
         return (
-          <StatusBadge
-            status={isOnline ? "Online" : "Offline"}
-            variant={isOnline ? "online" : "offline"}
-          />
+          <div className="flex flex-col items-center gap-1 text-center py-0.5">
+            {evidence?.badge ? (
+              <span
+                className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border tracking-tight ${getAIOpsBadgeClass(
+                  evidence.badge_color
+                )}`}
+                title={item.reason_desc || evidence.snippet}
+              >
+                <span>{evidence.badge}</span>
+              </span>
+            ) : (
+              <StatusBadge
+                status={isOnline ? "Online" : "Offline"}
+                variant={isOnline ? "online" : "offline"}
+              />
+            )}
+            {(evidence?.snippet || evidence?.evidence_ts) && (
+              <span
+                className="text-[10px] text-slate-400 font-mono truncate max-w-[140px] block"
+                title={`${evidence.snippet || ""} ${evidence.evidence_ts ? `(${evidence.evidence_ts})` : ""}`}
+              >
+                {evidence.evidence_ts || evidence.snippet}
+              </span>
+            )}
+          </div>
         );
       },
     },

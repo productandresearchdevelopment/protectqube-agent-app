@@ -36,6 +36,7 @@ import {
   ISystemHealthEventItem,
 } from "@/store/api/monitoring";
 import { getCurrentMonthPeriodStr } from "@/lib/reportPeriodUtils";
+import { getAIOpsBadgeClass } from "@/utils/aiopsBadge";
 
 const formatDurationEn = (dur?: string) => {
   if (!dur) return "-";
@@ -785,6 +786,76 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
         {/* ========================================================= */}
         {activeTab === "Overview" && (
           <div className="space-y-4 animate-in fade-in duration-200">
+            {/* DATA PENDUKUNG PENYEBAB GANGGUAN (ROOT CAUSE EVIDENCE) */}
+            {(isOffline ||
+              Boolean(d.evidence?.badge && d.evidence.badge_color !== "emerald") ||
+              Boolean(d.reason)) && (
+              <div className="p-4 rounded-xl border shadow-xs transition-all bg-rose-500/5 border-rose-500/30 dark:bg-rose-950/20">
+                {/* Header Box */}
+                <div className="flex flex-wrap items-center justify-between gap-2.5 pb-2.5 border-b border-slate-200/80 dark:border-slate-800/80">
+                  <div className="flex items-center gap-2">
+                    <div className="size-7 rounded-lg flex items-center justify-center shrink-0 bg-rose-500/20 text-rose-500">
+                      <AlertTriangle className="size-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider font-mono">
+                        ROOT CAUSE &amp; TROUBLE EVIDENCE
+                      </h4>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {d.evidence?.badge ? (
+                      <span
+                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border tracking-wide font-mono ${getAIOpsBadgeClass(
+                          d.evidence.badge_color
+                        )}`}
+                      >
+                        {d.evidence.badge}
+                      </span>
+                    ) : (
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold border tracking-wide uppercase font-mono bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30">
+                        [ STATUS: DEVICE OFFLINE ]
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Root Cause Diagnosis & Evidence Details */}
+                {(d.reason || d.reason_desc || d.evidence?.snippet) && (
+                  <div className="mt-3 p-3 rounded-lg bg-white/70 dark:bg-[#070e1d]/70 border border-slate-200/80 dark:border-slate-800/80 text-xs text-slate-700 dark:text-slate-300 space-y-1.5 font-sans">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 font-bold text-slate-900 dark:text-white text-xs">
+                        <span>Diagnosa:</span>
+                        <span className="text-rose-600 dark:text-rose-400">{d.reason || "Penyebab Gangguan Terdeteksi"}</span>
+                      </div>
+                      {d.evidence?.evidence_ts && (
+                        <span className="text-[10px] font-mono text-slate-400">
+                          Kejadian: {d.evidence.evidence_ts}
+                        </span>
+                      )}
+                    </div>
+                    {d.reason_desc && (
+                      <p className="leading-relaxed text-slate-600 dark:text-slate-300">
+                        {d.reason_desc}
+                      </p>
+                    )}
+                    {d.evidence?.metrics && (
+                      <div className="text-[11px] font-mono text-slate-500 dark:text-slate-400">
+                        <span className="font-semibold text-slate-600 dark:text-slate-300">Metrik Terakhir: </span>
+                        {d.evidence.metrics}
+                      </div>
+                    )}
+                    {d.evidence?.snippet && (
+                      <div className="mt-1.5 p-2 rounded bg-slate-100/80 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 font-mono text-[11px] text-slate-600 dark:text-slate-300">
+                        <span className="font-bold text-slate-500 dark:text-slate-400">Log Kejadian: </span>
+                        {d.evidence.snippet}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
             {/* BARIS 1: col-6 Profile & Specs + col-3 SD Card Health + col-3 Uptime */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-stretch">
               {/* Kolom 1 (col-6): Device Profile & Specs */}

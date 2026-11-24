@@ -15,6 +15,7 @@ import {
 	Boxes,
 	Bell,
 	LogOut,
+	BarChart3,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuthUser } from '@/hooks/useAuthUser';
@@ -69,6 +70,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggleCollapse, m
 			icon: Video,
 			badge: 'CCTV/HDD',
 			badgeColor: 'bg-[#0073ea]',
+		},
+		{
+			name: 'Analytics',
+			href: '/analytics',
+			icon: BarChart3,
+			badge: 'Insights',
+			badgeColor: 'bg-[#805ad5]',
 		},
 		{
 			name: 'Reports',

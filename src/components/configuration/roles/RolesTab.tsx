@@ -29,6 +29,10 @@ import {
 	Terminal,
 	Folder,
 	FolderTree,
+	BarChart3,
+	TrendingUp,
+	AlertTriangle,
+	PieChart,
 } from 'lucide-react';
 import { IRole } from '@/types/model';
 import {
@@ -243,6 +247,10 @@ export const RolesTab: React.FC = () => {
 		if (i.includes('bell') || n.includes('notif')) return Bell;
 		if (i.includes('database') || n.includes('database')) return Database;
 		if (i.includes('setting') || n.includes('config')) return Settings;
+		if (i.includes('chart') || n.includes('analytics')) return BarChart3;
+		if (i.includes('trend') || n.includes('trend')) return TrendingUp;
+		if (i.includes('alert') || n.includes('incident')) return AlertTriangle;
+		if (i.includes('pie') || n.includes('root cause')) return PieChart;
 		if (t.includes('directory')) return Folder;
 		if (t.includes('service')) return Terminal;
 		return FolderTree;

@@ -32,6 +32,7 @@ import {
   ICameraChannelPreview,
 } from "@/store/api/monitoring";
 import { formatToWIB } from "@/utils/common";
+import { getAIOpsBadgeClass } from "@/utils/aiopsBadge";
 
 const formatDurationEn = (dur?: string) => {
   if (!dur) return "-";
@@ -787,7 +788,14 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
               const hasNoVideo = noVideoCameras.length > 0;
               const hddSmart = (d.dvr_health?.hdd_status || "").toLowerCase();
               const isHddAlert = hddSmart.includes("error") || hddSmart.includes("fail") || hddSmart.includes("danger") || badSec > 0;
-              const hasTrouble = isOffline || isCpuNotConnected || isNotRecording || hasNoVideo || isHddAlert;
+              const hasTrouble =
+                isOffline ||
+                isCpuNotConnected ||
+                isNotRecording ||
+                hasNoVideo ||
+                isHddAlert ||
+                Boolean(d.evidence?.badge && d.evidence.badge_color !== "emerald") ||
+                Boolean(d.reason);
 
               if (isNoDvr || !hasTrouble) return null;
 
@@ -807,34 +815,69 @@ export const DVRDeviceDetailCard: React.FC<DVRDeviceDetailCardProps> = ({
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold border tracking-wide uppercase font-mono bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30">
-                        {isOffline
-                          ? "[ STATUS: DEVICE OFFLINE ]"
-                          : isCpuNotConnected
-                            ? "[ STATUS: CPU – DVR DISCONNECTED ]"
-                            : isNotRecording
-                              ? "[ STATUS: NOT RECORDING ]"
-                              : hasNoVideo
-                                ? "[ STATUS: CAMERA NO VIDEO ]"
-                                : "[ STATUS: STORAGE HDD DEGRADED ]"}
-                      </span>
+                      {d.evidence?.badge ? (
+                        <span
+                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border tracking-wide font-mono ${getAIOpsBadgeClass(
+                            d.evidence.badge_color
+                          )}`}
+                        >
+                          {d.evidence.badge}
+                        </span>
+                      ) : (
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold border tracking-wide uppercase font-mono bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30">
+                          {isOffline
+                            ? "[ STATUS: DEVICE OFFLINE ]"
+                            : isCpuNotConnected
+                              ? "[ STATUS: CPU – DVR DISCONNECTED ]"
+                              : isNotRecording
+                                ? "[ STATUS: NOT RECORDING ]"
+                                : hasNoVideo
+                                  ? "[ STATUS: CAMERA NO VIDEO ]"
+                                  : "[ STATUS: STORAGE HDD DEGRADED ]"}
+                        </span>
+                      )}
                     </div>
                   </div>
 
                   {/* Root Cause Context Summary */}
                   <div className="mt-2.5 p-2.5 rounded-lg bg-white/50 dark:bg-[#070e1d]/50 border border-slate-200/60 dark:border-slate-800/60 text-xs text-slate-700 dark:text-slate-300">
-                    <span className="font-bold text-slate-900 dark:text-white mr-1.5 font-sans">Root Cause Analysis:</span>
-                    <span className="font-sans leading-relaxed">
-                      {isOffline
-                        ? "Gateway CPU is not transmitting telemetry (> 1 hour). Total power outage or backhaul network link disconnected. Displayed DVR telemetry reflects last valid recorded state prior to outage."
-                        : isCpuNotConnected
-                          ? "Gateway CPU online & operating normally, but physical / IP link to NVR is disconnected (Host unreachable / Port 80 ISAPI timeout). Verify RJ45 LAN cable between Gateway CPU and NVR, or ensure NVR power adapter is active."
-                          : isNotRecording
-                            ? "Communication between CPU and NVR is established, but CCTV video recording is inactive (0 channels writing to disk). Caused by storage drive failure, continuous recording schedule disabled, or disk storage full."
-                            : hasNoVideo
-                              ? `Communication between CPU and NVR and recording engine are operational, but ${noVideoCameras.length} camera(s) have lost video signal (${noVideoCamNames}). Check coaxial/PoE cabling or camera power adapters.`
-                              : `Storage drive degradation detected (${badSec} bad sectors, status: ${d.dvr_health.hdd_status}). Potential risk of video write failure.`}
-                    </span>
+                    <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+                      <div className="flex items-center gap-1.5 font-bold text-slate-900 dark:text-white font-sans">
+                        <span>Root Cause Analysis:</span>
+                        {d.reason && (
+                          <span className="text-rose-600 dark:text-rose-400">{d.reason}</span>
+                        )}
+                      </div>
+                      {d.evidence?.evidence_ts && (
+                        <span className="text-[10px] font-mono text-slate-400">
+                          Kejadian: {d.evidence.evidence_ts}
+                        </span>
+                      )}
+                    </div>
+                    <p className="font-sans leading-relaxed text-slate-600 dark:text-slate-300">
+                      {d.reason_desc ||
+                        (isOffline
+                          ? "Gateway CPU is not transmitting telemetry (> 1 hour). Total power outage or backhaul network link disconnected. Displayed DVR telemetry reflects last valid recorded state prior to outage."
+                          : isCpuNotConnected
+                            ? "Gateway CPU online & operating normally, but physical / IP link to NVR is disconnected (Host unreachable / Port 80 ISAPI timeout). Verify RJ45 LAN cable between Gateway CPU and NVR, or ensure NVR power adapter is active."
+                            : isNotRecording
+                              ? "Communication between CPU and NVR is established, but CCTV video recording is inactive (0 channels writing to disk). Caused by storage drive failure, continuous recording schedule disabled, or disk storage full."
+                              : hasNoVideo
+                                ? `Communication between CPU and NVR and recording engine are operational, but ${noVideoCameras.length} camera(s) have lost video signal (${noVideoCamNames}). Check coaxial/PoE cabling or camera power adapters.`
+                                : `Storage drive degradation detected (${badSec} bad sectors, status: ${d.dvr_health.hdd_status}). Potential risk of video write failure.`)}
+                    </p>
+                    {d.evidence?.metrics && (
+                      <div className="mt-1 text-[11px] font-mono text-slate-500 dark:text-slate-400">
+                        <span className="font-semibold text-slate-600 dark:text-slate-300">Metrik Terakhir: </span>
+                        {d.evidence.metrics}
+                      </div>
+                    )}
+                    {d.evidence?.snippet && (
+                      <div className="mt-1.5 p-2 rounded bg-slate-100/80 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 font-mono text-[11px] text-slate-600 dark:text-slate-300">
+                        <span className="font-bold text-slate-500 dark:text-slate-400">Log Kejadian: </span>
+                        {d.evidence.snippet}
+                      </div>
+                    )}
                   </div>
 
                   {/* Numbered Evidence Rows */}

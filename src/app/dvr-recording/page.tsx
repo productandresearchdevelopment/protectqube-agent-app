@@ -18,6 +18,7 @@ import {
   ClientFilterDropdown,
 } from "@/components/ui";
 import { DVRDeviceDetailCard } from "@/components/dvr/DVRDeviceDetailCard";
+import { getAIOpsBadgeClass } from "@/utils/aiopsBadge";
 import {
   Server,
   Check,

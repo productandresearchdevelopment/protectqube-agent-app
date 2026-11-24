@@ -102,6 +102,14 @@ export interface IChartData {
   timeline: { time: string; value: number }[];
 }
 
+export interface IAIOpsEvidence {
+  badge: string;
+  badge_color: "amber" | "rose" | "purple" | "sky" | "slate" | "emerald" | string;
+  metrics?: string;
+  snippet?: string;
+  evidence_ts?: string;
+}
+
 export interface IGatewayItem {
   no: number;
   id: string;
@@ -129,6 +137,9 @@ export interface IGatewayItem {
   battery_percent?: number | null;
   is_power_drop?: boolean;
   voltage?: string;
+  reason?: string;
+  reason_desc?: string;
+  evidence?: IAIOpsEvidence;
 }
 
 export interface ISystemHealthDashboardData {
@@ -283,6 +294,9 @@ export interface ICellularGatewayItem {
   incident_count?: number;
   trouble_events_count?: number;
   last_update: string;
+  reason?: string;
+  reason_desc?: string;
+  evidence?: IAIOpsEvidence;
 }
 
 export interface ICellularDashboardData {
@@ -469,6 +483,9 @@ export interface IDVRGatewayItem {
   storage_usage_percent: number | string | null;
   dvr_health: string;
   last_update: string;
+  reason?: string;
+  reason_desc?: string;
+  evidence?: IAIOpsEvidence;
 }
 
 export interface IDVRDashboardData {
@@ -1442,6 +1459,9 @@ export interface IGatewayDetailData {
   daily_uptime?: IDailyUptime;
   power_info?: IPowerInfo;
   status?: string;
+  reason?: string;
+  reason_desc?: string;
+  evidence?: IAIOpsEvidence | any;
 }
 
 export const fetchGatewayDetail = async (
@@ -1569,14 +1589,16 @@ export interface ICellularGatewayDetailData {
   events?: ICellularEventItem[];
   incident_events?: ICellularEventItem[];
   activity_events?: ICellularEventItem[];
-  evidence?: Array<{
+  evidence?: IAIOpsEvidence | Array<{
     num?: number;
     label: string;
     badge?: string;
     value?: string;
     status: "good" | "warn" | "bad";
     detail?: string;
-  }>;
+  }> | any;
+  reason?: string;
+  reason_desc?: string;
   evidence_verdict?: string;
   evidence_badge?: string;
   data_traffic?: {
@@ -1789,6 +1811,9 @@ export interface IDVRGatewayDetailData {
   serial_number?: string;
   device_type?: string;
   events?: IDVREventItem[];
+  reason?: string;
+  reason_desc?: string;
+  evidence?: IAIOpsEvidence;
 }
 
 export const fetchDVRGatewayDetail = async (
@@ -2313,6 +2338,138 @@ export const useOverviewSummary = () => {
   return useQuery({
     queryKey: ["overviewSummary"],
     queryFn: fetchOverviewSummary,
+    refetchInterval: 30000,
+    staleTime: 15000,
+  });
+};
+
+export interface IIncidentAnalyticsSummary {
+  selected_month: string;
+  selected_date: string;
+  total_incidents_month: number;
+  total_incidents_today: number;
+  active_outages: number;
+  top_cause_today: string;
+  top_cause_today_metric: string | null;
+  top_cause_today_count: number;
+  top_cause_month: string;
+  top_cause_month_metric: string | null;
+  top_cause_month_count: number;
+  most_affected_gateway: {
+    gateway_id: string;
+    location: string;
+    client_name: string;
+    incident_count: number;
+  };
+  total_offline_devices: number;
+}
+
+export interface IMonthlyTrendPoint {
+  date: string;
+  total: number;
+  cellular: number;
+  cpu_dvr: number;
+  cpu_modem: number;
+  other: number;
+}
+
+export interface IRootCauseItem {
+  metric: string;
+  title: string;
+  description: string;
+  count: number;
+  percentage: number;
+  avg_duration_minutes: number;
+  color: string;
+  icon: string;
+}
+
+export interface IOfflineDeviceItem {
+  gateway_id: string;
+  location: string;
+  client_name: string;
+  hardware_type: string;
+  status: string;
+  signal_csq: number | null;
+  provider: string;
+  cpu_modem_status: string;
+  primary_cause: string;
+  root_cause_metric: string;
+  uptime: string;
+  reason?: string;
+  reason_desc?: string;
+  evidence?: IAIOpsEvidence;
+}
+
+export interface IIncidentDetailItem {
+  id: string;
+  gateway_id: string;
+  location: string;
+  client_name: string;
+  hardware_model: string | null;
+  metric: string;
+  title: string;
+  description: string;
+  start_time_wib: string | null;
+  end_time_wib: string | null;
+  duration: string;
+  status: string;
+}
+
+export interface IIncidentAnalyticsResponse {
+  status: boolean;
+  available_months: string[];
+  selected_month: string;
+  selected_date: string;
+  summary: IIncidentAnalyticsSummary;
+  monthly_trend: IMonthlyTrendPoint[];
+  daily_causes: IRootCauseItem[];
+  monthly_causes: IRootCauseItem[];
+  offline_devices: IOfflineDeviceItem[];
+  incidents: {
+    total: number;
+    limit: number;
+    offset: number;
+    items: IIncidentDetailItem[];
+  };
+}
+
+export interface IIncidentAnalyticsParams {
+  month?: string;
+  date?: string;
+  client?: string;
+  search?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export const fetchIncidentAnalytics = async (
+  params?: IIncidentAnalyticsParams
+): Promise<IIncidentAnalyticsResponse> => {
+  const token = getToken();
+  const headers: HeadersInit = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const queryParams = new URLSearchParams();
+  if (params?.month) queryParams.set("month", params.month);
+  if (params?.date) queryParams.set("date", params.date);
+  if (params?.client && params.client !== "All Clients") queryParams.set("client", params.client);
+  if (params?.search) queryParams.set("search", params.search);
+  if (params?.limit) queryParams.set("limit", params.limit.toString());
+  if (params?.offset !== undefined) queryParams.set("offset", params.offset.toString());
+
+  const url = `${API_BASE_URL}/monitoring/analytics/incidents?${queryParams.toString()}`;
+  const response = await fetch(url, { headers, cache: "no-store" });
+  if (!response.ok) {
+    await handleFetchError(response);
+  }
+  return response.json();
+};
+
+export const useIncidentAnalytics = (params?: IIncidentAnalyticsParams) => {
+  return useQuery({
+    queryKey: ["incidentAnalytics", params],
+    queryFn: () => fetchIncidentAnalytics(params),
     refetchInterval: 30000,
     staleTime: 15000,
   });

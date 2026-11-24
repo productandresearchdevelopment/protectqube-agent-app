@@ -389,15 +389,6 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
 
     const list = rangeFilteredEvents.filter((ev) => {
       const metric = (ev.metric || "").toLowerCase().trim();
-      if (dailyViewMetric === "recording") {
-        if (metric === "cpu_dvr") return false;
-        if (metric === "recording") return true;
-      } else if (dailyViewMetric === "cpu_dvr") {
-        if (metric === "recording") return false;
-        if (metric === "cpu_dvr") return true;
-      }
-      const scope = getIncidentScope(ev);
-      if (scope !== "both" && scope !== dailyViewMetric) return false;
 
       // Exclude HDD / Storage Full (normal 24/7 FIFO overwrite operation, does not generate recording downtime)
       const titleUpper = (ev.title || "").toUpperCase();
@@ -414,6 +405,20 @@ export const DVRReportDetailCard: React.FC<DVRReportDetailCardProps> = ({
           return false;
         }
       }
+
+      if (dailyViewMetric === "recording") {
+        // Cascading: both direct recording/camera incidents AND cpu_dvr/gateway offline outages affect recording SLA
+        if (metric === "recording" || metric === "camera" || metric === "cpu_dvr" || metric === "dvr") {
+          return true;
+        }
+      } else if (dailyViewMetric === "cpu_dvr") {
+        if (metric === "recording" || metric === "camera") return false;
+        if (metric === "cpu_dvr" || metric === "dvr") return true;
+      }
+
+      const scope = getIncidentScope(ev);
+      if (scope !== "both" && scope !== dailyViewMetric) return false;
+
       return true;
     });
 
