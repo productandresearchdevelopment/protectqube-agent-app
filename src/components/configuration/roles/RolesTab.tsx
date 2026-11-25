@@ -28,6 +28,8 @@ import {
 	Database,
 	Terminal,
 	Folder,
+	FolderOpen,
+	Globe,
 	FolderTree,
 	BarChart3,
 	TrendingUp,
@@ -103,37 +105,32 @@ export const RolesTab: React.FC = () => {
 		}
 	};
 
+	const [isAllRootExpanded, setIsAllRootExpanded] = useState(true);
 	const [expandedModuleIds, setExpandedModuleIds] = useState<Set<number>>(new Set());
-
-	// Auto-expand all parent permissions initially
-	useEffect(() => {
-		if (permissions.length > 0) {
-			const parentIds = new Set<number>();
-			permissions.forEach((p) => {
-				if (p.parent_id) parentIds.add(p.parent_id);
-			});
-			setExpandedModuleIds((prev) => {
-				const next = new Set(prev);
-				parentIds.forEach((id) => next.add(id));
-				return next;
-			});
-		}
-	}, [permissions]);
 
 	// Auto-expand on search
 	useEffect(() => {
 		if (searchModule.trim()) {
 			const term = searchModule.toLowerCase().trim();
 			const toExpand = new Set<number>();
+			const parentMap = new Map<number, number>();
+			permissions.forEach((p) => {
+				if (p.parent_id) parentMap.set(p.module_id, p.parent_id);
+			});
 			permissions.forEach((p) => {
 				const matches =
 					p.name.toLowerCase().includes(term) ||
 					(p.route && p.route.toLowerCase().includes(term)) ||
 					(p.description && p.description.toLowerCase().includes(term));
-				if (matches && p.parent_id) {
-					toExpand.add(p.parent_id);
+				if (matches) {
+					let cur = parentMap.get(p.module_id);
+					while (cur) {
+						toExpand.add(cur);
+						cur = parentMap.get(cur);
+					}
 				}
 			});
+			setIsAllRootExpanded(true);
 			setExpandedModuleIds((prev) => new Set([...prev, ...toExpand]));
 		}
 	}, [searchModule, permissions]);
@@ -159,6 +156,7 @@ export const RolesTab: React.FC = () => {
 		if (expandedModuleIds.size >= parentIds.size && parentIds.size > 0) {
 			setExpandedModuleIds(new Set());
 		} else {
+			setIsAllRootExpanded(true);
 			setExpandedModuleIds(parentIds);
 		}
 	};
@@ -301,8 +299,15 @@ export const RolesTab: React.FC = () => {
 			const isExpanded = expandedModuleIds.has(perm.module_id);
 			const isChecked = perm.checked;
 			const typeName = perm.module_type_name || 'route menu';
-			const isServiceApi = typeName.toLowerCase().includes('service');
-			const IconComponent = resolvePermIcon(perm.name, perm.icon, typeName);
+			const typeLower = typeName.toLowerCase();
+			const isServiceApi = typeLower.includes('service');
+			const isHiddenRoute = typeLower.includes('hidden');
+
+			const typeBadgeClass = isServiceApi
+				? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/25'
+				: isHiddenRoute
+					? 'bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/25'
+					: 'bg-[#0073ea]/10 text-[#0073ea] dark:text-[#3894ff] border-[#0073ea]/25';
 
 			const rowElement = (
 				<tr
@@ -314,11 +319,26 @@ export const RolesTab: React.FC = () => {
 							: 'hover:bg-slate-50/80 dark:hover:bg-slate-800/40'
 					}`}
 				>
-					{/* Column 1: Indentation, Chevron & Checkbox */}
-					<td className='py-3.5 pl-4 pr-2 whitespace-nowrap align-middle w-16'>
+					{/* Column 1: Fixed Checkbox Column */}
+					<td className='py-3 px-3 text-center whitespace-nowrap align-middle w-12 border-r border-slate-100 dark:border-slate-800/60'>
+						<div className='flex items-center justify-center'>
+							<div
+								className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${
+									isChecked
+										? 'bg-[#0073ea] border-[#0073ea] text-white shadow-xs'
+										: 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800'
+								}`}
+							>
+								{isChecked && <Check className='w-3 h-3 stroke-[3]' />}
+							</div>
+						</div>
+					</td>
+
+					{/* Column 2: Indented Hierarchical Name + Chevron + Folder Icon + Count Badge */}
+					<td className='py-3 px-4 align-middle border-r border-slate-100 dark:border-slate-800/60'>
 						<div
-							style={{ paddingLeft: `${level * 24}px` }}
-							className={`flex items-center ${hasChildren ? 'gap-2' : 'justify-end gap-2'}`}
+							style={{ paddingLeft: `${(level + 1) * 24}px` }}
+							className='flex items-center gap-2 min-w-0'
 						>
 							{hasChildren ? (
 								<button
@@ -327,87 +347,75 @@ export const RolesTab: React.FC = () => {
 										e.stopPropagation();
 										toggleExpand(perm.module_id);
 									}}
-									className='p-1 rounded-md hover:bg-slate-200/60 dark:hover:bg-slate-700/60 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors cursor-pointer'
+									className='p-0.5 rounded hover:bg-slate-200/70 dark:hover:bg-slate-700/60 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors cursor-pointer shrink-0'
 									title={isExpanded ? 'Collapse' : 'Expand'}
 								>
 									{isExpanded ? (
-										<ChevronDown className='w-4 h-4 text-slate-600 dark:text-slate-300' />
+										<ChevronDown className='w-4 h-4' />
 									) : (
-										<ChevronRight className='w-4 h-4 text-slate-400' />
+										<ChevronRight className='w-4 h-4' />
 									)}
 								</button>
 							) : (
-								<div className='w-6 h-6 shrink-0' />
+								<span className='w-5 shrink-0' />
 							)}
 
-							<div
-								className={`w-5 h-5 rounded-lg border flex items-center justify-center transition-all ${
-									isChecked
-										? 'bg-[#0073ea] border-[#0073ea] text-white shadow-xs'
-										: 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800'
+							{hasChildren ? (
+								isExpanded ? (
+									<FolderOpen className='w-4 h-4 text-[#0073ea] dark:text-[#3894ff] shrink-0' />
+								) : (
+									<Folder className='w-4 h-4 text-[#0073ea] dark:text-[#3894ff] shrink-0' />
+								)
+							) : isServiceApi ? (
+								<Terminal className='w-4 h-4 text-slate-400 dark:text-slate-500 shrink-0' />
+							) : (
+								<Folder className='w-4 h-4 text-[#0073ea]/80 dark:text-[#3894ff]/80 shrink-0' />
+							)}
+
+							<span
+								className={`truncate text-xs sm:text-[13px] ${
+									level === 0
+										? 'font-semibold text-slate-800 dark:text-slate-100'
+										: 'font-medium text-slate-700 dark:text-slate-200'
 								}`}
 							>
-								{isChecked && <Check className='w-3.5 h-3.5 stroke-[3]' />}
-							</div>
-						</div>
-					</td>
+								{perm.name}
+							</span>
 
-					{/* Column 2: Module Name & Description + Icon */}
-					<td className='py-3.5 px-4 align-middle'>
-						<div className='flex items-center gap-3.5'>
-							{!isServiceApi && (
-								<div
-									className={`w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-xs shrink-0 ${
-										isChecked
-											? 'bg-gradient-to-br from-[#0073ea] to-[#005bb5]'
-											: 'bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400'
-									}`}
-								>
-									<IconComponent className='w-5 h-5' />
-								</div>
+							{hasChildren && (
+								<span className='inline-flex items-center justify-center min-w-[24px] h-5 px-1.5 rounded-full text-[11px] font-bold bg-blue-50 dark:bg-blue-500/15 text-[#0073ea] dark:text-[#3894ff] border border-blue-200/60 dark:border-blue-500/25 shrink-0'>
+									{children.filter((c) => c.checked).length}/{children.length}
+								</span>
 							)}
-							<div className='min-w-0'>
-								<div className='flex items-center gap-2'>
-									<span className='font-semibold text-slate-900 dark:text-slate-100 text-xs sm:text-sm'>
-										{perm.name}
-									</span>
-									{hasChildren && (
-										<span className='px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 dark:bg-blue-950/60 text-[#0073ea] dark:text-[#3894ff] border border-blue-200/60 dark:border-blue-800/60'>
-											{children.filter((c) => c.checked).length} / {children.length}
-										</span>
-									)}
-								</div>
-								{perm.description && (
-									<p className='text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate max-w-md'>
-										{perm.description}
-									</p>
-								)}
-							</div>
 						</div>
 					</td>
 
-					{/* Column 3: Module Type (Uppercase outline pill badge) */}
-					<td className='py-3.5 px-4 align-middle whitespace-nowrap'>
-						<span className='inline-flex items-center px-3 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 bg-white/60 dark:bg-slate-800/60 shadow-2xs'>
-							{typeName.toUpperCase()}
+					{/* Column 3: Type */}
+					<td className='py-3 px-4 align-middle whitespace-nowrap border-r border-slate-100 dark:border-slate-800/60'>
+						<span
+							className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase border ${typeBadgeClass}`}
+						>
+							{typeName}
 						</span>
 					</td>
 
 					{/* Column 4: Route */}
-					<td className='py-3.5 px-4 align-middle whitespace-nowrap'>
+					<td className='py-3 px-4 align-middle whitespace-nowrap border-r border-slate-100 dark:border-slate-800/60'>
 						{perm.route ? (
-							<code className='inline-flex items-center px-3 py-1 rounded-full text-xs font-mono text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700/60'>
+							<span className='text-xs font-mono text-slate-600 dark:text-slate-300'>
 								{perm.route}
-							</code>
-						) : null}
+							</span>
+						) : (
+							<span className='text-xs text-slate-400'>-</span>
+						)}
 					</td>
 
-					{/* Column 5: Status */}
-					<td className='py-3.5 px-4 align-middle text-right whitespace-nowrap'>
+					{/* Column 5: Permission Status */}
+					<td className='py-3 px-4 align-middle text-center whitespace-nowrap w-32'>
 						<span
-							className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold ${
+							className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${
 								isChecked
-									? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/60'
+									? 'bg-blue-50 dark:bg-blue-500/15 text-[#0073ea] dark:text-[#3894ff] border border-blue-200/70 dark:border-blue-500/30'
 									: 'bg-slate-100 dark:bg-slate-800 text-slate-400'
 							}`}
 						>
@@ -709,16 +717,26 @@ export const RolesTab: React.FC = () => {
 						</div>
 					</div>
 
-					{/* Search modules */}
-					<div className='relative max-w-md'>
-						<Search className='w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400' />
-						<input
-							type='text'
-							value={searchModule}
-							onChange={(e) => setSearchModule(e.target.value)}
-							placeholder='Filter modules by name, route, or category...'
-							className='w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#0073ea] transition-all'
-						/>
+					{/* Search modules & Expand/Collapse All */}
+					<div className='flex flex-col sm:flex-row sm:items-center justify-between gap-3'>
+						<div className='relative flex-1 max-w-md'>
+							<Search className='w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400' />
+							<input
+								type='text'
+								value={searchModule}
+								onChange={(e) => setSearchModule(e.target.value)}
+								placeholder='Filter modules by name, route, or category...'
+								className='w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#0073ea] transition-all'
+							/>
+						</div>
+						<button
+							type='button'
+							onClick={toggleExpandAll}
+							className='inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/60 border border-slate-200/80 dark:border-slate-700/80 transition-colors cursor-pointer self-start sm:self-auto'
+						>
+							<ChevronsUpDown className='w-3.5 h-3.5' />
+							<span>{expandedModuleIds.size > 0 ? 'Collapse All' : 'Expand All'}</span>
+						</button>
 					</div>
 
 					{/* Matrix Tree Table */}
@@ -737,25 +755,78 @@ export const RolesTab: React.FC = () => {
 							<div className='overflow-x-auto'>
 								<table className='w-full text-left border-collapse'>
 									<thead>
-										<tr className='border-b border-slate-200/80 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-semibold text-xs tracking-wider uppercase bg-slate-50/60 dark:bg-slate-800/40'>
-											<th className='py-3.5 pl-4 pr-2 w-16 text-right'>
+										<tr className='border-b border-slate-200/80 dark:border-slate-800 text-slate-600 dark:text-slate-300 font-semibold text-xs bg-slate-50/70 dark:bg-slate-800/40'>
+											<th className='py-3.5 px-3 w-12 text-center border-r border-slate-200/60 dark:border-slate-800'>
 												<button
 													type='button'
-													onClick={toggleExpandAll}
-													className='p-1 rounded hover:bg-slate-200/60 dark:hover:bg-slate-700/60 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer inline-flex items-center justify-center'
-													title='Expand / Collapse All'
+													onClick={() => handleToggleAllPermissions(!allChecked)}
+													disabled={isSavingPerm}
+													className='inline-flex items-center justify-center cursor-pointer disabled:opacity-50'
+													title={allChecked ? 'Uncheck All' : 'Check All'}
 												>
-													<ChevronsUpDown className='w-4 h-4' />
+													<div
+														className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${
+															allChecked
+																? 'bg-[#0073ea] border-[#0073ea] text-white'
+																: 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800'
+														}`}
+													>
+														{allChecked && <Check className='w-3 h-3 stroke-[3]' />}
+													</div>
 												</button>
 											</th>
-											<th className='py-3.5 px-4'>Module Name</th>
-											<th className='py-3.5 px-4'>Type</th>
-											<th className='py-3.5 px-4'>Route</th>
-											<th className='py-3.5 px-4 text-right'>Permission Status</th>
+											<th className='py-3.5 px-4 border-r border-slate-200/60 dark:border-slate-800'>Name</th>
+											<th className='py-3.5 px-4 border-r border-slate-200/60 dark:border-slate-800'>Type</th>
+											<th className='py-3.5 px-4 border-r border-slate-200/60 dark:border-slate-800'>Route</th>
+											<th className='py-3.5 px-4 text-center w-32'>Status</th>
 										</tr>
 									</thead>
 									<tbody className='divide-y divide-slate-100 dark:divide-slate-800/80 text-xs'>
-										{renderPermissionRowsRecursive(null, 0)}
+										{/* Top Root Summary Row (All Modules) */}
+										<tr className='bg-slate-50/30 dark:bg-slate-900/30 border-b border-slate-100 dark:border-slate-800/80 hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors'>
+											<td className='py-3 px-3 text-center w-12 border-r border-slate-100 dark:border-slate-800/60'>
+												<button
+													type='button'
+													onClick={() => handleToggleAllPermissions(!allChecked)}
+													disabled={isSavingPerm}
+													className='inline-flex items-center justify-center cursor-pointer disabled:opacity-50'
+												>
+													<div
+														className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${
+															allChecked
+																? 'bg-[#0073ea] border-[#0073ea] text-white'
+																: 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800'
+														}`}
+													>
+														{allChecked && <Check className='w-3 h-3 stroke-[3]' />}
+													</div>
+												</button>
+											</td>
+											<td className='py-3 px-4 border-r border-slate-100 dark:border-slate-800/60'>
+												<button
+													type='button'
+													onClick={() => setIsAllRootExpanded((prev) => !prev)}
+													className='flex items-center gap-2 cursor-pointer text-left'
+												>
+													{isAllRootExpanded ? (
+														<ChevronDown className='w-4 h-4 text-slate-500' />
+													) : (
+														<ChevronRight className='w-4 h-4 text-slate-500' />
+													)}
+													<Globe className='w-4 h-4 text-[#0073ea] dark:text-[#3894ff] shrink-0' />
+													<span className='font-semibold text-slate-900 dark:text-white text-xs sm:text-[13px]'>
+														All Modules
+													</span>
+													<span className='inline-flex items-center justify-center min-w-[24px] h-5 px-1.5 rounded-full text-[11px] font-bold bg-blue-50 dark:bg-blue-500/15 text-[#0073ea] dark:text-[#3894ff] border border-blue-200/60 dark:border-blue-500/25'>
+														{checkedCount}/{permissions.length}
+													</span>
+												</button>
+											</td>
+											<td className='py-3 px-4 text-slate-400 border-r border-slate-100 dark:border-slate-800/60'>-</td>
+											<td className='py-3 px-4 text-slate-400 border-r border-slate-100 dark:border-slate-800/60'>-</td>
+											<td className='py-3 px-4 text-center text-slate-400'>-</td>
+										</tr>
+										{isAllRootExpanded && renderPermissionRowsRecursive(null, 0)}
 									</tbody>
 								</table>
 							</div>

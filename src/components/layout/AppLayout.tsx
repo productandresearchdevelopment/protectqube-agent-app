@@ -12,6 +12,7 @@ import {
   FileText,
   Activity,
   BarChart2,
+  BarChart3,
   Menu,
   X,
   PanelLeft,
@@ -183,6 +184,23 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
             >
               <Video className="size-5 shrink-0" />
               {!isCollapsed && <span>DVR & Recording</span>}
+            </Link>
+          )}
+
+          {haveRoute("/analytics") && (
+            <Link
+              href="/analytics"
+              title="Analytics"
+              className={`flex items-center ${
+                isCollapsed ? "justify-center px-2 py-2.5" : "gap-3 px-3.5 py-2.5"
+              } text-sm font-medium rounded-xl transition-all ${
+                pathname.startsWith("/analytics")
+                  ? "bg-[#0073ea] text-white shadow-md shadow-blue-500/25 font-semibold"
+                  : "text-slate-200 hover:text-white hover:bg-white/10"
+              }`}
+            >
+              <BarChart3 className="size-5 shrink-0" />
+              {!isCollapsed && <span>Analytics</span>}
             </Link>
           )}
 
@@ -401,7 +419,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         )}
       </AnimatePresence>
 
-      <main className="flex-1 min-h-screen flex flex-col overflow-x-hidden">
+      <main className="flex-1 min-w-0 min-h-screen flex flex-col overflow-x-clip">
         <div className="h-16 px-4 md:px-6 flex items-center justify-between gap-3 shrink-0">
           <div className="flex items-center gap-2.5 shrink-0">
             <button
@@ -434,7 +452,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
           </div>
         </div>
 
-        <div className="flex-1 px-4 md:px-6 pb-6 overflow-y-auto">
+        <div className="flex-1 min-w-0 px-4 md:px-6 pb-6">
           {children}
         </div>
       </main>

@@ -15,6 +15,8 @@ import {
 	ChevronsUpDown,
 	MoreVertical,
 	Folder,
+	FolderOpen,
+	Globe,
 	Terminal,
 	LayoutDashboard,
 	Cpu,
@@ -48,6 +50,7 @@ export const ModulesTab: React.FC = () => {
 	const [editingModule, setEditingModule] = useState<(IModule & { parent_name?: string | null }) | null>(null);
 	const [parentForNewSubmodule, setParentForNewSubmodule] = useState<number | null>(null);
 
+	const [isAllRootExpanded, setIsAllRootExpanded] = useState(true);
 	const [expandedModuleIds, setExpandedModuleIds] = useState<Set<number>>(new Set());
 	const [selectedModuleIds, setSelectedModuleIds] = useState<Set<number>>(new Set());
 	const [activeMenuId, setActiveMenuId] = useState<number | null>(null);
@@ -76,37 +79,30 @@ export const ModulesTab: React.FC = () => {
 	const deleteModuleMutation = useDeleteModule();
 	const deleteTypeMutation = useDeleteModuleType();
 
-	// Auto-expand all parent modules initially
-	useEffect(() => {
-		if (modules.length > 0) {
-			const parentIds = new Set<number>();
-			modules.forEach((m) => {
-				const pid = m.parent_id ?? m.parentId;
-				if (pid) parentIds.add(pid);
-			});
-			setExpandedModuleIds((prev) => {
-				const next = new Set(prev);
-				parentIds.forEach((id) => next.add(id));
-				return next;
-			});
-		}
-	}, [modules]);
-
 	// Auto-expand parents if matching children in search
 	useEffect(() => {
 		if (searchModule.trim()) {
 			const term = searchModule.toLowerCase().trim();
 			const toExpand = new Set<number>();
+			const parentMap = new Map<number, number>();
+			modules.forEach((m) => {
+				const pid = m.parent_id ?? m.parentId;
+				if (pid) parentMap.set(m.id, pid);
+			});
 			modules.forEach((m) => {
 				const matches =
 					m.name.toLowerCase().includes(term) ||
 					(m.route && m.route.toLowerCase().includes(term)) ||
 					(m.description && m.description.toLowerCase().includes(term));
 				if (matches) {
-					const pid = m.parent_id ?? m.parentId;
-					if (pid) toExpand.add(pid);
+					let cur = parentMap.get(m.id);
+					while (cur) {
+						toExpand.add(cur);
+						cur = parentMap.get(cur);
+					}
 				}
 			});
+			setIsAllRootExpanded(true);
 			setExpandedModuleIds((prev) => new Set([...prev, ...toExpand]));
 		}
 	}, [searchModule, modules]);
@@ -154,6 +150,7 @@ export const ModulesTab: React.FC = () => {
 		if (expandedModuleIds.size >= parentIds.size && parentIds.size > 0) {
 			setExpandedModuleIds(new Set());
 		} else {
+			setIsAllRootExpanded(true);
 			setExpandedModuleIds(parentIds);
 		}
 	};
@@ -294,8 +291,15 @@ export const ModulesTab: React.FC = () => {
 			const isExpanded = expandedModuleIds.has(mod.id);
 			const isSelected = selectedModuleIds.has(mod.id);
 			const typeName = mod.module_type?.name || 'route menu';
-			const isServiceApi = typeName.toLowerCase().includes('service');
-			const IconComponent = resolveModuleIcon(mod.name, mod.icon, typeName);
+			const typeLower = typeName.toLowerCase();
+			const isServiceApi = typeLower.includes('service');
+			const isHiddenRoute = typeLower.includes('hidden');
+
+			const typeBadgeClass = isServiceApi
+				? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/25'
+				: isHiddenRoute
+					? 'bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/25'
+					: 'bg-[#0073ea]/10 text-[#0073ea] dark:text-[#3894ff] border-[#0073ea]/25';
 
 			const rowElement = (
 				<tr
@@ -306,84 +310,113 @@ export const ModulesTab: React.FC = () => {
 							: 'hover:bg-slate-50/80 dark:hover:bg-slate-800/40'
 					}`}
 				>
-					{/* Column 1: Indentation, Chevron & Checkbox */}
-					<td className='py-3.5 pl-4 pr-2 whitespace-nowrap align-middle w-16'>
+					{/* Column 1: Fixed Checkbox Column (aligned vertically) */}
+					<td className='py-3 px-3 text-center whitespace-nowrap align-middle w-12 border-r border-slate-100 dark:border-slate-800/60'>
+						<input
+							type='checkbox'
+							checked={isSelected}
+							onChange={(e) =>
+								hasChildren
+									? handleBulkSelectParent(mod.id, e.target.checked)
+									: handleSelectModule(mod.id, e.target.checked)
+							}
+							className='w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-[#0073ea] focus:ring-blue-500/20 cursor-pointer accent-[#0073ea]'
+						/>
+					</td>
+
+					{/* Column 2: Hierarchical Indented Name + Chevron + Folder Icon + Count Badge */}
+					<td className='py-3 px-4 align-middle border-r border-slate-100 dark:border-slate-800/60'>
 						<div
-							style={{ paddingLeft: `${level * 24}px` }}
-							className={`flex items-center ${hasChildren ? 'gap-2' : 'justify-end gap-2'}`}
+							style={{ paddingLeft: `${(level + 1) * 24}px` }}
+							className='flex items-center gap-2 min-w-0'
 						>
 							{hasChildren ? (
 								<button
 									type='button'
 									onClick={() => toggleExpand(mod.id)}
-									className='p-1 rounded-md hover:bg-slate-200/60 dark:hover:bg-slate-700/60 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors cursor-pointer'
+									className='p-0.5 rounded hover:bg-slate-200/70 dark:hover:bg-slate-700/60 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors cursor-pointer shrink-0'
 									title={isExpanded ? 'Collapse' : 'Expand'}
 								>
 									{isExpanded ? (
-										<ChevronDown className='w-4 h-4 text-slate-600 dark:text-slate-300' />
+										<ChevronDown className='w-4 h-4' />
 									) : (
-										<ChevronRight className='w-4 h-4 text-slate-400' />
+										<ChevronRight className='w-4 h-4' />
 									)}
 								</button>
 							) : (
-								<div className='w-6 h-6 shrink-0' />
+								<span className='w-5 shrink-0' />
 							)}
 
-							<input
-								type='checkbox'
-								checked={isSelected}
-								onChange={(e) => handleSelectModule(mod.id, e.target.checked)}
-								className='w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-[#0073ea] focus:ring-blue-500/20 cursor-pointer accent-[#0073ea]'
-							/>
-						</div>
-					</td>
-
-					{/* Column 2: Module Name & Description + Icon */}
-					<td className='py-3.5 px-4 align-middle'>
-						<div className='flex items-center gap-3.5'>
-							{!isServiceApi && (
-								<div className='w-10 h-10 rounded-xl bg-gradient-to-br from-[#0073ea] to-[#005bb5] flex items-center justify-center text-white shadow-xs shrink-0'>
-									<IconComponent className='w-5 h-5' />
-								</div>
-							)}
-							<div className='min-w-0'>
-								<div className='flex items-center gap-2'>
-									<span className='font-semibold text-slate-900 dark:text-slate-100 text-xs sm:text-sm'>
-										{mod.name}
-									</span>
-									{hasChildren && (
-										<span className='px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 dark:bg-blue-950/60 text-[#0073ea] dark:text-[#3894ff] border border-blue-200/60 dark:border-blue-800/60'>
-											{children.length} {children.length === 1 ? 'submodule' : 'submodules'}
-										</span>
-									)}
-								</div>
-								{mod.description && (
-									<p className='text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate max-w-md'>
-										{mod.description}
-									</p>
+							<button
+								type='button'
+								onClick={() => hasChildren && toggleExpand(mod.id)}
+								className={`flex items-center gap-2.5 min-w-0 text-left ${
+									hasChildren ? 'cursor-pointer' : 'cursor-default'
+								}`}
+							>
+								{hasChildren ? (
+									isExpanded ? (
+										<FolderOpen className='w-4 h-4 text-[#0073ea] dark:text-[#3894ff] shrink-0' />
+									) : (
+										<Folder className='w-4 h-4 text-[#0073ea] dark:text-[#3894ff] shrink-0' />
+									)
+								) : isServiceApi ? (
+									<Terminal className='w-4 h-4 text-slate-400 dark:text-slate-500 shrink-0' />
+								) : (
+									<Folder className='w-4 h-4 text-[#0073ea]/80 dark:text-[#3894ff]/80 shrink-0' />
 								)}
-							</div>
+
+								<span
+									className={`truncate text-xs sm:text-[13px] ${
+										level === 0
+											? 'font-semibold text-slate-800 dark:text-slate-100'
+											: 'font-medium text-slate-700 dark:text-slate-200'
+									}`}
+								>
+									{mod.name}
+								</span>
+
+								{hasChildren && (
+									<span className='inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-bold bg-blue-50 dark:bg-blue-500/15 text-[#0073ea] dark:text-[#3894ff] border border-blue-200/60 dark:border-blue-500/25 shrink-0'>
+										{children.length}
+									</span>
+								)}
+							</button>
 						</div>
 					</td>
 
-					{/* Column 3: Module Type (Uppercase outline pill badge) */}
-					<td className='py-3.5 px-4 align-middle whitespace-nowrap'>
-						<span className='inline-flex items-center px-3 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 bg-white/60 dark:bg-slate-800/60 shadow-2xs'>
-							{typeName.toUpperCase()}
+					{/* Column 3: Type */}
+					<td className='py-3 px-4 align-middle whitespace-nowrap border-r border-slate-100 dark:border-slate-800/60'>
+						<span
+							className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase border ${typeBadgeClass}`}
+						>
+							{typeName}
 						</span>
 					</td>
 
-					{/* Column 4: Route */}
-					<td className='py-3.5 px-4 align-middle whitespace-nowrap'>
+					{/* Column 4: Route / Code */}
+					<td className='py-3 px-4 align-middle whitespace-nowrap border-r border-slate-100 dark:border-slate-800/60'>
 						{mod.route ? (
-							<code className='inline-flex items-center px-3 py-1 rounded-full text-xs font-mono text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700/60'>
+							<span className='text-xs font-mono text-slate-600 dark:text-slate-300'>
 								{mod.route}
-							</code>
-						) : null}
+							</span>
+						) : (
+							<span className='text-xs text-slate-400'>-</span>
+						)}
 					</td>
 
-					{/* Column 5: Action Menu */}
-					<td className='py-3.5 px-4 align-middle text-right whitespace-nowrap relative'>
+					{/* Column 5: Description */}
+					<td className='py-3 px-4 align-middle border-r border-slate-100 dark:border-slate-800/60 max-w-xs'>
+						<span
+							className='text-xs text-slate-600 dark:text-slate-400 truncate block'
+							title={mod.description || '-'}
+						>
+							{mod.description || '-'}
+						</span>
+					</td>
+
+					{/* Column 6: Action Menu */}
+					<td className='py-3 px-4 align-middle text-center whitespace-nowrap relative w-20'>
 						<div className='inline-block text-left'>
 							<button
 								type='button'
@@ -391,10 +424,10 @@ export const ModulesTab: React.FC = () => {
 									e.stopPropagation();
 									setActiveMenuId(activeMenuId === mod.id ? null : mod.id);
 								}}
-								className='p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700/60 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer'
+								className='p-1.5 rounded-lg border border-slate-200/80 dark:border-slate-700/80 hover:bg-slate-100 dark:hover:bg-slate-700/60 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors cursor-pointer'
 								title='Actions'
 							>
-								<MoreVertical className='w-4 h-4' />
+								<MoreVertical className='w-3.5 h-3.5' />
 							</button>
 
 							{activeMenuId === mod.id && (
@@ -587,8 +620,8 @@ export const ModulesTab: React.FC = () => {
 							<div className='overflow-x-auto'>
 								<table className='w-full text-left border-collapse'>
 									<thead>
-										<tr className='border-b border-slate-200/80 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-semibold text-xs tracking-wider uppercase bg-slate-50/60 dark:bg-slate-800/40'>
-											<th className='py-3.5 pl-4 pr-2 w-16 text-right'>
+										<tr className='border-b border-slate-200/80 dark:border-slate-800 text-slate-600 dark:text-slate-300 font-semibold text-xs bg-slate-50/70 dark:bg-slate-800/40'>
+											<th className='py-3.5 px-3 w-12 text-center border-r border-slate-200/60 dark:border-slate-800'>
 												<input
 													type='checkbox'
 													checked={allSelected}
@@ -597,14 +630,50 @@ export const ModulesTab: React.FC = () => {
 													title='Select All'
 												/>
 											</th>
-											<th className='py-3.5 px-4'>Module Name</th>
-											<th className='py-3.5 px-4'>Type</th>
-											<th className='py-3.5 px-4'>Route</th>
-											<th className='py-3.5 px-4 text-right'>Action</th>
+											<th className='py-3.5 px-4 border-r border-slate-200/60 dark:border-slate-800'>Name</th>
+											<th className='py-3.5 px-4 border-r border-slate-200/60 dark:border-slate-800'>Type</th>
+											<th className='py-3.5 px-4 border-r border-slate-200/60 dark:border-slate-800'>Route</th>
+											<th className='py-3.5 px-4 border-r border-slate-200/60 dark:border-slate-800'>Description</th>
+											<th className='py-3.5 px-4 text-center uppercase tracking-wider w-20'>Action</th>
 										</tr>
 									</thead>
 									<tbody className='divide-y divide-slate-100 dark:divide-slate-800/80 text-xs'>
-										{renderTreeRowsRecursive(null, 0)}
+										{/* Top Root Summary Row (All Modules) */}
+										<tr className='bg-slate-50/30 dark:bg-slate-900/30 border-b border-slate-100 dark:border-slate-800/80 hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors'>
+											<td className='py-3 px-3 text-center w-12 border-r border-slate-100 dark:border-slate-800/60'>
+												<input
+													type='checkbox'
+													checked={allSelected}
+													onChange={(e) => handleSelectAll(e.target.checked)}
+													className='w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-[#0073ea] focus:ring-blue-500/20 cursor-pointer accent-[#0073ea]'
+												/>
+											</td>
+											<td className='py-3 px-4 border-r border-slate-100 dark:border-slate-800/60'>
+												<button
+													type='button'
+													onClick={() => setIsAllRootExpanded((prev) => !prev)}
+													className='flex items-center gap-2 cursor-pointer text-left'
+												>
+													{isAllRootExpanded ? (
+														<ChevronDown className='w-4 h-4 text-slate-500' />
+													) : (
+														<ChevronRight className='w-4 h-4 text-slate-500' />
+													)}
+													<Globe className='w-4 h-4 text-[#0073ea] dark:text-[#3894ff] shrink-0' />
+													<span className='font-semibold text-slate-900 dark:text-white text-xs sm:text-[13px]'>
+														All Modules
+													</span>
+													<span className='inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-bold bg-blue-50 dark:bg-blue-500/15 text-[#0073ea] dark:text-[#3894ff] border border-blue-200/60 dark:border-blue-500/25'>
+														{rootModules.length}
+													</span>
+												</button>
+											</td>
+											<td className='py-3 px-4 text-slate-400 border-r border-slate-100 dark:border-slate-800/60'>-</td>
+											<td className='py-3 px-4 text-slate-400 border-r border-slate-100 dark:border-slate-800/60'>-</td>
+											<td className='py-3 px-4 text-slate-400 border-r border-slate-100 dark:border-slate-800/60'>-</td>
+											<td className='py-3 px-4 text-center'></td>
+										</tr>
+										{isAllRootExpanded && renderTreeRowsRecursive(null, 0)}
 									</tbody>
 								</table>
 							</div>

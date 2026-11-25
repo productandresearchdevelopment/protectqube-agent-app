@@ -28,20 +28,15 @@ import {
   Battery,
   BatteryCharging,
   BatteryWarning,
-  Download,
-  Loader2,
 } from "lucide-react";
 import {
   useGatewayDetail,
   IGatewayDetailData,
   IDowntimeEvent,
   ISystemHealthEventItem,
-  exportRawMqttUrl,
-  downloadReportFile,
 } from "@/store/api/monitoring";
 import { getCurrentMonthPeriodStr } from "@/lib/reportPeriodUtils";
 import { getAIOpsBadgeClass } from "@/utils/aiopsBadge";
-import { useAuthUser } from "@/hooks/useAuthUser";
 
 const formatDurationEn = (dur?: string) => {
   if (!dur) return "-";
@@ -380,23 +375,6 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
   gatewayId,
   onClose,
 }) => {
-  const { hasModule } = useAuthUser();
-  const canExportRawMqtt = hasModule("/api/v1/monitoring/system-health/gateway/:id/export-raw-mqtt");
-  const [isExportingRawMqtt, setIsExportingRawMqtt] = useState(false);
-
-  const handleExportRawMqtt = async () => {
-    if (!gatewayId || isExportingRawMqtt) return;
-    try {
-      setIsExportingRawMqtt(true);
-      const url = exportRawMqttUrl("system-health", gatewayId);
-      await downloadReportFile(url, `RAW_MQTT_${gatewayId}_system_health.json`);
-    } catch (err) {
-      console.error("Failed to export raw MQTT:", err);
-    } finally {
-      setIsExportingRawMqtt(false);
-    }
-  };
-
   const [activeTab, setActiveTab] = useState<
     | "Overview"
     | "CPU & RAM"
@@ -406,6 +384,8 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
     | "Event Log"
   >("Overview");
   const [selectedEventDate, setSelectedEventDate] = useState<string>("ALL");
+  const [eventSection, setEventSection] = useState<"incidents" | "activity" | "all">("incidents");
+  const [eventFilter, setEventFilter] = useState<"all" | "today" | "week">("all");
 
   // Fetch telemetry detail for selected gateway from FastAPI
   const { data, isLoading } = useGatewayDetail(gatewayId);
@@ -510,21 +490,59 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
     return true;
   };
 
-  const sortedEvents = (d.events ? d.events.filter(isSystemEvent) : []).sort((a, b) => {
-    const epochA =
-      typeof (a as any).epoch === "number" && !isNaN((a as any).epoch)
-        ? (a as any).epoch
-        : a.time
-          ? Date.parse(a.time.replace(" WIB", "").trim().replace(" ", "T")) || 0
-          : 0;
-    const epochB =
-      typeof (b as any).epoch === "number" && !isNaN((b as any).epoch)
-        ? (b as any).epoch
-        : b.time
-          ? Date.parse(b.time.replace(" WIB", "").trim().replace(" ", "T")) || 0
-          : 0;
-    return epochB - epochA;
-  });
+  const isIncidentEvent = (evt: any) =>
+    evt.event_type === "incident" ||
+    evt.type === "incident" ||
+    (evt.id && (evt.id.startsWith("trouble-") || evt.id === "evt-offline-active")) ||
+    evt.status === "error" ||
+    evt.status === "warning" ||
+    (evt.duration && evt.duration !== "-" && evt.duration !== "0m");
+
+  const nowDate = new Date();
+  const pad2 = (n: number) => String(n).padStart(2, "0");
+  const todayIso = `${nowDate.getFullYear()}-${pad2(nowDate.getMonth() + 1)}-${pad2(nowDate.getDate())}`;
+  const sevenDaysAgoMs = nowDate.getTime() - 7 * 86400 * 1000;
+
+  const filteredEvents = (d.events ? d.events.filter(isSystemEvent) : [])
+    .filter((evt) => {
+      if (eventFilter === "all") return true;
+      const tStr = evt.time || "";
+      if (eventFilter === "today") {
+        return tStr.includes(todayIso) || tStr.startsWith(todayIso);
+      }
+      if (eventFilter === "week") {
+        const ep =
+          typeof (evt as any).epoch === "number"
+            ? (evt as any).epoch * 1000
+            : Date.parse(tStr.replace(" WIB", "").trim().replace(" ", "T"));
+        return ep ? ep >= sevenDaysAgoMs : true;
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      const epochA =
+        typeof (a as any).epoch === "number" && !isNaN((a as any).epoch)
+          ? (a as any).epoch
+          : a.time
+            ? Date.parse(a.time.replace(" WIB", "").trim().replace(" ", "T")) || 0
+            : 0;
+      const epochB =
+        typeof (b as any).epoch === "number" && !isNaN((b as any).epoch)
+          ? (b as any).epoch
+          : b.time
+            ? Date.parse(b.time.replace(" WIB", "").trim().replace(" ", "T")) || 0
+            : 0;
+      return epochB - epochA;
+    });
+
+  const incidentEvents = filteredEvents.filter((e) => isIncidentEvent(e));
+  const activityEvents = filteredEvents.filter((e) => !isIncidentEvent(e));
+  const sortedEvents =
+    eventSection === "incidents"
+      ? incidentEvents
+      : eventSection === "activity"
+        ? activityEvents
+        : filteredEvents;
 
   const uptimeHoursCalculated = totalMonthHours * (uptimePctNum / 100);
   const downtimeHoursCalculated = totalMonthHours * (downtimePctNum / 100);
@@ -750,44 +768,27 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
           </div>
         </div>
 
-        {/* Center: Navigation Tabs */}
-        <div className="flex flex-wrap items-center gap-1 bg-slate-100 dark:bg-[#070e1c] p-1 rounded-lg border border-slate-200 dark:border-slate-800/80">
-          {tabs.map((tab) => {
-            const isActive = activeTab === tab;
-            return (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all cursor-pointer ${
-                  isActive
-                    ? "bg-[#0073ea] text-white font-semibold shadow-xs"
-                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white dark:hover:bg-slate-800/50"
-                }`}
-              >
-                {tab}
-              </button>
-            );
-          })}
-        </div>
+        {/* Right: Navigation Tabs & Close Button */}
+        <div className="flex flex-wrap items-center gap-2 ml-auto">
+          <div className="flex flex-wrap items-center gap-1 bg-slate-100 dark:bg-[#070e1c] p-1 rounded-lg border border-slate-200 dark:border-slate-800/80">
+            {tabs.map((tab) => {
+              const isActive = activeTab === tab;
+              return (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all cursor-pointer ${
+                    isActive
+                      ? "bg-[#0073ea] text-white font-semibold shadow-xs"
+                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white dark:hover:bg-slate-800/50"
+                  }`}
+                >
+                  {tab}
+                </button>
+              );
+            })}
+          </div>
 
-        {/* Right: Export Raw MQTT (RBAC) & Close Button */}
-        <div className="flex items-center gap-2">
-          {canExportRawMqtt && (
-            <button
-              type="button"
-              onClick={handleExportRawMqtt}
-              disabled={isExportingRawMqtt}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 transition-all shadow-2xs cursor-pointer disabled:opacity-50"
-              title="Export seluruh data mentah MQTT (raw_payload + timestamp) dari pertama kali nyala"
-            >
-              {isExportingRawMqtt ? (
-                <Loader2 className="size-3.5 animate-spin" />
-              ) : (
-                <Download className="size-3.5" />
-              )}
-              <span>{isExportingRawMqtt ? "Exporting..." : "Export Raw MQTT"}</span>
-            </button>
-          )}
           {onClose && (
             <button
               onClick={onClose}
@@ -826,8 +827,11 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
           <div className="space-y-4 animate-in fade-in duration-200">
             {/* DATA PENDUKUNG PENYEBAB GANGGUAN (ROOT CAUSE EVIDENCE) */}
             {(isOffline ||
-              Boolean(d.evidence?.badge && d.evidence.badge_color !== "emerald") ||
-              Boolean(d.reason)) && (
+              Boolean(
+                d.evidence?.badge &&
+                  d.evidence.badge_color !== "emerald" &&
+                  d.evidence.badge_color !== "green"
+              )) && (
               <div className="p-4 rounded-xl border shadow-xs transition-all bg-rose-500/5 border-rose-500/30 dark:bg-rose-950/20">
                 {/* Header Box */}
                 <div className="flex flex-wrap items-center justify-between gap-2.5 pb-2.5 border-b border-slate-200/80 dark:border-slate-800/80">
@@ -2092,81 +2096,204 @@ export const DeviceDetailCard: React.FC<DeviceDetailCardProps> = ({
         )}
 
         {/* ========================================================= */}
-        {/* TAB 5: EVENT LOG */}
+        {/* TAB 5: EVENT LOG (SEPARATED INCIDENT HISTORY & SYSTEM ACTIVITY) */}
         {/* ========================================================= */}
         {activeTab === "Event Log" && (
           <div className="space-y-4 animate-in fade-in duration-200">
-            <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-                    <Activity className="size-3.5 text-purple-500" />
-                    System & Hardware Event History Log
-                  </div>
-                  <span className="text-[10px] font-semibold bg-blue-500/10 text-[#0073ea] dark:text-[#00d2ff] border border-blue-500/20 px-2 py-0.5 rounded-full">
-                    Today Only (
-                    {new Date().toLocaleDateString("en-US", {
-                      day: "numeric",
-                      month: "short",
-                      year: "numeric",
-                    })}
-                    )
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-[11px] text-slate-400">
-                    Total {(d.events && d.events.length) || 0} Events Today
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab("Overview")}
-                    className="text-xs text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white px-2.5 py-1 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/60 shadow-xs cursor-pointer ml-2"
+            {/* Top Sub-Navigation: Incident History vs System Activity */}
+            <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-50/80 dark:bg-[#0a1224] p-3 rounded-xl border border-slate-200 dark:border-slate-800/80">
+              {/* Left: Section Selector */}
+              <div className="flex items-center gap-1.5 bg-slate-200/80 dark:bg-slate-800/90 p-1 rounded-lg">
+                <button
+                  type="button"
+                  onClick={() => setEventSection("incidents")}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                    eventSection === "incidents"
+                      ? "bg-rose-500 text-white shadow-xs"
+                      : "text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
+                  }`}
+                >
+                  <AlertTriangle className="size-3.5" />
+                  <span>Incident History</span>
+                  <span
+                    className={`ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+                      eventSection === "incidents"
+                        ? "bg-white/20 text-white"
+                        : "bg-rose-500/15 text-rose-500 dark:text-rose-400"
+                    }`}
                   >
-                    &larr; Overview
-                  </button>
-                </div>
+                    {incidentEvents.length}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setEventSection("activity")}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                    eventSection === "activity"
+                      ? "bg-[#0073ea] text-white shadow-xs"
+                      : "text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
+                  }`}
+                >
+                  <Activity className="size-3.5" />
+                  <span>System Activity</span>
+                  <span
+                    className={`ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+                      eventSection === "activity"
+                        ? "bg-white/20 text-white"
+                        : "bg-blue-500/15 text-blue-600 dark:text-blue-400"
+                    }`}
+                  >
+                    {activityEvents.length}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setEventSection("all")}
+                  className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all cursor-pointer ${
+                    eventSection === "all"
+                      ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-xs"
+                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                  }`}
+                >
+                  <span>All ({filteredEvents.length})</span>
+                </button>
               </div>
+
+              {/* Right: Date Filter Buttons */}
+              <div className="flex items-center gap-1 bg-slate-200/70 dark:bg-slate-800/80 p-0.5 rounded-lg text-xs font-medium">
+                <button
+                  type="button"
+                  onClick={() => setEventFilter("all")}
+                  className={`px-2.5 py-1 rounded-md text-[11px] transition-all cursor-pointer ${
+                    eventFilter === "all"
+                      ? "bg-white dark:bg-[#070e1d] text-blue-600 dark:text-blue-400 font-bold shadow-2xs"
+                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                  }`}
+                >
+                  All History
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEventFilter("today")}
+                  className={`px-2.5 py-1 rounded-md text-[11px] transition-all cursor-pointer ${
+                    eventFilter === "today"
+                      ? "bg-white dark:bg-[#070e1d] text-blue-600 dark:text-blue-400 font-bold shadow-2xs"
+                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                  }`}
+                >
+                  Today
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEventFilter("week")}
+                  className={`px-2.5 py-1 rounded-md text-[11px] transition-all cursor-pointer ${
+                    eventFilter === "week"
+                      ? "bg-white dark:bg-[#070e1d] text-blue-600 dark:text-blue-400 font-bold shadow-2xs"
+                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                  }`}
+                >
+                  Last 7 Days
+                </button>
+              </div>
+            </div>
+
+            {/* Content Container */}
+            <div className="bg-slate-50/70 dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 space-y-3">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-200/80 dark:border-slate-800/80">
+                <div className="flex items-center gap-2">
+                  <div className="text-xs font-bold text-slate-900 dark:text-white">
+                    {eventSection === "incidents"
+                      ? "System & Hardware Incident History"
+                      : eventSection === "activity"
+                        ? "System Telemetry Activity Logs"
+                        : "All System Events & Incident History"}
+                  </div>
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
+                    ({sortedEvents.length} event{sortedEvents.length !== 1 ? "s" : ""})
+                  </span>
+                </div>
+                <span className="text-[11px] text-slate-400">
+                  {eventSection === "incidents"
+                    ? "Downtime, hardware alerts & power drops"
+                    : eventSection === "activity"
+                      ? "Routine telemetry heartbeats"
+                      : "Combined timeline"}
+                </span>
+              </div>
+
               <div className="divide-y divide-slate-200 dark:divide-slate-800/60 text-xs">
                 {sortedEvents.length > 0 ? (
-                  sortedEvents.map((evt, idx) => (
-                    <div
-                      key={evt.id || idx}
-                      className="py-2.5 flex items-center justify-between gap-4"
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span
-                          className={`size-2 rounded-full shrink-0 ${
-                            evt.status === "error"
-                              ? "bg-rose-500"
-                              : evt.status === "warning"
-                                ? "bg-amber-500"
-                                : evt.status === "info"
-                                  ? "bg-sky-500"
-                                  : "bg-emerald-500"
-                          }`}
-                        />
-                        <span className="text-slate-800 dark:text-slate-200 font-medium truncate">
-                          {formatIncidentEn(evt.title)}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        {evt.duration &&
-                          evt.duration !== "-" &&
-                          evt.duration !== "0m" && (
-                            <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-amber-500/10 text-amber-500 border border-amber-500/20">
-                              {formatDurationEn(evt.duration)}
+                  sortedEvents.map((evt, idx) => {
+                    const isInc = isIncidentEvent(evt);
+                    return (
+                      <div
+                        key={evt.id || idx}
+                        className="py-2.5 flex items-center justify-between gap-4 hover:bg-slate-100/50 dark:hover:bg-slate-800/30 px-2 rounded-lg transition-colors"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span
+                            className={`size-2 rounded-full shrink-0 ${
+                              evt.status === "error"
+                                ? "bg-rose-500"
+                                : evt.status === "warning"
+                                  ? "bg-amber-500"
+                                  : evt.status === "info"
+                                    ? "bg-sky-500"
+                                    : "bg-emerald-500"
+                            }`}
+                          />
+                          {isInc && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/25 shrink-0">
+                              Incident
                             </span>
                           )}
-                        <span className="text-slate-400 font-mono text-[11px] whitespace-nowrap">
-                          {evt.time ? evt.time.replace(/\s*WIB/gi, "") : "-"}
-                        </span>
+                          <span className="text-slate-800 dark:text-slate-200 font-medium truncate">
+                            {formatIncidentEn(evt.title)}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {evt.duration &&
+                            evt.duration !== "-" &&
+                            evt.duration !== "0m" && (
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/25">
+                                {formatDurationEn(evt.duration)}
+                              </span>
+                            )}
+                          <span className="text-slate-400 font-mono text-[11px] whitespace-nowrap">
+                            {evt.time && evt.time.includes("WIB")
+                              ? evt.time
+                              : `${evt.time || "-"} WIB`}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  ))
+                    );
+                  })
                 ) : (
-                  <div className="py-4 text-center text-slate-400 text-xs">
-                    No hardware or system events recorded for this gateway
-                    today.
+                  <div className="py-8 text-center text-slate-400 text-xs flex flex-col items-center justify-center gap-2">
+                    {eventSection === "incidents" ? (
+                      <>
+                        <div className="size-8 rounded-full bg-emerald-500/10 text-[#00c875] flex items-center justify-center border border-emerald-500/20">
+                          <CheckCircle2 className="size-4" />
+                        </div>
+                        <span className="font-semibold text-slate-700 dark:text-slate-300">
+                          No incidents recorded for this device.
+                        </span>
+                        <span className="text-[11px] text-slate-400">
+                          Gateway hardware, power, and system health have run without downtime.
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <div className="size-8 rounded-full bg-blue-500/10 text-blue-500 flex items-center justify-center border border-blue-500/20">
+                          <Activity className="size-4" />
+                        </div>
+                        <span className="font-semibold text-slate-700 dark:text-slate-300">
+                          No activity events recorded for the selected period.
+                        </span>
+                      </>
+                    )}
                   </div>
                 )}
               </div>

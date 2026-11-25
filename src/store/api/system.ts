@@ -770,3 +770,50 @@ export const useUpdateConfigDevice = () => {
   });
 };
 
+export interface IExportDevicesRawMqttParams {
+  device_ids?: string[];
+  search?: string;
+  client_id?: string;
+  is_active?: string;
+  start_date?: string;
+  end_date?: string;
+}
+
+export const exportDevicesRawMqtt = async (
+  params: IExportDevicesRawMqttParams
+): Promise<{ filename: string }> => {
+  const res = await fetch(`${API_BASE_URL}/devices/export-raw-mqtt`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) {
+    await handleFetchError(res);
+  }
+
+  let filename =
+    params.device_ids && params.device_ids.length === 1
+      ? "RAW_MQTT_DEVICE.json"
+      : "RAW_MQTT_BULK_DEVICES.zip";
+
+  const disposition = res.headers.get("Content-Disposition");
+  if (disposition) {
+    const match = disposition.match(/filename\*?=(?:UTF-8''|"?)([^";\n]+)"?/i);
+    if (match && match[1]) {
+      filename = decodeURIComponent(match[1].replace(/['"]/g, ""));
+    }
+  }
+
+  const blob = await res.blob();
+  const blobUrl = window.URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = blobUrl;
+  link.setAttribute("download", filename);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.URL.revokeObjectURL(blobUrl);
+
+  return { filename };
+};
+

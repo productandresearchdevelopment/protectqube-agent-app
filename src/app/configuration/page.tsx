@@ -116,9 +116,9 @@ export default function ConfigurationPage() {
 
 	return (
 		<AppLayout title='Configuration'>
-			<div className='flex flex-col lg:flex-row gap-6 min-h-[calc(100vh-120px)]'>
-				{/* Left Sidebar Navigation */}
-				<aside className='w-full lg:w-64 shrink-0 space-y-4 bg-white dark:bg-[#121c2f] p-3 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs h-fit'>
+			<div className='flex flex-col lg:flex-row lg:items-start gap-6 min-h-[calc(100vh-120px)]'>
+				{/* Left Sidebar Navigation (Sticky on scroll) */}
+				<aside className='w-full lg:w-64 shrink-0 lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto space-y-4 bg-white dark:bg-[#121c2f] p-3 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs h-fit'>
 					<nav className='space-y-4'>
 						{MENU_GROUPS.map((group, gIdx) => (
 							<div key={gIdx} className='space-y-1'>
